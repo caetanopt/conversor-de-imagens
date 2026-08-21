@@ -1,0 +1,79 @@
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-sm);
+}
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nome {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remover {
+  flex: none;
+  /* Alinha o texto do botao com a margem direita do cartao. */
+  margin-right: calc(var(--space-2) * -1);
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}
+
+.formato {
+  padding: 1px var(--space-2);
+  background: var(--surface-inset);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+}
+
+/* Estado sempre em texto. A cor apenas reforca, nunca informa sozinha. */
+.estado {
+  margin-left: auto;
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+.ready {
+  color: var(--text-muted);
+}
+
+.processing {
+  color: var(--state-busy);
+}
+
+.done {
+  color: var(--state-positive);
+}
+
+.error {
+  color: var(--state-danger);
+}
+
+.cancelled {
+  color: var(--text-faint);
+}

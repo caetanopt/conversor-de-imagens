@@ -1,0 +1,148 @@
+/* Superficie de trabalho, nao um hero centrado. O texto alinha a esquerda e a
+   area ocupa o espaco disponivel, para a ferramenta ser o assunto da pagina. */
+.zona {
+  display: flex;
+  min-height: 300px;
+  height: 100%;
+  padding: var(--space-5);
+  background: var(--surface-sunken);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.sobreposto {
+  background: var(--accent-quiet);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.inativo {
+  opacity: 0.6;
+}
+
+/* Conteudo assente no fundo, com uma faixa a largura toda por baixo. */
+.conteudo {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.texto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 48ch;
+}
+
+.titulo {
+  font-size: var(--text-display);
+  font-weight: var(--weight-strong);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-strong);
+  text-wrap: balance;
+}
+
+.subtexto {
+  font-size: var(--text-subheading);
+  color: var(--text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+}
+
+/* Etiqueta estilizada como botao. Continua a ser o rotulo do input real, por
+   isso o teclado e os leitores de ecra funcionam sem codigo extra. */
+.botao {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height-touch);
+  padding: 0 var(--space-5);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.botao:hover {
+  background: var(--accent-hover);
+}
+
+input:focus-visible + .botao {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.ouArraste {
+  font-size: var(--text-ui-small);
+  color: var(--text-faint);
+}
+
+/* Faixa inferior a largura toda: da uma base a composicao em vez de deixar o
+   bloco de texto a flutuar. */
+.faixa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  justify-content: space-between;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-subtle);
+}
+
+.grupoMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}
+
+.valorMeta {
+  color: var(--text-default);
+}
+
+@media (min-width: 768px) {
+  .zona {
+    padding: var(--space-8);
+    min-height: 380px;
+  }
+}
+
+/* Em telemovel o titulo nao precisa de ser enorme para funcionar. */
+@media (max-width: 520px) {
+  .titulo {
+    font-size: 1.375rem;
+  }
+
+  .subtexto {
+    font-size: var(--text-ui);
+  }
+
+  .botao {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .ouArraste {
+    width: 100%;
+    text-align: center;
+  }
+
+  .faixa {
+    gap: var(--space-3);
+  }
+}

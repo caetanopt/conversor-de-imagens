@@ -1,0 +1,94 @@
+/* Container query em vez de media query: este bloco vive no rail de 264 px no
+   desktop e a largura toda no telemovel, portanto o que decide a disposicao e a
+   largura do proprio contentor, nao a do ecra. */
+.envolvente {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.destaque {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  /* Barra lateral: o estado nunca depende apenas de cor. */
+  border-left: 3px solid var(--line-strong);
+}
+
+.reduziu {
+  background: var(--state-positive-quiet);
+  border-left-color: var(--state-positive);
+}
+
+.aumentou {
+  background: var(--state-caution-quiet);
+  border-left-color: var(--state-caution);
+}
+
+.numeroGrande {
+  font-size: var(--text-data-large);
+  font-weight: var(--weight-strong);
+  color: var(--text-strong);
+  line-height: var(--leading-tight);
+}
+
+.variacao {
+  font-size: var(--text-ui-small);
+  color: var(--text-default);
+}
+
+.tabela {
+  display: flex;
+  flex-direction: column;
+}
+
+.linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+/* Abaixo desta largura, "1200 x 800 -> 1200 x 800" nao cabe ao lado da
+   etiqueta e parte no meio de um numero. Empilhar e mais legivel. */
+@container (max-width: 340px) {
+  .linha {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+}
+
+.linha:last-child {
+  border-bottom: 0;
+}
+
+.valores {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-ui-small);
+}
+
+.antes {
+  color: var(--text-muted);
+}
+
+.seta {
+  color: var(--line-strong);
+}
+
+.depois {
+  color: var(--text-strong);
+  font-weight: var(--weight-medium);
+}
+
+.tempo {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}

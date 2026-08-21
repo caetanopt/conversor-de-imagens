@@ -1,0 +1,22 @@
+.erro {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--state-danger-quiet);
+  /* Barra a esquerda para o estado nao depender apenas de cor. */
+  border-left: 3px solid var(--state-danger);
+  border-radius: var(--radius-xs);
+}
+
+.mensagem {
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+}
+
+.detalhe {
+  font-family: var(--font-data);
+  font-size: var(--text-label);
+  color: var(--text-muted);
+  word-break: break-word;
+}

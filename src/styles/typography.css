@@ -1,0 +1,38 @@
+/*
+ * Tipografia PROVISORIA.
+ *
+ * A escala e nomeada por funcao e nao por tamanho (--text-ui, nao
+ * --text-14), para que o manual de marca possa mudar a escala inteira sem
+ * obrigar a rever nenhum componente.
+ *
+ * As familias sao stacks de sistema. Nao foi escolhida nenhuma tipografia
+ * de marca. O token --font-data existe porque numeros de tamanho, dimensao
+ * e percentagem precisam de largura fixa para alinhar em coluna, e isso e
+ * um requisito funcional, nao uma decisao estetica.
+ */
+:root {
+  --font-ui:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-data:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --text-display: 1.75rem;
+  --text-heading: 1.125rem;
+  --text-subheading: 0.9375rem;
+  --text-ui: 0.875rem;
+  --text-ui-small: 0.8125rem;
+  --text-label: 0.6875rem;
+  --text-data: 0.875rem;
+  --text-data-large: 1.25rem;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.45;
+  --leading-relaxed: 1.6;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+
+  --tracking-label: 0.06em;
+  --tracking-tight: -0.01em;
+}

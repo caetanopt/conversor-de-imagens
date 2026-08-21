@@ -1,0 +1,60 @@
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-height-touch);
+  padding: 0 var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+/* Alvos confortaveis em ecra tatil, mais compactos com rato. */
+@media (pointer: fine) {
+  .botao {
+    min-height: var(--control-height);
+  }
+}
+
+.botao:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.primario {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
+}
+
+.primario:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.secundario {
+  background: var(--surface-raised);
+  color: var(--text-strong);
+  border-color: var(--line-strong);
+}
+
+.secundario:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.discreto {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0 var(--space-2);
+}
+
+.discreto:hover:not(:disabled) {
+  color: var(--text-strong);
+}

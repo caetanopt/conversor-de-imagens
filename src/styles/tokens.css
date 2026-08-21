@@ -1,0 +1,122 @@
+/*
+ * Tokens de marca, PROVISORIOS.
+ *
+ * Nenhum valor aqui e uma decisao de identidade visual. O manual de marca
+ * ainda nao existe (ver docs/brand/, vazio de proposito). Todos os
+ * componentes leem exclusivamente estas variaveis, portanto aplicar a marca
+ * e editar este ficheiro, nao os componentes.
+ *
+ * Escolhas deliberadas enquanto esperamos pelo manual:
+ *  - acento neutro (tinta quase preta, nao uma cor), para nao haver cor
+ *    de marca inventada que depois precise de ser desfeita;
+ *  - raios pequenos, sem cantos muito arredondados;
+ *  - separacao por linha fina em vez de sombra forte;
+ *  - sem gradientes.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* --- Superficies --------------------------------------------------- */
+  --surface-page: oklch(98.4% 0.002 60);
+  --surface-raised: oklch(100% 0 0);
+  --surface-sunken: oklch(96.2% 0.003 60);
+  --surface-inset: oklch(93.4% 0.004 60);
+
+  /* --- Tinta e texto ------------------------------------------------- */
+  --text-strong: oklch(21% 0.006 60);
+  --text-default: oklch(32% 0.005 60);
+  --text-muted: oklch(52% 0.005 60);
+  --text-faint: oklch(64% 0.004 60);
+  --text-on-accent: oklch(99% 0 0);
+
+  /* --- Linhas -------------------------------------------------------- */
+  --line-strong: oklch(78% 0.004 60);
+  --line-default: oklch(88% 0.004 60);
+  --line-subtle: oklch(92.5% 0.003 60);
+
+  /* --- Acento (neutro de proposito) ---------------------------------- */
+  --accent: oklch(24% 0.008 60);
+  --accent-hover: oklch(32% 0.008 60);
+  --accent-quiet: oklch(94% 0.004 60);
+
+  /* --- Estados semanticos -------------------------------------------- */
+  --state-positive: oklch(48% 0.11 155);
+  --state-positive-quiet: oklch(95.5% 0.03 155);
+  --state-caution: oklch(56% 0.12 68);
+  --state-caution-quiet: oklch(96% 0.04 80);
+  --state-danger: oklch(52% 0.16 25);
+  --state-danger-quiet: oklch(96% 0.03 25);
+  --state-busy: oklch(52% 0.02 60);
+
+  /* --- Foco ---------------------------------------------------------- */
+  --focus-ring: oklch(52% 0.16 250);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* --- Raios (contidos) --------------------------------------------- */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* --- Espacamento -------------------------------------------------- */
+  --space-unit: 4px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Estrutura ---------------------------------------------------- */
+  --shell-max: 1440px;
+  --rail-width: 264px;
+  --panel-width: 320px;
+  --header-height: 56px;
+  --control-height: 36px;
+  --control-height-touch: 44px;
+
+  /* --- Elevacao (usada com parcimonia) ------------------------------ */
+  --shadow-panel: 0 1px 2px oklch(21% 0.006 60 / 0.05);
+  --shadow-overlay: 0 8px 24px oklch(21% 0.006 60 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-page: oklch(17.5% 0.004 60);
+    --surface-raised: oklch(21.5% 0.005 60);
+    --surface-sunken: oklch(14.5% 0.004 60);
+    --surface-inset: oklch(26% 0.005 60);
+
+    --text-strong: oklch(96% 0.003 60);
+    --text-default: oklch(88% 0.003 60);
+    --text-muted: oklch(68% 0.004 60);
+    --text-faint: oklch(56% 0.004 60);
+    --text-on-accent: oklch(18% 0.005 60);
+
+    --line-strong: oklch(42% 0.005 60);
+    --line-default: oklch(32% 0.005 60);
+    --line-subtle: oklch(26% 0.004 60);
+
+    --accent: oklch(93% 0.004 60);
+    --accent-hover: oklch(84% 0.004 60);
+    --accent-quiet: oklch(27% 0.006 60);
+
+    --state-positive: oklch(72% 0.14 155);
+    --state-positive-quiet: oklch(27% 0.05 155);
+    --state-caution: oklch(76% 0.13 75);
+    --state-caution-quiet: oklch(28% 0.05 75);
+    --state-danger: oklch(70% 0.15 25);
+    --state-danger-quiet: oklch(28% 0.06 25);
+    --state-busy: oklch(70% 0.02 60);
+
+    --focus-ring: oklch(72% 0.15 250);
+
+    --shadow-panel: 0 1px 2px oklch(0% 0 0 / 0.4);
+    --shadow-overlay: 0 8px 24px oklch(0% 0 0 / 0.55);
+  }
+}

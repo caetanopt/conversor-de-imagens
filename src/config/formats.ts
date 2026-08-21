@@ -1,0 +1,322 @@
+/**
+ * Tabela central de capacidades de formato.
+ *
+ * Esta e a UNICA fonte de verdade sobre formatos. Nenhum componente
+ * escreve 'webp' ou '.jpg' a mao. A lista da interface e derivada daqui,
+ * filtrada por `release`.
+ *
+ * Cada entrada reflete comportamento verificado com encode e decode reais
+ * contra @imagemagick/magick-wasm 0.0.42. Os valores nao sao copiados da
+ * documentacao do ImageMagick, sao o que o binario realmente fez.
+ * Ver docs/formatos.md.
+ *
+ * Para ativar um formato: mudar `release` para 'ativo'. E so isso, desde que
+ * exista fixture e o teste do formato passe nos quatro browsers.
+ */
+
+export type FormatId = 'jpeg' | 'png' | 'webp' | 'avif' | 'gif' | 'bmp' | 'tiff' | 'ico' | 'heic' | 'jxl'
+
+/**
+ * 'ativo'         a interface oferece o formato
+ * 'em-avaliacao'  capacidade confirmada no motor, ainda sem fixture e sem
+ *                 validacao em browsers reais, por isso escondido
+ * 'indisponivel'  o motor nao consegue, e nunca deve aparecer
+ */
+export type ReleaseFormato = 'ativo' | 'em-avaliacao' | 'indisponivel'
+
+export type ImageFormatCapability = {
+  readonly id: FormatId
+  readonly label: string
+  /** Primeira extensao e a usada na saida. Tupla nao vazia por garantia de tipo. */
+  readonly extensions: readonly [string, ...string[]]
+  readonly mimeTypes: readonly [string, ...string[]]
+  readonly canDecode: boolean
+  readonly canEncode: boolean
+  readonly supportsAlpha: boolean
+  readonly supportsAnimation: boolean
+  readonly supportsLossless: boolean
+  /** Qualidade com perda, escala 1 a 100. PNG e BMP nao tem, tem nivel de compressao. */
+  readonly supportsQuality: boolean
+  readonly supportsResize: boolean
+
+  /**
+   * Formato real a passar ao motor. Tem de ser sempre um nome que o binario
+   * reconheca.
+   *
+   * Existe por causa de um comportamento verificado: nao ha constante para
+   * JFIF (`'Jfif' in MagickFormat` e falso) e nao ha encoder de JFIF (a string
+   * crua lanca NoEncodeDelegateForThisImageFormat). Pior: passar um formato
+   * invalido a `write` nao lanca, grava no formato de origem e devolve um
+   * ficheiro valido do formato errado.
+   *
+   * Este campo garante que so nomes validos chegam ao motor, e um teste
+   * verifica que cada valor aqui existe no enum real da biblioteca.
+   */
+  readonly magickFormat: string
+
+  /** O browser descodifica nativamente, logo a miniatura nao precisa do motor. */
+  readonly browserDecodable: boolean
+
+  readonly defaultQuality: number | null
+  readonly release: ReleaseFormato
+  readonly notes?: string
+}
+
+export const FORMATOS: readonly ImageFormatCapability[] = [
+  // ---------------------------------------------------------------- ativos
+  {
+    id: 'jpeg',
+    label: 'JPG',
+    extensions: ['jpg', 'jpeg', 'jfif'],
+    mimeTypes: ['image/jpeg', 'image/jpg', 'image/pjpeg'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: false,
+    supportsAnimation: false,
+    supportsLossless: false,
+    supportsQuality: true,
+    supportsResize: true,
+    magickFormat: 'JPEG',
+    browserDecodable: true,
+    defaultQuality: 82,
+    release: 'ativo',
+    notes:
+      'JPG, JPEG e JFIF sao o mesmo formato. JFIF e apenas uma extensao aceite: ' +
+      'o motor nao tem encoder de JFIF e nao existe constante para ele.',
+  },
+  {
+    id: 'png',
+    label: 'PNG',
+    extensions: ['png'],
+    mimeTypes: ['image/png'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    supportsLossless: true,
+    supportsQuality: false,
+    supportsResize: true,
+    magickFormat: 'PNG',
+    browserDecodable: true,
+    defaultQuality: null,
+    release: 'ativo',
+    notes:
+      'Sem perda, logo nao tem qualidade. O nivel de compressao ' +
+      '(png:compression-level) fica para as definicoes avancadas. APNG fora de ambito.',
+  },
+  {
+    id: 'webp',
+    label: 'WebP',
+    extensions: ['webp'],
+    mimeTypes: ['image/webp'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: true,
+    supportsLossless: true,
+    supportsQuality: true,
+    supportsResize: true,
+    magickFormat: 'WEBP',
+    browserDecodable: true,
+    defaultQuality: 80,
+    release: 'ativo',
+    notes: 'Animacao preservada apenas pela via de colecao de frames.',
+  },
+
+  // --------------------------------------------------- confirmados, escondidos
+  {
+    id: 'avif',
+    label: 'AVIF',
+    extensions: ['avif'],
+    mimeTypes: ['image/avif'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    supportsLossless: false,
+    supportsQuality: true,
+    supportsResize: true,
+    magickFormat: 'AVIF',
+    browserDecodable: true,
+    defaultQuality: 55,
+    release: 'em-avaliacao',
+    notes:
+      'Exige o define heic:speed. Sem ele, 12 MP levaram 19,2 s. Com speed 9, ' +
+      '2,1 s e ficheiro menor. Nao ativar sem esse define aplicado.',
+  },
+  {
+    id: 'gif',
+    label: 'GIF',
+    extensions: ['gif'],
+    mimeTypes: ['image/gif'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: true,
+    supportsLossless: true,
+    supportsQuality: false,
+    supportsResize: true,
+    magickFormat: 'GIF',
+    browserDecodable: true,
+    defaultQuality: null,
+    release: 'em-avaliacao',
+    notes:
+      'Animacao so sobrevive pela via de colecao. A via de imagem unica achata ' +
+      'para 1 frame em silencio, o que o CLAUDE.md proibe.',
+  },
+  {
+    id: 'bmp',
+    label: 'BMP',
+    extensions: ['bmp'],
+    mimeTypes: ['image/bmp', 'image/x-ms-bmp'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    supportsLossless: true,
+    supportsQuality: false,
+    supportsResize: true,
+    magickFormat: 'BMP',
+    browserDecodable: true,
+    defaultQuality: null,
+    release: 'em-avaliacao',
+  },
+  {
+    id: 'tiff',
+    label: 'TIFF',
+    extensions: ['tiff', 'tif'],
+    mimeTypes: ['image/tiff'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    supportsLossless: true,
+    supportsQuality: false,
+    supportsResize: true,
+    magickFormat: 'TIFF',
+    browserDecodable: false,
+    defaultQuality: null,
+    release: 'em-avaliacao',
+    notes:
+      'O browser nao descodifica TIFF, logo a miniatura tem de vir do motor. ' +
+      'Multipagina fora de ambito. Build Q8 reduz 16 bits a 8.',
+  },
+  {
+    id: 'ico',
+    label: 'ICO',
+    extensions: ['ico'],
+    mimeTypes: ['image/x-icon', 'image/vnd.microsoft.icon'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    supportsLossless: true,
+    supportsQuality: false,
+    supportsResize: true,
+    magickFormat: 'ICO',
+    browserDecodable: true,
+    defaultQuality: null,
+    release: 'em-avaliacao',
+    notes:
+      'Magic bytes fracos: a releitura exige formato explicito. Saida limitada a ' +
+      'dimensoes de icone.',
+  },
+  {
+    id: 'jxl',
+    label: 'JPEG XL',
+    extensions: ['jxl'],
+    mimeTypes: ['image/jxl'],
+    canDecode: true,
+    canEncode: true,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    supportsLossless: true,
+    supportsQuality: true,
+    supportsResize: true,
+    magickFormat: 'JXL',
+    browserDecodable: false,
+    defaultQuality: 80,
+    release: 'em-avaliacao',
+    notes: 'Encode funciona, mas quase nenhum browser descodifica. Entrada primeiro.',
+  },
+
+  // ----------------------------------------------------- entrada apenas
+  {
+    id: 'heic',
+    label: 'HEIC',
+    extensions: ['heic', 'heif'],
+    mimeTypes: ['image/heic', 'image/heif'],
+    canDecode: true,
+    canEncode: false,
+    supportsAlpha: true,
+    supportsAnimation: false,
+    supportsLossless: false,
+    supportsQuality: false,
+    supportsResize: true,
+    magickFormat: 'HEIC',
+    browserDecodable: false,
+    defaultQuality: null,
+    release: 'em-avaliacao',
+    notes:
+      'Entrada apenas. O motor devolve NoEncodeDelegateForThisImageFormat na escrita, ' +
+      'verificado. Cobre o caso do iPhone, HEIC para JPG ou WebP.',
+  },
+] as const
+
+// ------------------------------------------------------------------ indices
+
+const POR_ID = new Map<FormatId, ImageFormatCapability>(FORMATOS.map((f) => [f.id, f]))
+
+const POR_EXTENSAO = new Map<string, ImageFormatCapability>(
+  FORMATOS.flatMap((f) => f.extensions.map((ext) => [ext.toLowerCase(), f] as const)),
+)
+
+const POR_MIME = new Map<string, ImageFormatCapability>(
+  FORMATOS.flatMap((f) => f.mimeTypes.map((m) => [m.toLowerCase(), f] as const)),
+)
+
+export function formatoPorId(id: FormatId): ImageFormatCapability {
+  const f = POR_ID.get(id)
+  if (!f) throw new Error(`Formato desconhecido: ${id}`)
+  return f
+}
+
+/** Nao confia na extensao para decidir, so para adivinhar. Ver lib/files/signature.ts. */
+export function formatoPorExtensao(nomeDoFicheiro: string): ImageFormatCapability | null {
+  const ext = nomeDoFicheiro.split('.').pop()?.toLowerCase()
+  return ext ? POR_EXTENSAO.get(ext) ?? null : null
+}
+
+export function formatoPorMime(mime: string): ImageFormatCapability | null {
+  return POR_MIME.get(mime.toLowerCase().trim()) ?? null
+}
+
+/** Formatos que a interface pode oferecer como destino. */
+export function formatosDeSaida(): readonly ImageFormatCapability[] {
+  return FORMATOS.filter((f) => f.release === 'ativo' && f.canEncode)
+}
+
+/** Formatos que a interface aceita como entrada. */
+export function formatosDeEntrada(): readonly ImageFormatCapability[] {
+  return FORMATOS.filter((f) => f.release === 'ativo' && f.canDecode)
+}
+
+/** Para o atributo `accept` do input de ficheiro. */
+export function acceptDeEntrada(): string {
+  return formatosDeEntrada()
+    .flatMap((f) => [...f.mimeTypes, ...f.extensions.map((e) => `.${e}`)])
+    .join(',')
+}
+
+const POR_MAGICK_FORMAT = new Map<string, ImageFormatCapability>(
+  FORMATOS.map((f) => [f.magickFormat.toUpperCase(), f] as const),
+)
+
+/**
+ * Resolve o nome cru devolvido pelo motor para um formato nosso.
+ * Devolve null para formatos que o motor le mas que nao expomos, o que e
+ * informacao util e nao um erro.
+ */
+export function formatoPorMagickFormat(nome: string): ImageFormatCapability | null {
+  return POR_MAGICK_FORMAT.get(nome.toUpperCase().trim()) ?? null
+}

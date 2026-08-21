@@ -1,0 +1,64 @@
+.envolvente {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.campo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.numero {
+  width: 4.5ch;
+  min-height: 28px;
+  padding: 0 var(--space-1);
+  text-align: right;
+  background: var(--surface-raised);
+  color: var(--text-strong);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-data);
+}
+
+/* As setas nativas roubam largura e nao ajudam: o deslizador ja faz isso. */
+.numero::-webkit-inner-spin-button,
+.numero::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.numero {
+  appearance: textfield;
+}
+
+.sufixo {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}
+
+.deslizador {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.deslizador:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.descricao {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}

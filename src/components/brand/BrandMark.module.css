@@ -1,0 +1,18 @@
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nome {
+  font-size: var(--text-subheading);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-strong);
+}
+
+@media (max-width: 520px) {
+  .nome {
+    font-size: var(--text-ui);
+  }
+}

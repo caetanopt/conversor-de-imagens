@@ -1,0 +1,172 @@
+.vazio {
+  display: grid;
+  padding: var(--space-4);
+  min-height: calc(100dvh - var(--header-height));
+}
+
+@media (min-width: 768px) {
+  .vazio {
+    padding: var(--space-6);
+  }
+}
+
+.area {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - var(--header-height));
+}
+
+/*
+ * Telemovel: pilha, na ordem em que o utilizador precisa da informacao.
+ * CLAUDE.md, seccao 13.
+ */
+.corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+  padding: var(--space-4);
+}
+
+.rail {
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.palco {
+  order: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.resultado {
+  order: 3;
+  min-width: 0;
+}
+
+.colunaPainel {
+  order: 4;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.alternar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: var(--control-height-touch);
+  padding: 0 var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-4);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-sm);
+}
+
+.painelFechado {
+  display: none;
+}
+
+.divisor {
+  border: 0;
+  border-top: 1px solid var(--line-subtle);
+}
+
+.nota {
+  font-size: var(--text-ui-small);
+  color: var(--text-faint);
+  line-height: var(--leading-relaxed);
+}
+
+.avisos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  list-style: none;
+  background: var(--state-caution-quiet);
+  border-left: 3px solid var(--state-caution);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+}
+
+/*
+ * A barra fica colada ao fundo do ecra enquanto ha conteudo por baixo, mas
+ * continua no fluxo: no fim da pagina assenta no seu lugar e nao tapa nada.
+ * CLAUDE.md, seccao 13.
+ */
+.rodape {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+/* Desktop: rail e resultado na coluna esquerda, palco ao centro, painel a direita. */
+@media (min-width: 1024px) {
+  .corpo {
+    display: grid;
+    grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--panel-width);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'rail palco painel'
+      'resultado palco painel';
+    gap: var(--space-4) var(--space-6);
+    padding: var(--space-6);
+    align-items: start;
+  }
+
+  .rail {
+    grid-area: rail;
+  }
+
+  .palco {
+    grid-area: palco;
+  }
+
+  .resultado {
+    grid-area: resultado;
+  }
+
+  .colunaPainel {
+    grid-area: painel;
+  }
+
+  /* No desktop o painel e estrutura, nao algo que se abre e fecha. */
+  .alternar {
+    display: none;
+  }
+
+  .painelFechado {
+    display: flex;
+  }
+}
+
+@media (min-width: 1440px) {
+  .corpo {
+    max-width: var(--shell-max);
+    width: 100%;
+    margin: 0 auto;
+  }
+}

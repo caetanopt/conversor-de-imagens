@@ -1,0 +1,43 @@
+{
+  "name": "conversor-de-imagens",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/copy-wasm.mjs",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "verify": "npm run typecheck && npm run lint && npm run test",
+    "fixtures": "node scripts/gerar-fixtures.mjs",
+    "verify:bundle": "node scripts/verificar-bundle.mjs",
+    "verify:all": "npm run verify && npm run build && npm run verify:bundle"
+  },
+  "dependencies": {
+    "@imagemagick/magick-wasm": "0.0.42",
+    "next": "16.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@playwright/test": "1.62.1",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/react": "16.3.2",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@vitejs/plugin-react": "5.1.1",
+    "eslint": "9.39.5",
+    "globals": "16.5.0",
+    "jsdom": "27.0.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11"
+  }
+}
