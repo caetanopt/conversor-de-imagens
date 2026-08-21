@@ -212,6 +212,85 @@ describe('jobsReducer', () => {
     expect(dois.jobs[0]?.warnings).toEqual(['a', 'b'])
   })
 
+  describe('redimensionamento', () => {
+    it('define o resize e invalida o resultado anterior', () => {
+      const { job, estado } = comJob()
+      const concluido = jobsReducer(estado, { type: 'resultado', id: job.id, result: resultado })
+
+      const comResize = jobsReducer(concluido, {
+        type: 'resize',
+        id: job.id,
+        resize: { width: 600, height: null, preserveAspectRatio: true, allowUpscale: false },
+      })
+
+      expect(comResize.jobs[0]?.options.resize?.width).toBe(600)
+      // Sem isto, o utilizador descarregaria a imagem nas dimensoes antigas.
+      expect(comResize.jobs[0]?.result).toBeNull()
+      expect(comResize.jobs[0]?.status).toBe('ready')
+    })
+
+    it('desligar o resize volta a null e nao a um objeto vazio', () => {
+      const { job, estado } = comJob()
+      const ligado = jobsReducer(estado, {
+        type: 'resize',
+        id: job.id,
+        resize: { width: 600, height: null, preserveAspectRatio: true, allowUpscale: false },
+      })
+      const desligado = jobsReducer(ligado, { type: 'resize', id: job.id, resize: null })
+      expect(desligado.jobs[0]?.options.resize).toBeNull()
+    })
+
+    it('comeca sem resize', () => {
+      expect(criarJob(ficheiro(), 'jpeg', 'webp').options.resize).toBeNull()
+    })
+  })
+
+  describe('politica de metadados', () => {
+    it('mudar a politica invalida o resultado anterior', () => {
+      const { job, estado } = comJob()
+      const concluido = jobsReducer(estado, { type: 'resultado', id: job.id, result: resultado })
+      const mudada = jobsReducer(concluido, {
+        type: 'metadados',
+        id: job.id,
+        metadata: 'remover',
+      })
+      expect(mudada.jobs[0]?.options.metadata).toBe('remover')
+      expect(mudada.jobs[0]?.result).toBeNull()
+    })
+  })
+
+  describe('modo de otimizacao', () => {
+    it('passar a otimizar forca o destino para o formato de origem', () => {
+      const { estado } = comJob()
+      expect(estado.jobs[0]?.options.outputFormat).toBe('webp')
+
+      const otimizar = jobsReducer(estado, { type: 'modo', mode: 'otimizar' })
+      expect(otimizar.mode).toBe('otimizar')
+      // A origem e JPEG, portanto otimizar produz JPEG.
+      expect(otimizar.jobs[0]?.options.outputFormat).toBe('jpeg')
+    })
+
+    it('voltar a converter nao mexe no formato escolhido', () => {
+      const { estado } = comJob()
+      const otimizar = jobsReducer(estado, { type: 'modo', mode: 'otimizar' })
+      const converter = jobsReducer(otimizar, { type: 'modo', mode: 'converter' })
+      // Nao adivinhamos por ele: o formato fica onde estava.
+      expect(converter.jobs[0]?.options.outputFormat).toBe('jpeg')
+    })
+
+    it('repetir o mesmo modo devolve o mesmo estado', () => {
+      const { estado } = comJob()
+      expect(jobsReducer(estado, { type: 'modo', mode: 'converter' })).toBe(estado)
+    })
+
+    it('otimizar invalida o resultado anterior quando o formato muda', () => {
+      const { job, estado } = comJob()
+      const concluido = jobsReducer(estado, { type: 'resultado', id: job.id, result: resultado })
+      const otimizar = jobsReducer(concluido, { type: 'modo', mode: 'otimizar' })
+      expect(otimizar.jobs[0]?.result).toBeNull()
+    })
+  })
+
   it('limpar remove todos os trabalhos e mantem o modo', () => {
     const { estado } = comJob()
     const comModo = jobsReducer(estado, { type: 'modo', mode: 'otimizar' })

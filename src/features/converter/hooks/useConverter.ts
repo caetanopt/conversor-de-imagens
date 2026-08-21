@@ -24,7 +24,13 @@ import {
   estadoInicial,
   jobsReducer,
 } from '../state/jobsReducer'
-import type { ConversionMode, ImageJob, JobError, MetadataPolicy } from '../types'
+import type {
+  ConversionMode,
+  ImageJob,
+  JobError,
+  MetadataPolicy,
+  ResizeOptions,
+} from '../types'
 
 /**
  * Estado do arranque do motor, exposto a interface de proposito.
@@ -230,6 +236,10 @@ export function useConverter() {
     dispatch({ type: 'metadados', id, metadata })
   }, [])
 
+  const definirResize = useCallback((id: string, resize: ResizeOptions | null) => {
+    dispatch({ type: 'resize', id, resize })
+  }, [])
+
   const definirModo = useCallback((mode: ConversionMode) => {
     dispatch({ type: 'modo', mode })
   }, [])
@@ -251,6 +261,7 @@ export function useConverter() {
     definirQualidade,
     definirPreset,
     definirMetadados,
+    definirResize,
     definirModo,
   }
 }

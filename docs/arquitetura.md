@@ -90,6 +90,19 @@ Duas honestidades que as medições impuseram na interface:
 
 Ver `docs/medicoes.md` para os números.
 
+## Redimensionamento
+
+A previsão que a interface mostra e a geometria que o motor executa são a mesma
+decisão calculada em dois sítios, e por isso são testadas em conjunto:
+`calcularSaida` e o resize real do motor têm de dar o mesmo resultado nos nove
+casos cobertos. Prometer dimensões que o ficheiro não vai ter é pior do que não
+mostrar previsão nenhuma.
+
+A semântica vem do motor e não foi inventada: as dimensões são uma caixa
+delimitadora, `greater` significa só reduzir, e `ignoreAspectRatio` dá dimensões
+exatas. Os valores por defeito que queremos, preservar proporção e não aumentar,
+são o comportamento que não custa nada.
+
 ## Página de diagnóstico
 
 `/diagnostico` é uma ferramenta interna, fora do índice e sem ligações a partir
@@ -174,6 +187,17 @@ bytes são agora copiados de imediato.
 **Um ficheiro truncado não lança.** O ImageMagick tolera a truncagem e
 descodifica o que consegue, produzindo uma imagem parcial. Não é um erro, mas
 também não é óbvio.
+
+**O motor acrescenta a hora atual à imagem**, em atributos `date:*` que o
+escritor de PNG grava em chunks `tEXt`. São removidos em todas as políticas de
+metadados, porque não são do utilizador. Ver `docs/privacidade.md`.
+
+**`plasma:` não é determinístico** sem `Magick.setRandomSeed`. Isto fez as
+fixtures mudarem a cada execução e um teste de tamanhos passar isolado e falhar
+na suite.
+
+**`ErrorMetric.StructuralSimilarity` devolve 0 para imagens idênticas** e cresce
+com a degradação, ao contrário do que o nome sugere.
 
 ## Onde acrescentar coisas
 

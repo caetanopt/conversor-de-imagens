@@ -26,7 +26,7 @@ está documentado em vez de escondido.
 | JPG, JPEG, JFIF | sim | sim | ativo | aliases do mesmo formato |
 | PNG | sim | sim | ativo | sem perda, sem qualidade |
 | WebP | sim | sim | ativo | suporta animação e lossless |
-| AVIF | sim | sim | em avaliação | exige o define `heic:speed` |
+| AVIF | sim | sim | **ativo** | exige o define `heic:speed`, presets calibrados por SSIM |
 | GIF | sim | sim | em avaliação | animação só pela via de coleção |
 | BMP | sim | sim | em avaliação | |
 | TIFF, TIF | sim | sim | em avaliação | o browser não descodifica, miniatura tem de vir do motor |
@@ -81,11 +81,48 @@ Numa imagem de 12 MP:
 | por omissão | 19,2 s | 477 KB |
 | 8 | 2,6 s | 464 KB |
 | 9 | 2,1 s | 462 KB |
-| WebP q80, referência | 4,0 s | 706 KB |
 
-Com o define correto, o AVIF é mais rápido e mais pequeno que o WebP. Sem ele,
-nove vezes mais lento. `resolveEncodeDirectives` aplica-o sempre, e um teste
-verifica que continua a ser aplicado.
+A velocidade 9 é cerca de sete vezes mais rápida que a 6 com o mesmo tamanho de
+ficheiro, diferença de 1,5 %. `resolveEncodeDirectives` aplica-a sempre, e um
+teste verifica que continua a ser aplicada.
+
+### A escala de qualidade do AVIF não é a do WebP
+
+Comparar formatos pelo número de qualidade engana. Medido: AVIF a 55 produzia
+um ficheiro **maior** que WebP a 80, o que sugeria que o AVIF era pior. A
+conclusão inverte-se ao comparar a distorção igual, porque o AVIF entrega mais
+qualidade no mesmo número.
+
+Os presets do AVIF foram calibrados com SSIM. Ver `docs/medicoes.md`.
+
+### O nome do métrico de similaridade está invertido
+
+`ErrorMetric.StructuralSimilarity` devolve **0 para imagens idênticas** e cresce
+com a degradação, ou seja comporta-se como dissimilaridade. Verificado
+comparando uma imagem consigo mesma. No código chamamos-lhe distorção para não
+induzir em erro.
+
+### `plasma:` não é determinístico
+
+Duas gerações do mesmo padrão dão ficheiros diferentes. É preciso
+`Magick.setRandomSeed(n)` antes de cada geração. Sem isso, as fixtures mudavam a
+cada execução e um teste de comparação de tamanhos passava isolado e falhava na
+suite.
+
+### O motor acrescenta a hora atual à imagem
+
+O motor gera atributos `date:create`, `date:modify` e `date:timestamp` com a
+hora da leitura, e o escritor de PNG grava-os em chunks `tEXt`:
+
+```
+tEXt = date:modify|2026-08-21T13:37:11+00:00
+tEXt = date:timestamp|2026-08-21T13:37:11+00:00
+```
+
+Não são metadados do utilizador. Isto significa que "manter os metadados"
+acrescentaria ao ficheiro uma data que o original não tinha, revelando quando a
+conversão aconteceu. São removidos em qualquer política. Efeito secundário
+útil: a saída passou a ser reproduzível byte a byte.
 
 ### Animação só sobrevive pela via de coleção
 
@@ -139,6 +176,8 @@ concreto, e `tests/unit/fixtures.test.ts` corre o motor real sobre todas.
 | `png-transparencia.png` | canal alfa | preservado em PNG, perdido em JPEG |
 | `png-grande.png` | 6 MP | le |
 | `webp-normal.webp` | WebP de entrada e otimizacao | le |
+| `avif-normal.avif` | AVIF de entrada e otimizacao | le |
+| `avif-transparencia.avif` | canal alfa em AVIF | preservado |
 | `corrompido.jpg` | erro de decoder | `ficheiro-invalido` |
 | `truncado.jpg` | ficheiro incompleto | le parcialmente, sem lancar |
 | `extensao-errada.jpg` | PNG com extensao `.jpg` | detetado como PNG |

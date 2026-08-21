@@ -127,11 +127,19 @@ avisar quando o utilizador escolhe 100 em WebP.
 teste. O WebP compensa em tamanho para o mesmo nível visual, mas o custo em
 tempo é real e cresce com a imagem.
 
-Presets em uso: `Qualidade alta` 92 em JPG e 90 em WebP, `Equilibrado` 82 e 80,
-`Ficheiro mais pequeno` 70 e 65. Nenhum usa 100, deliberadamente.
+Presets em uso:
 
-Não foi medido SSIM nem outra métrica de qualidade visual. A comparação é só de
-tamanho e tempo.
+| Preset | JPG | WebP | AVIF |
+|---|---|---|---|
+| Qualidade alta | 92 | 90 | 80 |
+| Equilibrado | 82 | 80 | 65 |
+| Ficheiro mais pequeno | 70 | 65 | 45 |
+
+Nenhum usa 100, deliberadamente. Os valores do AVIF foram calibrados por SSIM,
+ver a secção seguinte.
+
+Esta tabela compara só tamanho e tempo, o que se mostrou insuficiente: ver a
+secção de SSIM para a comparação correta entre formatos.
 
 ---
 
@@ -186,6 +194,83 @@ sem custo.
 
 ---
 
+## Qualidade visual medida com SSIM
+
+O motor tem SSIM embutido (`ErrorMetric.StructuralSimilarity`), portanto medir
+distorção não custou nenhuma dependência nova.
+
+**Cuidado com a semântica:** neste motor a métrica devolve **0 para imagens
+idênticas** e cresce com a degradação. Comporta-se como dissimilaridade, ao
+contrário do que o nome sugere. Verificado comparando uma imagem consigo mesma.
+Abaixo chama-se distorção, e menos é melhor.
+
+### Comparar pelo número de qualidade engana
+
+Imagem de 640x480 com gradiente e estrutura, semente fixa:
+
+| q | AVIF bytes | distorção | WebP bytes | distorção | JPEG bytes | distorção |
+|---|---|---|---|---|---|---|
+| 45 | 13 818 | 0,16467 | 10 566 | 0,17922 | 17 809 | 0,16834 |
+| 65 | 34 501 | 0,13636 | 18 046 | 0,16512 | 28 070 | 0,15553 |
+| 80 | 76 987 | 0,10073 | 35 302 | 0,13985 | 43 743 | 0,14355 |
+| 90 | 116 928 | 0,08738 | 78 298 | 0,10270 | 116 502 | 0,08958 |
+
+À mesma qualidade numérica, o AVIF gasta duas a três vezes mais bytes que o
+WebP. Visto assim, o AVIF parece pior. Mas tem sempre **menos distorção**: está
+a entregar mais qualidade no mesmo número, não a ser ineficiente.
+
+### A distorção equivalente, o AVIF ganha
+
+| Preset | WebP | AVIF equivalente | Ganho do AVIF |
+|---|---|---|---|
+| Qualidade alta | q90, 78 298 B | **q80**, 76 987 B | 2 % |
+| Equilibrado | q80, 35 302 B | **q65**, 34 501 B | 2 % |
+| Ficheiro mais pequeno | q65, 18 046 B | **q45**, 13 818 B | **23 %** |
+
+E o JPEG, para referência: precisa de q85 e 54 156 bytes para igualar a
+distorção de WebP q80 com 35 302. O WebP é 35 % menor que o JPEG a qualidade
+visual igual, o que justifica ser o destino sugerido por defeito.
+
+### Os presets do AVIF foram calibrados com estes números
+
+`alta` 80, `equilibrado` 65, `menor` 45. Sem calibração, um preset chamado
+"Equilibrado" significava coisas diferentes em cada formato. Com ela, a distorção
+entre JPG, WebP e AVIF no mesmo preset fica dentro de um fator de 1,04 a 1,31, e
+um teste falha acima de 1,5.
+
+**Honestidade sobre o alcance:** o ganho do AVIF é modesto em qualidade alta e
+relevante em qualidade baixa, medido em conteúdo sintético. Numa fotografia real
+espera-se que seja maior, mas isso não foi medido. Falta uma fotografia real no
+conjunto de fixtures.
+
+### O AVIF é mais rápido que o WebP a codificar
+
+Com `heic:speed` 9, numa imagem de 1200x800: AVIF entre 186 e 245 ms, WebP entre
+289 e 429 ms. Com `heic:speed` 6 o AVIF sobe para 1 343 a 1 739 ms, sete vezes
+mais lento, com uma diferença de tamanho de 1,5 %. A velocidade 9 é a escolha
+óbvia.
+
+---
+
+## Redimensionamento
+
+A previsão mostrada na interface e as dimensões que o motor produz são
+verificadas em conjunto, nos dois lados, para nove casos. Se divergissem, a
+interface prometeria dimensões que o ficheiro não teria.
+
+| Caso | Origem | Pedido | Resultado |
+|---|---|---|---|
+| largura com proporção | 1200x800 | 600 x auto | 600x400 |
+| altura com proporção | 1200x800 | auto x 400 | 600x400 |
+| caixa delimitadora | 1200x800 | 600x600 | 600x400 |
+| dimensões exatas | 1200x800 | 500x500 sem proporção | 500x500 |
+| não aumentar, por defeito | 1200x800 | 2400 x auto | 1200x800 |
+| aumentar, pedido | 1200x800 | 2400 x auto, permitido | 2400x1600 |
+
+Reduzir para metade das dimensões deu um ficheiro com menos de metade dos bytes.
+
+---
+
 ## Metadados
 
 Medido sobre `tests/fixtures/jpeg-tudo-metadados.jpg`, que contém EXIF com GPS,
@@ -223,6 +308,25 @@ de perfis:
 | Autor, IPTC | presente | removido |
 | Localidade | presente | removido |
 
+### O motor acrescenta a hora atual ao ficheiro
+
+Achado à conta de as fixtures não serem reproduzíveis. O motor gera atributos
+`date:create`, `date:modify` e `date:timestamp` com a hora da leitura, e o
+escritor de PNG grava-os em chunks `tEXt`:
+
+```
+tEXt = date:modify|2026-08-21T13:37:11+00:00
+tEXt = date:timestamp|2026-08-21T13:37:11+00:00
+```
+
+Não vêm do ficheiro do utilizador. Com a política `manter`, o ficheiro de saída
+ganharia uma data que o original não tinha, revelando quando a conversão
+aconteceu. É o oposto de preservar.
+
+São removidos em **todas** as políticas. Verificado: com os carimbos removidos,
+duas escritas com 1,1 s de intervalo dão bytes idênticos; sem os remover, dão
+ficheiros diferentes.
+
 ### Porque o perfil de cor não é removido por defeito
 
 Uma imagem com perfil AdobeRGB, num vermelho saturado:
@@ -255,10 +359,13 @@ Corrigido. Um falso negativo numa sonda é pior do que não ter sonda.
 ## Por medir
 
 - Firefox, Safari em macOS, Safari em iOS e iPadOS. Ver `docs/browser-support.md`.
+- Uma fotografia real no conjunto de fixtures. Todas as medições de qualidade
+  usam conteúdo sintético, que subestima o ganho do AVIF.
+- A escada de memória com AVIF em vez de WebP. O AVIF é mais rápido a codificar,
+  portanto o degrau de falha pode ser diferente.
 - A escada de memória num telemóvel, que é onde os limites atuais serão
   demasiado permissivos.
 - Decode de JPEG progressivo e de CMYK com temporização separada. As fixtures
   existem e os testes confirmam que decodificam, mas não há números de tempo.
 - HEIC com um ficheiro real de iPhone. Continua sem ser testado.
-- Métricas de qualidade visual, por exemplo SSIM. Só temos tamanho e tempo.
 - Tempo de arranque com transferência real e com cache do browser.

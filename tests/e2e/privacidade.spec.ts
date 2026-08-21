@@ -357,6 +357,88 @@ test.describe('estados da interface', () => {
   })
 })
 
+test.describe('redimensionamento', () => {
+  test('reduz as dimensoes e o tamanho, preservando a proporcao', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+    await expect(page.getByText('1200 x 800')).toBeVisible({ timeout: 120_000 })
+
+    await page.getByRole('checkbox', { name: 'Redimensionar' }).check()
+    await page.getByRole('spinbutton', { name: 'Largura' }).fill('600')
+
+    // A previsao aparece antes de converter, com a altura calculada.
+    await expect(page.getByText('1200 x 800 para 600 x 400')).toBeVisible()
+
+    await page.getByRole('button', { name: /Converter para WebP/ }).click()
+    await expect(page.getByText('Tamanho final')).toBeVisible({ timeout: 120_000 })
+
+    // O resumo mostra a dimensao final, que tem de ser a prometida.
+    const resultado = page.getByRole('region', { name: 'Comparação do resultado' })
+    await expect(resultado.getByText('600 x 400')).toBeVisible()
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: /Descarregar/ }).click(),
+    ])
+    const bytes = readFileSync(await download.path())
+    expect(bytes.subarray(0, 4).toString('latin1')).toBe('RIFF')
+
+    // Um WebP de 600x400 tem as dimensoes no cabecalho VP8. Verificamos o
+    // tamanho como sinal: metade das dimensoes da bem menos de metade dos bytes.
+    expect(bytes.byteLength).toBeLessThan(readFileSync(AMOSTRA_JPG).byteLength / 2)
+  })
+
+  test('nao aumenta imagens pequenas sem pedido explicito', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+    await expect(page.getByText('1200 x 800')).toBeVisible({ timeout: 120_000 })
+
+    await page.getByRole('checkbox', { name: 'Redimensionar' }).check()
+    await page.getByRole('spinbutton', { name: 'Largura' }).fill('2400')
+
+    // Diz que nao vai aumentar, em vez de aumentar em silencio.
+    await expect(page.getByText('1200 x 800 para 1200 x 800')).toBeVisible()
+    await expect(page.getByText(/maiores que o original/)).toBeVisible()
+
+    await page.getByRole('checkbox', { name: 'Permitir aumentar' }).check()
+    await expect(page.getByText('1200 x 800 para 2400 x 1600')).toBeVisible()
+  })
+})
+
+test.describe('AVIF', () => {
+  test('converte JPG para AVIF e o ficheiro e um AVIF valido', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+    await expect(page.getByRole('radio', { name: 'AVIF' })).toBeVisible({ timeout: 120_000 })
+
+    await page.getByRole('radio', { name: 'AVIF' }).check()
+    await page.getByRole('button', { name: /Converter para AVIF/ }).click()
+    await expect(page.getByText('Tamanho final')).toBeVisible({ timeout: 120_000 })
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: /Descarregar/ }).click(),
+    ])
+    expect(download.suggestedFilename()).toBe('jpeg-normal.avif')
+
+    // Contentor ISOBMFF com a marca avif: ftyp no offset 4, marca no offset 8.
+    const bytes = readFileSync(await download.path())
+    expect(bytes.subarray(4, 8).toString('latin1')).toBe('ftyp')
+    expect(bytes.subarray(8, 12).toString('latin1')).toBe('avif')
+  })
+
+  test('aceita um AVIF como entrada', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', resolve(FIXTURES, 'avif-normal.avif'))
+    await expect(page.getByRole('img', { name: /Pré-visualização/ })).toBeVisible({
+      timeout: 120_000,
+    })
+    await expect(page.getByText('1200 x 800')).toBeVisible()
+    // A origem e AVIF, logo o destino sugerido e WebP.
+    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+  })
+})
+
 test.describe('otimizar no mesmo formato', () => {
   test('otimizar mantem o formato de origem e o resultado e descarregavel', async ({ page }) => {
     await page.goto('/')

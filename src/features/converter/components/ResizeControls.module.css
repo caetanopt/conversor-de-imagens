@@ -1,0 +1,98 @@
+.envolvente {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ligar,
+.opcao {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--text-ui-small);
+  color: var(--text-default);
+  /* Alvo confortavel em ecra tatil, sem inflar a linha com rato. */
+  min-height: 28px;
+}
+
+.ligar {
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+}
+
+.ligar input,
+.opcao input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  flex: none;
+  cursor: pointer;
+}
+
+.dimensoes {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+
+.numero {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  background: var(--surface-raised);
+  color: var(--text-strong);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-data);
+}
+
+.numero::-webkit-inner-spin-button,
+.numero::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.numero {
+  appearance: textfield;
+}
+
+.separador {
+  color: var(--text-faint);
+  padding-bottom: var(--space-2);
+}
+
+.previsao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+}
+
+.explicacao {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}
+
+.aviso {
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+  line-height: var(--leading-relaxed);
+  padding: var(--space-2) var(--space-3);
+  background: var(--state-caution-quiet);
+  border-left: 3px solid var(--state-caution);
+  border-radius: var(--radius-xs);
+}

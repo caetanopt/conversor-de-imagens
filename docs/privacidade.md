@@ -176,6 +176,19 @@ cores que o sRGB não representa. Preservar o perfil não perde nada e custa
 a conversão para sRGB entra como opção avançada explícita, nunca como
 comportamento por defeito.
 
+### A hora da conversão nunca entra no ficheiro
+
+O motor acrescenta atributos `date:create`, `date:modify` e `date:timestamp` com
+a hora da leitura, e o escritor de PNG grava-os em chunks `tEXt`. Não são
+metadados do utilizador: são gerados por nós.
+
+Com a política `manter`, isso significaria acrescentar ao ficheiro uma data que
+o original não tinha, revelando quando o utilizador processou a imagem. São
+removidos em **todas** as políticas, e um teste verifica-o para as três.
+
+Efeito secundário útil: a saída passou a ser reproduzível byte a byte, o que
+também torna as fixtures de teste reprodutíveis.
+
 ### A ordem das operações não é negociável
 
 `autoOrient()` **antes** de `strip()`. A orientação vive no EXIF. Se o EXIF

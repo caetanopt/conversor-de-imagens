@@ -27,6 +27,7 @@ import { FormatSelect } from './FormatSelect'
 import { ImagePreview } from './ImagePreview'
 import { MetadataControl } from './MetadataControl'
 import { QualityControl } from './QualityControl'
+import { ResizeControls } from './ResizeControls'
 import styles from './ConverterWorkbench.module.css'
 
 export function ConverterWorkbench() {
@@ -134,6 +135,15 @@ export function ConverterWorkbench() {
               preset={job.options.preset}
               onQualidade={(valor) => conversor.definirQualidade(job.id, valor)}
               onPreset={(preset) => conversor.definirPreset(job.id, preset)}
+              disabled={aProcessar}
+            />
+
+            <hr className={styles.divisor} />
+
+            <ResizeControls
+              valor={job.options.resize}
+              origem={job.inspection}
+              onChange={(resize) => conversor.definirResize(job.id, resize)}
               disabled={aProcessar}
             />
 

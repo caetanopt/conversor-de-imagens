@@ -18,6 +18,7 @@ import {
   ImageMagick,
   initializeImageMagick,
   Interlace,
+  Magick,
   MagickFormat,
   MagickImage,
   MagickReadSettings,
@@ -40,21 +41,41 @@ await initializeImageMagick(
 
 // ------------------------------------------------------------------ ajudantes
 
+/**
+ * Semente do gerador de aleatorios do motor.
+ *
+ * Sem isto, `plasma:` produz uma imagem diferente a cada execucao, e as
+ * fixtures deixam de ser reprodutiveis: os tamanhos mudam, os testes que
+ * comparam bytes tornam-se instaveis, e os numeros na documentacao ficam
+ * errados. Verificado: duas geracoes sem semente dao ficheiros diferentes; com
+ * semente fixa dao ficheiros identicos.
+ */
+export const SEMENTE = 20260101
+
 /** Imagem base. `plasma` da conteudo de alta entropia, o pior caso de compressao. */
 function gerar(padrao, largura, altura) {
+  Magick.setRandomSeed(SEMENTE)
   const settings = new MagickReadSettings()
   settings.width = largura
   settings.height = altura
   const img = MagickImage.create()
   img.read(padrao, settings)
+  for (const nome of ['date:create', 'date:modify', 'date:timestamp']) img.removeAttribute(nome)
   const bytes = img.write(MagickFormat.Png, (d) => new Uint8Array(d))
   img.dispose()
   return Buffer.from(bytes)
 }
 
+/**
+ * O motor acrescenta atributos `date:*` com a hora atual, e o escritor de PNG
+ * grava-os em chunks tEXt. Sem os remover, as fixtures mudam a cada execucao.
+ */
+const CARIMBOS_DO_MOTOR = ['date:create', 'date:modify', 'date:timestamp']
+
 function escrever(origem, formato, ajustar = () => {}) {
   return Buffer.from(
     ImageMagick.read(origem, (img) => {
+      for (const nome of CARIMBOS_DO_MOTOR) img.removeAttribute(nome)
       ajustar(img)
       return img.write(formato, (d) => new Uint8Array(d))
     }),
@@ -205,6 +226,31 @@ await guardar(
     img.quality = 85
   }),
   'WebP como entrada, e otimizacao WebP para WebP',
+)
+
+// --------------------------------------------------------------------- AVIF
+
+await guardar(
+  'avif-normal.avif',
+  escrever(base1200, MagickFormat.Avif, (img) => {
+    img.quality = 60
+    // O mesmo define que a aplicacao aplica sempre. Sem ele, gerar esta fixture
+    // levaria minutos em vez de segundos.
+    img.settings.setDefine(MagickFormat.Heic, 'speed', '9')
+  }),
+  'AVIF como entrada, e otimizacao AVIF para AVIF',
+)
+
+await guardar(
+  'avif-transparencia.avif',
+  Buffer.from(
+    ImageMagick.read(comAlfa, (img) => {
+      img.quality = 60
+      img.settings.setDefine(MagickFormat.Heic, 'speed', '9')
+      return img.write(MagickFormat.Avif, (d) => new Uint8Array(d))
+    }),
+  ),
+  'canal alfa preservado em AVIF',
 )
 
 // -------------------------------------------------------- casos degenerados

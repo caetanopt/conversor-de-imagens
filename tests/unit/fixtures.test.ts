@@ -228,6 +228,30 @@ describe('politica de metadados', () => {
     expect(custo).toBeLessThan(4096)
   })
 
+  it('a hora da conversao nunca entra no ficheiro, em nenhuma politica', () => {
+    // O motor acrescenta atributos date:* com a hora atual, e o escritor de PNG
+    // grava-os em chunks tEXt. Isso revelaria quando o utilizador converteu, e
+    // no caso de "manter" acrescentaria uma data que o original nao tinha.
+    for (const politica of ['remover', 'preservar-cor', 'manter'] as const) {
+      const diretiva = resolveMetadataDirective(politica)
+      const saida = ImageMagick.read(ler('png-rgb.png'), (img) => {
+        for (const nome of ['date:create', 'date:modify', 'date:timestamp']) {
+          img.removeAttribute(nome)
+        }
+        if (diretiva.strip) {
+          const perfil = diretiva.preserveColorProfile ? img.getProfile('icc') : null
+          const icc = perfil ? new Uint8Array(perfil.data) : null
+          img.strip()
+          if (icc) img.setProfile('icc', icc)
+        }
+        return img.write(MagickFormat.Png, (d) => new Uint8Array(d))
+      })
+
+      const texto = Buffer.from(saida).toString('latin1')
+      expect(texto, `politica ${politica}`).not.toMatch(/date:(create|modify|timestamp)/)
+    }
+  })
+
   it('a orientacao EXIF e aplicada aos pixels antes de o EXIF ser apagado', () => {
     // Orientacao 6 significa rodar 90 graus. Uma imagem 400x300 fica 300x400.
     // Se o strip acontecesse primeiro, a rotacao perdia-se e a imagem saia

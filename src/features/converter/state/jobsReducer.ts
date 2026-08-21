@@ -17,6 +17,7 @@ import type {
   JobError,
   MetadataPolicy,
   PreviewRef,
+  ResizeOptions,
 } from '../types'
 
 export type ConverterState = {
@@ -38,6 +39,7 @@ export type ConverterAction =
   | { readonly type: 'qualidade'; readonly id: string; readonly quality: number }
   | { readonly type: 'preset'; readonly id: string; readonly preset: PresetId }
   | { readonly type: 'metadados'; readonly id: string; readonly metadata: MetadataPolicy }
+  | { readonly type: 'resize'; readonly id: string; readonly resize: ResizeOptions | null }
   | { readonly type: 'modo'; readonly mode: ConversionMode }
   | { readonly type: 'remover'; readonly id: string }
   | { readonly type: 'limpar' }
@@ -128,6 +130,16 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
         status: job.status === 'done' ? 'ready' : job.status,
         result: null,
         options: { ...job.options, metadata: acao.metadata },
+      }))
+
+    case 'resize':
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        // Redimensionar muda os bytes de saida, logo o resultado anterior
+        // deixa de corresponder ao que esta selecionado.
+        status: job.status === 'done' ? 'ready' : job.status,
+        result: null,
+        options: { ...job.options, resize: acao.resize },
       }))
 
     case 'modo': {

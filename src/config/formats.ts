@@ -138,11 +138,13 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'AVIF',
     browserDecodable: true,
-    defaultQuality: 55,
-    release: 'em-avaliacao',
+    defaultQuality: 60,
+    release: 'ativo',
     notes:
-      'Exige o define heic:speed. Sem ele, 12 MP levaram 19,2 s. Com speed 9, ' +
-      '2,1 s e ficheiro menor. Nao ativar sem esse define aplicado.',
+      'Exige o define heic:speed, sempre aplicado por resolveEncodeDirectives. ' +
+      'Sem ele, 12 MP levaram 19,2 s; com speed 9, 2,1 s. A escala de qualidade ' +
+      'nao e comparavel a do WebP: os presets foram calibrados por SSIM. ' +
+      'Animacao nao suportada nesta versao.',
   },
   {
     id: 'gif',

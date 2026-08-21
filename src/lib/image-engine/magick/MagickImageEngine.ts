@@ -26,6 +26,10 @@
  *    dependente do estado do heap: em isolamento passa, depois de uma imagem
  *    grande ter sido descodificada falha. Os bytes tem de ser copiados de
  *    imediato.
+ *  - o motor ACRESCENTA atributos `date:*` com a hora atual, e o escritor de
+ *    PNG grava-os em chunks tEXt. Nao sao metadados do utilizador, sao
+ *    carimbos do momento da conversao, e tem de sair mesmo quando a politica
+ *    e manter tudo.
  */
 import {
   ImageMagick,
@@ -160,6 +164,27 @@ export class MagickImageEngine implements ImageEngine {
   }
 }
 
+/**
+ * Atributos de data que o proprio motor acrescenta a imagem.
+ *
+ * Nao vem do ficheiro do utilizador: sao gerados no momento da leitura, com a
+ * hora atual. O escritor de PNG grava-os em chunks tEXt, verificado:
+ *
+ *   tEXt = date:modify|2026-08-21T13:37:11+00:00
+ *   tEXt = date:timestamp|2026-08-21T13:37:11+00:00
+ *
+ * Isto significa que "manter os metadados" acrescentaria ao ficheiro uma data
+ * que o original nao tinha, revelando quando o utilizador fez a conversao. E o
+ * oposto de preservar. Por isso saem sempre, em qualquer politica.
+ *
+ * Efeito secundario util: a saida passa a ser reprodutivel byte a byte.
+ */
+const CARIMBOS_DO_MOTOR = ['date:create', 'date:modify', 'date:timestamp'] as const
+
+function removerCarimbosDoMotor(img: IMagickImage): void {
+  for (const nome of CARIMBOS_DO_MOTOR) img.removeAttribute(nome)
+}
+
 /** Copia os bytes de um perfil, para sobreviverem a um strip. */
 function copiarPerfil(img: IMagickImage, nome: string): Uint8Array | null {
   const perfil = img.getProfile(nome)
@@ -172,6 +197,10 @@ function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): string[] {
   // Ordem obrigatoria: a orientacao tem de ser aplicada aos pixels antes de o
   // EXIF ser removido, senao a imagem sai deitada. CLAUDE.md, seccao 23.
   if (d.autoOrient) img.autoOrient()
+
+  // Sai sempre, mesmo com a politica de manter tudo: nao e metadado do
+  // utilizador, e a hora a que esta conversao aconteceu.
+  removerCarimbosDoMotor(img)
 
   if (d.metadata.strip) {
     // `strip` apaga tudo, incluindo o perfil de cor. Copiamos os bytes do ICC

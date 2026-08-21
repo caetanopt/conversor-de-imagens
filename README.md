@@ -4,8 +4,9 @@ Plataforma web de otimização e conversão de imagens. Todo o processamento
 acontece no dispositivo do utilizador, através de WebAssembly num Web Worker.
 Nenhuma imagem é enviada para um servidor.
 
-Estado: primeira fatia vertical funcional, validada. Suporta JPG, PNG e WebP,
-em conversão e em otimização no mesmo formato.
+Estado: núcleo funcional e validado. Suporta JPG, PNG, WebP e AVIF, em
+conversão e em otimização no mesmo formato, com redimensionamento e controlo de
+metadados. Falta o processamento em lote.
 
 Validado em Chromium. **Firefox, Safari, iPhone e iPad continuam por validar**,
 por o ambiente de desenvolvimento não permitir instalar esses browsers. Ver
@@ -33,7 +34,7 @@ npm run build         # build e exportação estática para out/
 npm run verify:bundle # confirma que o motor não entra no bundle da main thread
 npm run verify:all    # tudo o que está acima, em sequência
 
-npm run fixtures      # gera as 22 imagens de teste
+npm run fixtures      # gera as 24 imagens de teste, de forma reprodutível
 npm run test:e2e      # testes end to end, exige build e fixtures
 ```
 

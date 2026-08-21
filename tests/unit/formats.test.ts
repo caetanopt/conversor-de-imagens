@@ -35,8 +35,10 @@ describe('registry de formatos', () => {
     }
   })
 
-  it('nesta etapa a saida e apenas JPG, PNG e WebP', () => {
-    expect(formatosDeSaida().map((f) => f.id)).toEqual(['jpeg', 'png', 'webp'])
+  it('a saida ativa e JPG, PNG, WebP e AVIF', () => {
+    // Ordem do registry, nao alfabetica. Mudar isto e uma decisao de produto e
+    // nao um detalhe: cada formato aqui exige fixture e validacao.
+    expect(formatosDeSaida().map((f) => f.id)).toEqual(['jpeg', 'png', 'webp', 'avif'])
   })
 
   it('nunca expoe HEIC como saida, porque o motor nao o escreve', () => {
@@ -115,7 +117,9 @@ describe('registry de formatos', () => {
     const accept = acceptDeEntrada()
     expect(accept).toContain('image/jpeg')
     expect(accept).toContain('.webp')
+    expect(accept).toContain('image/avif')
     // Um formato inativo nao deve aparecer no seletor de ficheiros.
-    expect(accept).not.toContain('image/avif')
+    expect(accept).not.toContain('image/tiff')
+    expect(accept).not.toContain('image/heic')
   })
 })
