@@ -96,14 +96,21 @@ export function validarInspecao(inspecao: ImageInspection): ResultadoValidacao {
         message:
           `A imagem tem ${formatarMegapixels(inspecao.width, inspecao.height)} e o limite ` +
           `desta versão é ${Math.round(LIMITES.maxPixels / 1_000_000)} MP. ` +
-          `Imagens maiores esgotam a memória disponível no browser.`,
+          `Acima disso a conversão deixa de terminar em tempo útil no browser.`,
       },
     }
   }
 
   const warnings: string[] = []
 
-  if (pixels > LIMITES.avisoPixels) {
+  // Dois patamares, porque "alguns segundos" e "quase um minuto" nao sao a
+  // mesma expectativa. Medido: 4,6 s a 12 MP, 9,3 s a 24 MP, 53 s a 40 MP.
+  if (pixels > LIMITES.avisoDemoraLongaPixels) {
+    warnings.push(
+      `Imagem muito grande (${formatarMegapixels(inspecao.width, inspecao.height)}). ` +
+        `A conversão pode levar mais de um minuto e a página tem de ficar aberta.`,
+    )
+  } else if (pixels > LIMITES.avisoPixels) {
     warnings.push(
       `Imagem grande (${formatarMegapixels(inspecao.width, inspecao.height)}). ` +
         `A conversão pode levar alguns segundos.`,

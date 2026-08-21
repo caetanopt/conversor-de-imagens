@@ -22,6 +22,19 @@ type Props = {
   readonly disabled?: boolean
 }
 
+/**
+ * Em WebP, a qualidade 100 nao e um degrau acima de 99: o libwebp muda para
+ * modo sem perda. Medido numa imagem de 1200x800: q99 da 486 KB, q100 da
+ * 1664 KB com os pixels identicos ao original, o mesmo resultado que o define
+ * lossless. Sao 3,4 vezes o tamanho, e o utilizador tem de saber porque.
+ */
+function avisoDeQualidade(formato: FormatId, qualidade: number): string | null {
+  if (formato === 'webp' && qualidade >= 100) {
+    return 'A qualidade 100 em WebP ativa o modo sem perda. O ficheiro fica bastante maior do que a 99.'
+  }
+  return null
+}
+
 export function QualityControl({
   outputFormat,
   quality,
@@ -40,6 +53,8 @@ export function QualityControl({
       </p>
     )
   }
+
+  const aviso = avisoDeQualidade(outputFormat, quality)
 
   return (
     <div className={styles.envolvente}>
@@ -66,6 +81,8 @@ export function QualityControl({
         onChange={onQualidade}
         disabled={disabled}
       />
+
+      {aviso ? <p className={styles.aviso}>{aviso}</p> : null}
     </div>
   )
 }

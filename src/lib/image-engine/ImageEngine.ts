@@ -28,6 +28,11 @@ export type EngineConversion = {
   readonly height: number
   readonly formatId: FormatId
   readonly durationMs: number
+  /** Separados porque um decode lento e um encode lento tem causas diferentes. */
+  readonly decodeMs: number
+  readonly encodeMs: number
+  /** Perfis que sobreviveram a politica de metadados. */
+  readonly profilesKept: readonly string[]
 }
 
 /** Pista de formato para entradas com magic bytes fracos, como ICO ou TGA. */

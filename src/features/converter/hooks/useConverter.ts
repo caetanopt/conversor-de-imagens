@@ -24,7 +24,7 @@ import {
   estadoInicial,
   jobsReducer,
 } from '../state/jobsReducer'
-import type { ConversionMode, ImageJob, JobError } from '../types'
+import type { ConversionMode, ImageJob, JobError, MetadataPolicy } from '../types'
 
 /**
  * Estado do arranque do motor, exposto a interface de proposito.
@@ -165,6 +165,9 @@ export function useConverter() {
             height: resultado.height,
             formatId: job.options.outputFormat,
             durationMs: resultado.durationMs,
+            decodeMs: resultado.decodeMs,
+            encodeMs: resultado.encodeMs,
+            profilesKept: resultado.profilesKept,
           },
         })
 
@@ -181,7 +184,7 @@ export function useConverter() {
         if (!montadoRef.current) return
         const dominio = erroDeDominio(erro)
         dispatch({ type: 'erro', id, error: dominio })
-        registarFalha(job.options.outputFormat, dominio.kind)
+        registarFalha(job.options.outputFormat, dominio.kind, dominio.detail)
         setAnuncio(`Conversão falhou. ${dominio.message}`)
       }
     },
@@ -223,6 +226,10 @@ export function useConverter() {
     dispatch({ type: 'preset', id, preset })
   }, [])
 
+  const definirMetadados = useCallback((id: string, metadata: MetadataPolicy) => {
+    dispatch({ type: 'metadados', id, metadata })
+  }, [])
+
   const definirModo = useCallback((mode: ConversionMode) => {
     dispatch({ type: 'modo', mode })
   }, [])
@@ -243,6 +250,7 @@ export function useConverter() {
     definirFormatoDeSaida,
     definirQualidade,
     definirPreset,
+    definirMetadados,
     definirModo,
   }
 }

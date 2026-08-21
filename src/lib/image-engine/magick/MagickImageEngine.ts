@@ -2,31 +2,39 @@
  * Implementacao de ImageEngine sobre @imagemagick/magick-wasm.
  *
  * ESTE E O UNICO FICHEIRO DA APLICACAO QUE IMPORTA magick-wasm.
- * Um teste verifica que o motor nao aparece em nenhum bundle da main thread.
+ * Um script de verificacao confirma que o motor nao aparece em nenhum bundle
+ * da main thread.
  *
  * Notas de API, todas verificadas contra a versao 0.0.42 e nao lidas na
  * documentacao:
  *
  *  - `interlace` e apenas leitura na imagem. O JPEG progressivo obtem-se com
  *    `img.settings.interlace`, confirmado pelo marcador SOF 0xFFC2 no output.
+ *  - `setDefine` vive em `img.settings`, nao em `img`.
  *  - `write` com um formato invalido NAO lanca. Cai na sobrecarga que grava no
  *    formato de origem e devolve um ficheiro valido no formato errado. E o pior
  *    tipo de falha possivel aqui, por isso `comoMagickFormat` valida antes.
- *  - `setDefine` vive em `img.settings`, nao em `img`.
  *  - `collection.ping(bytes)` le cabecalhos sem descodificar pixels e da
  *    dimensoes, formato, alfa e numero de frames. E o que sustenta `inspect`.
  *  - `MagickGeometry.greater = true` significa "so reduzir", e
  *    `ignoreAspectRatio = true` significa dimensoes exatas. Por defeito a
  *    proporcao e preservada, que e o comportamento que queremos.
+ *  - `strip()` apaga TODOS os perfis, incluindo o ICC. Preservar a cor exige
+ *    ler o perfil antes, apagar, e reanexar.
+ *  - o objeto devolvido por `getProfile` NAO sobrevive ao `strip()`. Guarda-lo
+ *    e usa-lo depois lanca ColorspaceColorProfileMismatch, de forma
+ *    dependente do estado do heap: em isolamento passa, depois de uma imagem
+ *    grande ter sido descodificada falha. Os bytes tem de ser copiados de
+ *    imediato.
  */
 import {
   ImageMagick,
   initializeImageMagick,
   Interlace,
   Magick,
+  MagickFormat,
   MagickGeometry,
   MagickImageCollection,
-  MagickFormat,
   MagickReadSettings,
   type IMagickImage,
 } from '@imagemagick/magick-wasm'
@@ -113,20 +121,31 @@ export class MagickImageEngine implements ImageEngine {
     this.#assertPronto()
     const diretivas = resolveEncodeDirectives(options)
     const destino = formatoPorId(options.outputFormat)
+
     const inicio = performance.now()
+    let fimDoDecode = inicio
 
     const resultado = ImageMagick.read(new Uint8Array(input), (img) => {
-      aplicarDiretivas(img, diretivas)
+      // A chamada a `read` ja descodificou quando o callback comeca, portanto
+      // este e o ponto que separa decode de encode.
+      fimDoDecode = performance.now()
+
+      const profilesKept = aplicarDiretivas(img, diretivas)
       const bytes = img.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
-      return { bytes, width: img.width, height: img.height }
+      return { bytes, width: img.width, height: img.height, profilesKept }
     })
+
+    const fim = performance.now()
 
     return {
       bytes: resultado.bytes,
       width: resultado.width,
       height: resultado.height,
       formatId: destino.id,
-      durationMs: Math.round(performance.now() - inicio),
+      durationMs: Math.round(fim - inicio),
+      decodeMs: Math.round(fimDoDecode - inicio),
+      encodeMs: Math.round(fim - fimDoDecode),
+      profilesKept: resultado.profilesKept,
     }
   }
 
@@ -141,11 +160,33 @@ export class MagickImageEngine implements ImageEngine {
   }
 }
 
-function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): void {
+/** Copia os bytes de um perfil, para sobreviverem a um strip. */
+function copiarPerfil(img: IMagickImage, nome: string): Uint8Array | null {
+  const perfil = img.getProfile(nome)
+  if (!perfil) return null
+  return new Uint8Array(perfil.data)
+}
+
+/** Devolve os nomes dos perfis que ficaram na imagem depois de aplicar a politica. */
+function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): string[] {
   // Ordem obrigatoria: a orientacao tem de ser aplicada aos pixels antes de o
   // EXIF ser removido, senao a imagem sai deitada. CLAUDE.md, seccao 23.
   if (d.autoOrient) img.autoOrient()
-  if (d.strip) img.strip()
+
+  if (d.metadata.strip) {
+    // `strip` apaga tudo, incluindo o perfil de cor. Copiamos os bytes do ICC
+    // antes, para os poder devolver quando a politica e preservar a aparencia.
+    //
+    // A copia e obrigatoria e nao uma precaucao: o objeto devolvido por
+    // getProfile e uma vista sobre a memoria da imagem e deixa de ser valido
+    // depois do strip. Reutiliza-lo lanca ColorspaceColorProfileMismatch
+    // quando o heap ja cresceu com uma imagem grande.
+    const icc = d.metadata.preserveColorProfile ? copiarPerfil(img, 'icc') : null
+
+    img.strip()
+
+    if (icc) img.setProfile('icc', icc)
+  }
 
   if (d.resize) {
     const geo = new MagickGeometry(d.resize.width, d.resize.height)
@@ -160,4 +201,6 @@ function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): void {
   for (const define of d.defines) {
     img.settings.setDefine(comoMagickFormat(define.format), define.name, define.value)
   }
+
+  return [...img.profileNames]
 }

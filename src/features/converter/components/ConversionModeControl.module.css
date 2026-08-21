@@ -1,19 +1,17 @@
 .envolvente {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-2);
 }
 
-.semQualidade {
+.explicacao {
   font-size: var(--text-ui-small);
   color: var(--text-muted);
   line-height: var(--leading-relaxed);
-  padding: var(--space-3);
-  background: var(--surface-sunken);
-  border-radius: var(--radius-xs);
 }
 
-/* Aviso de mudanca de comportamento, nao de erro. Ver WebP a qualidade 100. */
+/* O utilizador escolheu otimizar e nao vai obter ganho. Dizer, em vez de
+   deixar descobrir depois de esperar. */
 .aviso {
   font-size: var(--text-ui-small);
   color: var(--text-strong);

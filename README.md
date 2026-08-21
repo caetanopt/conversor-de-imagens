@@ -4,7 +4,12 @@ Plataforma web de otimização e conversão de imagens. Todo o processamento
 acontece no dispositivo do utilizador, através de WebAssembly num Web Worker.
 Nenhuma imagem é enviada para um servidor.
 
-Estado: primeira fatia vertical funcional. Suporta JPG, PNG e WebP.
+Estado: primeira fatia vertical funcional, validada. Suporta JPG, PNG e WebP,
+em conversão e em otimização no mesmo formato.
+
+Validado em Chromium. **Firefox, Safari, iPhone e iPad continuam por validar**,
+por o ambiente de desenvolvimento não permitir instalar esses browsers. Ver
+`docs/browser-support.md`.
 
 ## Requisitos
 
@@ -28,9 +33,30 @@ npm run build         # build e exportação estática para out/
 npm run verify:bundle # confirma que o motor não entra no bundle da main thread
 npm run verify:all    # tudo o que está acima, em sequência
 
-npm run fixtures      # gera as imagens de teste
+npm run fixtures      # gera as 22 imagens de teste
 npm run test:e2e      # testes end to end, exige build e fixtures
 ```
+
+As fixtures são geradas e não versionadas. Incluem JPEG progressivo, JPEG com
+EXIF e GPS, JPEG com perfil ICC AdobeRGB, JPEG CMYK, PNG com transparência,
+ficheiros corrompidos, truncados, vazios, com extensão errada, sem extensão, e
+com nome Unicode. Ver `docs/formatos.md`.
+
+## Diagnóstico em dispositivos reais
+
+```bash
+npm run build
+npx serve out
+```
+
+Abrir `/diagnostico.html` no dispositivo a testar e premir "Correr medições".
+A página reporta capacidades do browser, informação do motor, otimização no
+mesmo formato, varredura de qualidade, e uma escada de dimensões que sobe até a
+conversão falhar. No fim produz um relatório JSON para colar em
+`docs/browser-support.md`.
+
+É a via para validar Safari e iOS, onde não é possível instalar um browser de
+teste automatizado.
 
 ## Teste manual de privacidade
 
@@ -53,6 +79,20 @@ pedido, nenhum destino externo.
 Se este procedimento falhar, a afirmação de processamento local deixa de ser
 verdadeira e tem de ser removida da interface.
 
+## Metadados
+
+Por defeito, uma conversão remove EXIF, GPS, XMP e IPTC, e mantém apenas o
+perfil de cor ICC.
+
+Não é um compromisso arbitrário. Remover o perfil muda a imagem de forma
+visível: um vermelho AdobeRGB de RGB(220,30,40) precisa de RGB(255,29,40) para
+ter o mesmo aspeto em sRGB, e sem o perfil o browser mostra os números crus. Um
+perfil ICC descreve cor, não a pessoa: não tem data, localização, autor nem
+número de série. Preservá-lo custou 570 bytes medidos.
+
+As três políticas estão na interface, e a que remove tudo avisa que as cores
+podem mudar. Ver `docs/privacidade.md`.
+
 ## Como está organizado
 
 ```
@@ -69,7 +109,8 @@ src/
   workers/             image.worker.ts, o único sítio onde o motor corre
   config/              formatos, limites, presets, identidade do motor
   styles/              tokens, tipografia, movimento
-docs/                  arquitetura, privacidade, formatos, medições
+  features/diagnostico/ página interna de validação, fora do produto
+docs/                  arquitetura, privacidade, formatos, medições, browsers
 tests/                 unitários, end to end, fixtures
 ```
 

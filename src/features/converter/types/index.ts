@@ -19,12 +19,34 @@ export type ResizeOptions = {
   readonly allowUpscale: boolean
 }
 
+/**
+ * Politica de metadados.
+ *
+ * Nao e um booleano porque a decisao nao e binaria. Medimos o impacto de cada
+ * opcao (ver docs/medicoes.md, seccao de metadados):
+ *
+ *  'remover'       apaga tudo, incluindo o perfil de cor. Ficheiro mais
+ *                  pequeno, mas uma imagem em AdobeRGB ou Display P3 passa a
+ *                  ser interpretada como sRGB e as cores mudam de forma
+ *                  visivel. Medido: um vermelho AdobeRGB(220,30,40) precisa de
+ *                  sRGB(255,29,40) para ter o mesmo aspeto.
+ *
+ *  'preservar-cor' apaga EXIF, GPS, XMP, IPTC e 8BIM, e mantem apenas o perfil
+ *                  ICC. Verificado ao nivel dos bytes: fabricante, numero de
+ *                  serie, data de captura, autor e localidade desaparecem.
+ *                  Custo medido: 570 bytes num perfil de 552 bytes.
+ *                  E o valor por defeito.
+ *
+ *  'manter'        nao apaga nada. Escolha explicita do utilizador.
+ */
+export type MetadataPolicy = 'remover' | 'preservar-cor' | 'manter'
+
 export type ConversionOptions = {
   readonly outputFormat: FormatId
   /** Null quando o formato de destino nao tem qualidade com perda. */
   readonly quality: number | null
   readonly preset: PresetId | null
-  readonly stripMetadata: boolean
+  readonly metadata: MetadataPolicy
   readonly autoOrient: boolean
   readonly lossless: boolean
   /** Presente no tipo desde ja, ligado a interface numa etapa posterior. */
@@ -50,6 +72,11 @@ export type ConversionResult = {
   readonly height: number
   readonly formatId: FormatId
   readonly durationMs: number
+  /** Separados porque um decode lento e um encode lento tem causas diferentes. */
+  readonly decodeMs: number
+  readonly encodeMs: number
+  /** Perfis que sobreviveram, para a interface poder ser honesta sobre isso. */
+  readonly profilesKept: readonly string[]
 }
 
 export type ImageJob = {
@@ -83,13 +110,22 @@ export type JobErrorKind =
   | 'falha-de-conversao'
   | 'sem-memoria'
   | 'motor-indisponivel'
+  | 'motor-terminado'
   | 'tempo-excedido'
 
 export type JobError = {
   readonly kind: JobErrorKind
   /** Mensagem em Portugues de Portugal, pronta a mostrar. */
   readonly message: string
-  /** Detalhe tecnico para diagnostico. Nunca inclui nome de ficheiro nem EXIF. */
+  /** Sugestao concreta do que fazer, quando existe uma. */
+  readonly suggestion?: string
+  /**
+   * Detalhe tecnico do motor, para diagnostico em desenvolvimento.
+   *
+   * NUNCA e mostrado ao utilizador. Nomes de excecao como
+   * NoDecodeDelegateForThisImageFormat ou caminhos internos da biblioteca nao
+   * ajudam ninguem e parecem uma falha do produto.
+   */
   readonly detail?: string
 }
 

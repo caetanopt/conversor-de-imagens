@@ -5,7 +5,7 @@
  * nome de campo so aparece em runtime.
  */
 import type { FormatId } from '@/config/formats'
-import type { ConversionOptions, ImageInspection, JobErrorKind } from '@/features/converter/types'
+import type { ConversionOptions, ImageInspection, JobError, JobErrorKind } from '@/features/converter/types'
 import type { EngineCapabilities } from './ImageEngine'
 
 export type WorkerRequest =
@@ -44,54 +44,95 @@ export type WorkerResponse =
       readonly height: number
       readonly formatId: FormatId
       readonly durationMs: number
+      readonly decodeMs: number
+      readonly encodeMs: number
+      readonly profilesKept: readonly string[]
     }
   | {
       readonly kind: 'erro'
       readonly requestId: string
       readonly errorKind: JobErrorKind
       readonly message: string
+      readonly suggestion?: string
       readonly detail?: string
     }
 
 /**
- * Traduz falhas do ImageMagick em estados de erro do dominio.
+ * Traduz falhas do motor em estados de erro do dominio.
  *
- * O motor devolve nomes de excecao como NoDecodeDelegateForThisImageFormat.
- * Mostrar isso ao utilizador seria um spinner sem contexto com passos extra.
+ * As chaves de deteccao vem de mensagens reais observadas com as fixtures de
+ * teste, nao da documentacao do ImageMagick. Ver tests/fixtures e
+ * tests/unit/protocol.test.ts.
+ *
+ * O resultado nunca contem o texto original. Mostrar
+ * "NoDecodeDelegateForThisImageFormat @ error/blob.c/ImagesToBlob/2477" a um
+ * utilizador nao ajuda ninguem e parece uma falha do produto.
  */
-export function classificarErroDoMotor(mensagem: string): {
-  kind: JobErrorKind
-  message: string
-} {
+export function classificarErroDoMotor(mensagem: string): Omit<JobError, 'detail'> {
   const m = mensagem.toLowerCase()
 
+  // ------------------------------------------------- formato nao suportado
   if (m.includes('nodecodedelegate')) {
     return {
       kind: 'formato-nao-suportado',
-      message: 'Este formato de imagem não é suportado para leitura.',
+      message: 'Este formato de imagem nao e suportado para leitura.',
+      suggestion: 'Converta a imagem para JPG, PNG ou WebP antes de a usar aqui.',
     }
   }
   if (m.includes('noencodedelegate')) {
     return {
       kind: 'formato-nao-suportado',
-      message: 'Não é possível gravar neste formato.',
+      message: 'Nao e possivel gravar neste formato.',
+      suggestion: 'Escolha outro formato de destino.',
     }
   }
-  if (m.includes('corrupt') || m.includes('improperimageheader') || m.includes('unexpectedendof')) {
+
+  // -------------------------------------------------------- ficheiro invalido
+  // 'unsupported marker type' vem de um JPEG com o corpo danificado.
+  // 'insufficientimagedata' vem de um ficheiro demasiado curto para ter imagem.
+  if (
+    m.includes('corrupt') ||
+    m.includes('improperimageheader') ||
+    m.includes('unexpectedendof') ||
+    m.includes('unsupported marker') ||
+    m.includes('insufficientimagedata') ||
+    m.includes('negativeorzeroimagesize') ||
+    m.includes('cannot be empty')
+  ) {
     return {
       kind: 'ficheiro-invalido',
-      message: 'O ficheiro parece estar danificado ou incompleto.',
+      message: 'Este ficheiro esta danificado ou incompleto e nao pode ser lido.',
+      suggestion: 'Tente exportar a imagem de novo a partir da aplicacao de origem.',
     }
   }
-  if (m.includes('memory') || m.includes('allocat') || m.includes('cachereso')) {
+
+  // ------------------------------------------------------------- sem memoria
+  if (
+    m.includes('memory') ||
+    m.includes('allocat') ||
+    m.includes('cachereso') ||
+    m.includes('out of bounds') ||
+    m.includes('table index is out of range')
+  ) {
     return {
       kind: 'sem-memoria',
-      message:
-        'Memória insuficiente para processar esta imagem. Tente uma imagem com menos pixels.',
+      message: 'Nao ha memoria suficiente neste dispositivo para processar esta imagem.',
+      suggestion: 'Tente uma imagem com menos pixels, ou feche outros separadores.',
     }
   }
+
+  // ---------------------------------------------------------- motor terminado
+  if (m.includes('motor nao inicializado') || m.includes('aborted')) {
+    return {
+      kind: 'motor-terminado',
+      message: 'O motor de conversao foi interrompido antes de terminar.',
+      suggestion: 'Tente converter de novo.',
+    }
+  }
+
   return {
     kind: 'falha-de-conversao',
-    message: 'Não foi possível converter esta imagem.',
+    message: 'Nao foi possivel converter esta imagem.',
+    suggestion: 'Tente outro formato de destino, ou uma qualidade diferente.',
   }
 }

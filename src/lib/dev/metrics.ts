@@ -31,7 +31,11 @@ export function registarConversao(m: MetricaConversao): void {
   )
 }
 
-export function registarFalha(formatoDestino: string, kind: string): void {
+/**
+ * O detalhe tecnico do motor e registado aqui e em nenhum outro sitio.
+ * Nao chega a interface, e este registo desaparece em producao.
+ */
+export function registarFalha(formatoDestino: string, kind: string, detalhe?: string): void {
   if (!ativo) return
-  console.warn(`[falha] destino ${formatoDestino} | ${kind}`)
+  console.warn(`[falha] destino ${formatoDestino} | ${kind}${detalhe ? ` | ${detalhe}` : ''}`)
 }

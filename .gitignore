@@ -12,7 +12,10 @@ next-env.d.ts
 # binario do motor, copiado pelo postinstall a partir de node_modules
 /public/magick/magick.wasm
 
-# fixtures geradas por scripts/gerar-fixtures.mjs
-/tests/fixtures/*.jpg
-/tests/fixtures/*.png
-/tests/fixtures/*.webp
+# fixtures geradas por scripts/gerar-fixtures.mjs, incluindo uma sem extensao
+/tests/fixtures/*
+!/tests/fixtures/.gitkeep
+
+# scripts temporarios de medicao
+/medir-temp.mjs
+/relatorio-chromium.json

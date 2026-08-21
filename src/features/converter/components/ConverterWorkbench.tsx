@@ -16,13 +16,16 @@ import { useState } from 'react'
 import { ErrorMessage } from '@/components/feedback/ErrorMessage'
 import { LiveRegion } from '@/components/feedback/LiveRegion'
 import { ProgressIndicator } from '@/components/feedback/ProgressIndicator'
+import { formatoDeOtimizacao } from '../state/jobsReducer'
 import { useConverter } from '../hooks/useConverter'
 import { BatchActionBar } from './BatchActionBar'
+import { ConversionModeControl } from './ConversionModeControl'
 import { ConversionSummary } from './ConversionSummary'
 import { DropZone } from './DropZone'
 import { FileQueueItem } from './FileQueueItem'
 import { FormatSelect } from './FormatSelect'
 import { ImagePreview } from './ImagePreview'
+import { MetadataControl } from './MetadataControl'
 import { QualityControl } from './QualityControl'
 import styles from './ConverterWorkbench.module.css'
 
@@ -41,6 +44,7 @@ export function ConverterWorkbench() {
   }
 
   const aProcessar = job.status === 'processing'
+  const destinoDeOtimizacao = formatoDeOtimizacao(job.sourceFormat)
 
   return (
     <div className={styles.area}>
@@ -103,13 +107,26 @@ export function ConverterWorkbench() {
               .join(' ')}
             aria-label="Definições de conversão"
           >
-            <FormatSelect
-              valor={job.options.outputFormat}
-              onChange={(formato) => conversor.definirFormatoDeSaida(job.id, formato)}
+            <ConversionModeControl
+              modo={conversor.mode}
+              sourceFormat={job.sourceFormat}
+              formatoDeOtimizacao={destinoDeOtimizacao}
+              onChange={conversor.definirModo}
               disabled={aProcessar}
             />
 
             <hr className={styles.divisor} />
+
+            {conversor.mode === 'converter' ? (
+              <>
+                <FormatSelect
+                  valor={job.options.outputFormat}
+                  onChange={(formato) => conversor.definirFormatoDeSaida(job.id, formato)}
+                  disabled={aProcessar}
+                />
+                <hr className={styles.divisor} />
+              </>
+            ) : null}
 
             <QualityControl
               outputFormat={job.options.outputFormat}
@@ -122,9 +139,17 @@ export function ConverterWorkbench() {
 
             <hr className={styles.divisor} />
 
+            <MetadataControl
+              valor={job.options.metadata}
+              onChange={(politica) => conversor.definirMetadados(job.id, politica)}
+              disabled={aProcessar}
+            />
+
+            <hr className={styles.divisor} />
+
             <p className={styles.nota}>
-              Os metadados são removidos e a orientação é corrigida antes da conversão. O controlo
-              destas opções chega numa próxima etapa.
+              A orientação é sempre corrigida a partir do EXIF antes de os metadados serem
+              removidos, para a imagem não sair deitada.
             </p>
           </section>
         </div>

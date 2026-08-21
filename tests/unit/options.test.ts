@@ -59,9 +59,35 @@ describe('resolveEncodeDirectives', () => {
 
   it('mantem a ordem de auto orient antes do strip', () => {
     // A ordem e imposta no adapter, mas as duas flags tem de chegar la.
-    const d = resolveEncodeDirectives(opcoes({ autoOrient: true, stripMetadata: true }))
+    const d = resolveEncodeDirectives(opcoes({ autoOrient: true, metadata: 'remover' }))
     expect(d.autoOrient).toBe(true)
-    expect(d.strip).toBe(true)
+    expect(d.metadata.strip).toBe(true)
+  })
+
+  describe('politica de metadados', () => {
+    it("'remover' apaga tudo, incluindo o perfil de cor", () => {
+      const d = resolveEncodeDirectives(opcoes({ metadata: 'remover' }))
+      expect(d.metadata).toEqual({ strip: true, preserveColorProfile: false })
+    })
+
+    it("'preservar-cor' apaga tudo excepto o perfil de cor", () => {
+      // O valor por defeito. Ver docs/medicoes.md: sem o perfil, um vermelho
+      // AdobeRGB(220,30,40) e apresentado como se fosse sRGB e fica mais mate.
+      const d = resolveEncodeDirectives(opcoes({ metadata: 'preservar-cor' }))
+      expect(d.metadata).toEqual({ strip: true, preserveColorProfile: true })
+    })
+
+    it("'manter' nao apaga nada", () => {
+      const d = resolveEncodeDirectives(opcoes({ metadata: 'manter' }))
+      expect(d.metadata).toEqual({ strip: false, preserveColorProfile: true })
+    })
+
+    it('o valor por defeito preserva a cor e apaga o resto', () => {
+      expect(resolveEncodeDirectives(opcoes()).metadata).toEqual({
+        strip: true,
+        preserveColorProfile: true,
+      })
+    })
   })
 
   describe('resize', () => {

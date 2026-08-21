@@ -49,6 +49,9 @@ export type ResultadoConversao = {
   readonly width: number
   readonly height: number
   readonly durationMs: number
+  readonly decodeMs: number
+  readonly encodeMs: number
+  readonly profilesKept: readonly string[]
 }
 
 export class EngineClient {
@@ -110,13 +113,16 @@ export class EngineClient {
       width: resposta.width,
       height: resposta.height,
       durationMs: resposta.durationMs,
+      decodeMs: resposta.decodeMs,
+      encodeMs: resposta.encodeMs,
+      profilesKept: resposta.profilesKept,
     }
   }
 
   /** Cancela tudo o que esta em curso. Unica forma de parar um encode do WASM. */
   cancel(): void {
     this.#rejeitarPendentes({
-      kind: 'falha-de-conversao',
+      kind: 'motor-terminado',
       message: 'Conversão cancelada.',
     })
     this.#destruirWorker()
@@ -175,6 +181,7 @@ export class EngineClient {
           new ErroDoMotor({
             kind: resposta.errorKind,
             message: resposta.message,
+            ...(resposta.suggestion === undefined ? {} : { suggestion: resposta.suggestion }),
             ...(resposta.detail === undefined ? {} : { detail: resposta.detail }),
           }),
         )
@@ -186,8 +193,9 @@ export class EngineClient {
     // Um erro nao capturado no worker deixaria todos os pedidos pendurados.
     worker.addEventListener('error', () => {
       this.#rejeitarPendentes({
-        kind: 'motor-indisponivel',
-        message: 'O motor de conversão parou de responder. Recarregue a página e tente de novo.',
+        kind: 'motor-terminado',
+        message: 'O motor de conversão parou de responder.',
+        suggestion: 'Recarregue a página e tente de novo.',
       })
       this.#destruirWorker()
     })
@@ -213,6 +221,7 @@ export class EngineClient {
           new ErroDoMotor({
             kind: 'tempo-excedido',
             message: 'A operação demorou demasiado tempo e foi interrompida.',
+            suggestion: 'Tente uma imagem com menos pixels.',
           }),
         )
       }, timeoutMs)

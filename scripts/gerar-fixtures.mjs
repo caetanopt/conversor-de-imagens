@@ -1,20 +1,35 @@
 /**
- * Gera imagens de teste deterministicas para os testes end to end.
+ * Gera as fixtures de teste.
  *
  * Sao geradas em vez de guardadas no repositorio, para nao carregar binarios no
- * historico, e usam o proprio motor, o que garante que sao ficheiros validos.
+ * historico, e sao deterministicas para os testes serem reprodutiveis.
+ *
+ * Cada fixture existe para exercitar um caminho concreto. O manifesto no fim
+ * serve para consulta local; a lista de referencia esta em docs/formatos.md e
+ * os testes leem os ficheiros diretamente.
  */
 import { readFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 import {
+  ColorProfile,
+  ColorSpace,
   ImageMagick,
   initializeImageMagick,
+  Interlace,
   MagickFormat,
   MagickImage,
   MagickReadSettings,
 } from '@imagemagick/magick-wasm'
+
+import { perfilAdobeRGB } from './lib/icc.mjs'
+import {
+  inserirSegmentos,
+  segmentoExif,
+  segmentoIptc,
+  segmentoXmp,
+} from './lib/jpeg-segments.mjs'
 
 const raiz = resolve(import.meta.dirname, '..')
 const destino = resolve(raiz, 'tests/fixtures')
@@ -23,31 +38,237 @@ await initializeImageMagick(
   new Uint8Array(readFileSync(resolve(raiz, 'public/magick/magick.wasm'))),
 )
 
-const settings = new MagickReadSettings()
-settings.width = 1200
-settings.height = 800
-const seed = MagickImage.create()
-seed.read('plasma:fractal', settings)
-const fonte = seed.write(MagickFormat.Png, (d) => new Uint8Array(d))
-seed.dispose()
+// ------------------------------------------------------------------ ajudantes
 
-await mkdir(destino, { recursive: true })
-
-const alvos = [
-  ['amostra-1200x800.jpg', MagickFormat.Jpeg, 90],
-  ['amostra-1200x800.png', MagickFormat.Png, null],
-  ['amostra-1200x800.webp', MagickFormat.WebP, 90],
-]
-
-for (const [nome, formato, qualidade] of alvos) {
-  const bytes = ImageMagick.read(fonte, (img) => {
-    if (qualidade !== null) img.quality = qualidade
-    return img.write(formato, (d) => new Uint8Array(d))
-  })
-  await writeFile(resolve(destino, nome), bytes)
-  console.log(`${nome.padEnd(26)} ${(bytes.length / 1024).toFixed(0)} KB`)
+/** Imagem base. `plasma` da conteudo de alta entropia, o pior caso de compressao. */
+function gerar(padrao, largura, altura) {
+  const settings = new MagickReadSettings()
+  settings.width = largura
+  settings.height = altura
+  const img = MagickImage.create()
+  img.read(padrao, settings)
+  const bytes = img.write(MagickFormat.Png, (d) => new Uint8Array(d))
+  img.dispose()
+  return Buffer.from(bytes)
 }
 
-// Ficheiro com extensao de imagem mas assinatura de ZIP, para testar a rejeicao.
-await writeFile(resolve(destino, 'nao-e-imagem.jpg'), Buffer.from('PK nao sou imagem'))
-console.log('nao-e-imagem.jpg           assinatura de ZIP, deve ser rejeitado')
+function escrever(origem, formato, ajustar = () => {}) {
+  return Buffer.from(
+    ImageMagick.read(origem, (img) => {
+      ajustar(img)
+      return img.write(formato, (d) => new Uint8Array(d))
+    }),
+  )
+}
+
+const manifesto = []
+
+async function guardar(nome, bytes, testa) {
+  await writeFile(resolve(destino, nome), bytes)
+  manifesto.push({ nome, bytes: bytes.length, testa })
+  const kb = bytes.length < 1024 ? `${bytes.length} B` : `${(bytes.length / 1024).toFixed(0)} KB`
+  console.log(`  ${nome.padEnd(34)} ${kb.padStart(8)}  ${testa}`)
+}
+
+// --------------------------------------------------------------------- limpar
+
+await mkdir(destino, { recursive: true })
+for (const antigo of await readdir(destino)) {
+  if (antigo !== 'manifesto.json') await rm(resolve(destino, antigo), { force: true })
+}
+
+console.log('Fixtures de imagem\n')
+
+const base1200 = gerar('plasma:fractal', 1200, 800)
+const baseSaturada = gerar('gradient:rgb(230,20,30)-rgb(20,40,220)', 400, 300)
+
+// --------------------------------------------------------------- JPEG simples
+
+await guardar(
+  'jpeg-normal.jpg',
+  escrever(base1200, MagickFormat.Jpeg, (img) => {
+    img.quality = 88
+  }),
+  'caminho feliz, JPEG baseline',
+)
+
+await guardar(
+  'jpeg-progressivo.jpg',
+  escrever(base1200, MagickFormat.Jpeg, (img) => {
+    img.quality = 88
+    img.settings.interlace = Interlace.Plane
+  }),
+  'decode de JPEG progressivo, marcador SOF2',
+)
+
+// ---------------------------------------------------------- JPEG com metadados
+
+const jpegLimpo = escrever(baseSaturada, MagickFormat.Jpeg, (img) => {
+  img.quality = 90
+})
+
+await guardar(
+  'jpeg-exif-orientacao-6.jpg',
+  inserirSegmentos(jpegLimpo, [segmentoExif({ orientacao: 6, comGps: true })]),
+  'auto orient, e remocao de EXIF, GPS e numero de serie',
+)
+
+await guardar(
+  'jpeg-exif-sem-gps.jpg',
+  inserirSegmentos(jpegLimpo, [segmentoExif({ orientacao: 1, comGps: false })]),
+  'EXIF sem GPS, orientacao neutra',
+)
+
+await guardar(
+  'jpeg-xmp.jpg',
+  inserirSegmentos(jpegLimpo, [segmentoXmp()]),
+  'remocao de XMP, que contem autor e local',
+)
+
+await guardar(
+  'jpeg-iptc.jpg',
+  inserirSegmentos(jpegLimpo, [segmentoIptc()]),
+  'remocao de IPTC, que contem autor e legenda',
+)
+
+await guardar(
+  'jpeg-tudo-metadados.jpg',
+  inserirSegmentos(jpegLimpo, [
+    segmentoExif({ orientacao: 6, comGps: true }),
+    segmentoXmp(),
+    segmentoIptc(),
+  ]),
+  'EXIF, GPS, XMP e IPTC no mesmo ficheiro',
+)
+
+// O perfil e anexado pelo proprio motor, para o resultado ser um JPEG valido
+// com APP2 correto em vez de uma insercao nossa a mao.
+const perfil = new Uint8Array(perfilAdobeRGB())
+await guardar(
+  'jpeg-icc-adobergb.jpg',
+  escrever(baseSaturada, MagickFormat.Jpeg, (img) => {
+    img.quality = 90
+    img.setProfile(new ColorProfile(perfil))
+  }),
+  'preservacao do perfil de cor, gamut fora do sRGB',
+)
+
+await guardar(
+  'jpeg-icc-e-exif.jpg',
+  Buffer.from(
+    inserirSegmentos(
+      escrever(baseSaturada, MagickFormat.Jpeg, (img) => {
+        img.quality = 90
+        img.setProfile(new ColorProfile(perfil))
+      }),
+      [segmentoExif({ orientacao: 6, comGps: true })],
+    ),
+  ),
+  'ICC preservado e EXIF removido no mesmo ficheiro',
+)
+
+await guardar(
+  'jpeg-cmyk.jpg',
+  escrever(baseSaturada, MagickFormat.Jpeg, (img) => {
+    img.quality = 90
+    // CMYK produz um JPEG de 4 componentes. Os browsers nao o descodificam de
+    // forma fiavel, por isso e um caso que a nossa validacao tem de cobrir.
+    img.colorSpace = ColorSpace.CMYK
+  }),
+  'JPEG CMYK de 4 componentes, que os browsers nao descodificam de forma fiavel',
+)
+
+// ---------------------------------------------------------------------- PNG
+
+await guardar('png-rgb.png', escrever(base1200, MagickFormat.Png), 'PNG opaco')
+
+const comAlfa = Buffer.from(
+  ImageMagick.read(baseSaturada, (img) => {
+    img.alpha(4) // AlphaOption.Set
+    img.evaluate(4, 20, 0.45) // canal alfa, operador Multiply
+    return img.write(MagickFormat.Png32, (d) => new Uint8Array(d))
+  }),
+)
+await guardar('png-transparencia.png', comAlfa, 'canal alfa preservado para WebP e perdido em JPEG')
+
+await guardar(
+  'png-grande.png',
+  escrever(gerar('plasma:fractal', 3000, 2000), MagickFormat.Png),
+  '6 MP, para medir tempo e memoria',
+)
+
+// --------------------------------------------------------------------- WebP
+
+await guardar(
+  'webp-normal.webp',
+  escrever(base1200, MagickFormat.WebP, (img) => {
+    img.quality = 85
+  }),
+  'WebP como entrada, e otimizacao WebP para WebP',
+)
+
+// -------------------------------------------------------- casos degenerados
+
+console.log('\nCasos degenerados\n')
+
+await guardar(
+  'corrompido.jpg',
+  Buffer.concat([
+    // Cabecalho valido, corpo destruido: o decoder tem de falhar com um erro
+    // tratado e nao com uma excecao crua.
+    Buffer.from(jpegLimpo.subarray(0, 200)),
+    Buffer.from(Array.from({ length: 3000 }, (_, i) => (i * 37) % 256)),
+  ]),
+  'erro de decoder, ficheiro danificado',
+)
+
+await guardar(
+  'truncado.jpg',
+  Buffer.from(jpegLimpo.subarray(0, Math.floor(jpegLimpo.length / 3))),
+  'ficheiro incompleto, sem marcador de fim',
+)
+
+await guardar(
+  'extensao-errada.jpg',
+  escrever(baseSaturada, MagickFormat.Png),
+  'PNG com extensao .jpg: o formato vem dos bytes, nao do nome',
+)
+
+await guardar(
+  'sem-extensao',
+  escrever(baseSaturada, MagickFormat.Jpeg, (img) => {
+    img.quality = 85
+  }),
+  'ficheiro sem extensao nenhuma',
+)
+
+await guardar(
+  'minusculo.jpg',
+  Buffer.from([0xff, 0xd8, 0xff]),
+  'tres bytes: assinatura valida, nada mais',
+)
+
+await guardar('vazio.jpg', Buffer.alloc(0), 'ficheiro de zero bytes')
+
+await guardar(
+  'nao-e-imagem.jpg',
+  Buffer.from('PK\x03\x04 isto e um zip disfarcado de imagem', 'latin1'),
+  'assinatura de ZIP: tem de ser recusado',
+)
+
+await guardar(
+  'fotografia-ferias-2026-acentuacao-ção-日本語.jpg',
+  escrever(baseSaturada, MagickFormat.Jpeg, (img) => {
+    img.quality = 85
+  }),
+  'nome Unicode, acentos e caracteres nao latinos',
+)
+
+// ------------------------------------------------------------------ manifesto
+
+await writeFile(
+  resolve(destino, 'manifesto.json'),
+  `${JSON.stringify({ geradoPor: 'scripts/gerar-fixtures.mjs', fixtures: manifesto }, null, 2)}\n`,
+)
+
+console.log(`\n${manifesto.length} fixtures, manifesto.json escrito`)

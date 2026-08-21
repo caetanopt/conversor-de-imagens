@@ -56,7 +56,7 @@ const APIS_DE_PERSISTENCIA = [
 ]
 
 export default tseslint.config(
-  { ignores: ['.next/**', 'out/**', 'node_modules/**', 'coverage/**', 'next-env.d.ts'] },
+  { ignores: ['.next/**', 'out/**', 'node_modules/**', 'coverage/**', 'next-env.d.ts', '*-temp.mjs'] },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

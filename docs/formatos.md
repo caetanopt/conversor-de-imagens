@@ -118,6 +118,47 @@ queremos, portanto o comportamento correto é o que não custa nada.
 formato, alfa e número de fotogramas. É o que sustenta `inspect` e evita
 descodificar 24 MP só para mostrar as dimensões na interface.
 
+## Casos de imagem cobertos por fixtures
+
+Geradas por `npm run fixtures`. Cada uma existe para exercitar um caminho
+concreto, e `tests/unit/fixtures.test.ts` corre o motor real sobre todas.
+
+| Fixture | O que testa | Resultado |
+|---|---|---|
+| `jpeg-normal.jpg` | caminho feliz, baseline | le, SOF0 |
+| `jpeg-progressivo.jpg` | decode progressivo | le, SOF2 confirmado |
+| `jpeg-exif-orientacao-6.jpg` | auto orient, remocao de EXIF e GPS | 400x300 passa a 300x400 |
+| `jpeg-exif-sem-gps.jpg` | EXIF sem GPS | le |
+| `jpeg-xmp.jpg` | remocao de XMP | autor e local removidos |
+| `jpeg-iptc.jpg` | remocao de IPTC | autor e legenda removidos |
+| `jpeg-tudo-metadados.jpg` | EXIF, GPS, XMP e IPTC juntos | sete dados privados removidos |
+| `jpeg-icc-adobergb.jpg` | perfil de cor fora do sRGB | perfil preservado |
+| `jpeg-icc-e-exif.jpg` | ICC preservado e EXIF removido | apenas `icc` sobrevive |
+| `jpeg-cmyk.jpg` | JPEG de 4 componentes | le, SOF com 4 componentes |
+| `png-rgb.png` | PNG opaco | le |
+| `png-transparencia.png` | canal alfa | preservado em PNG, perdido em JPEG |
+| `png-grande.png` | 6 MP | le |
+| `webp-normal.webp` | WebP de entrada e otimizacao | le |
+| `corrompido.jpg` | erro de decoder | `ficheiro-invalido` |
+| `truncado.jpg` | ficheiro incompleto | le parcialmente, sem lancar |
+| `extensao-errada.jpg` | PNG com extensao `.jpg` | detetado como PNG |
+| `sem-extensao` | sem extensao | detetado como JPEG |
+| `minusculo.jpg` | tres bytes | `ficheiro-invalido` |
+| `vazio.jpg` | zero bytes | `ficheiro-invalido` |
+| `nao-e-imagem.jpg` | assinatura de ZIP | `formato-nao-suportado` |
+| nome com acentos e CJK | nome Unicode | preservado, so a extensao muda |
+
+O EXIF, o XMP e o IPTC destas fixtures sao construidos byte a byte em
+`scripts/lib/jpeg-segments.mjs`, porque o `magick-wasm` nao permite escrever
+esses segmentos. O perfil ICC AdobeRGB e construido em `scripts/lib/icc.mjs`,
+por nao existir nenhum perfil nao-sRGB disponivel no ambiente.
+
+**Nota sobre testes com nomes Unicode:** o `setInputFiles` do Playwright anexa
+zero ficheiros, em silencio e sem lancar, para qualquer nome com um carater fora
+de ASCII. Verificado com acentos do portugues, cirilico, CJK e emoji. O teste
+end to end constroi o ficheiro dentro da pagina com `DataTransfer` para
+contornar essa limitacao da ferramenta.
+
 ## Formatos deliberadamente fora
 
 | Formato | Razão |

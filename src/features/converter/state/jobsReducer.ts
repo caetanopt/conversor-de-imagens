@@ -15,6 +15,7 @@ import type {
   ImageInspection,
   ImageJob,
   JobError,
+  MetadataPolicy,
   PreviewRef,
 } from '../types'
 
@@ -36,6 +37,7 @@ export type ConverterAction =
   | { readonly type: 'formato-de-saida'; readonly id: string; readonly outputFormat: FormatId }
   | { readonly type: 'qualidade'; readonly id: string; readonly quality: number }
   | { readonly type: 'preset'; readonly id: string; readonly preset: PresetId }
+  | { readonly type: 'metadados'; readonly id: string; readonly metadata: MetadataPolicy }
   | { readonly type: 'modo'; readonly mode: ConversionMode }
   | { readonly type: 'remover'; readonly id: string }
   | { readonly type: 'limpar' }
@@ -118,8 +120,39 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
         },
       }))
 
-    case 'modo':
-      return { ...estado, mode: acao.mode }
+    case 'metadados':
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        // Mudar a politica muda os bytes de saida, logo o resultado anterior
+        // deixa de corresponder ao que esta selecionado.
+        status: job.status === 'done' ? 'ready' : job.status,
+        result: null,
+        options: { ...job.options, metadata: acao.metadata },
+      }))
+
+    case 'modo': {
+      if (acao.mode === estado.mode) return estado
+
+      // Otimizar e converter sao o mesmo pipeline: a unica diferenca e que em
+      // 'otimizar' o formato de destino e imposto pelo formato de origem.
+      // Nao ha um segundo caminho de codigo, so uma restricao na escolha.
+      const jobs =
+        acao.mode === 'otimizar'
+          ? estado.jobs.map((job) => {
+              const destino = formatoDeOtimizacao(job.sourceFormat)
+              if (!destino || destino === job.options.outputFormat) return job
+              return {
+                ...job,
+                status: job.status === 'done' || job.status === 'error' ? 'ready' : job.status,
+                result: null,
+                error: null,
+                options: opcoesParaFormato(job.options, destino),
+              } satisfies ImageJob
+            })
+          : estado.jobs
+
+      return { ...estado, mode: acao.mode, jobs }
+    }
 
     case 'remover':
       return { ...estado, jobs: estado.jobs.filter((job) => job.id !== acao.id) }
@@ -171,9 +204,10 @@ export function opcoesPorDefeito(outputFormat: FormatId): ConversionOptions {
     outputFormat,
     quality: qualidadeDoPreset(PRESET_POR_DEFEITO, formato),
     preset: PRESET_POR_DEFEITO,
-    // Remover metadados e o comportamento recomendado: menos bytes e menos
-    // dados pessoais no ficheiro que o utilizador vai partilhar.
-    stripMetadata: true,
+    // Remove EXIF, GPS, XMP e IPTC, e mantem o perfil de cor. Medido: sem o
+    // perfil, uma imagem AdobeRGB muda de cor de forma visivel.
+    // Ver docs/medicoes.md.
+    metadata: 'preservar-cor',
     autoOrient: true,
     lossless: false,
     resize: null,
@@ -210,4 +244,23 @@ export function criarJob(
 /** Destino sensato: WebP a partir de qualquer coisa, JPG a partir de WebP. */
 export function destinoSugerido(sourceFormat: FormatId | null): FormatId {
   return sourceFormat === 'webp' ? 'jpeg' : 'webp'
+}
+
+/**
+ * Formato de destino no modo de otimizacao: o mesmo da origem.
+ *
+ * Devolve null quando otimizar no mesmo formato nao e possivel, o que acontece
+ * se o motor souber ler mas nao escrever esse formato. HEIC e o caso obvio: o
+ * motor descodifica e nao codifica, logo "otimizar um HEIC" nao existe.
+ */
+export function formatoDeOtimizacao(sourceFormat: FormatId | null): FormatId | null {
+  if (!sourceFormat) return null
+  const formato = formatoPorId(sourceFormat)
+  if (!formato.canEncode || formato.release !== 'ativo') return null
+  return formato.id
+}
+
+/** True quando o trabalho ja esta a produzir o mesmo formato da origem. */
+export function eOtimizacao(job: ImageJob): boolean {
+  return job.sourceFormat !== null && job.sourceFormat === job.options.outputFormat
 }

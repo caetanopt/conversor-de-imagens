@@ -1,0 +1,188 @@
+.pagina {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4) var(--space-16);
+}
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line-default);
+}
+
+.titulo {
+  font-size: var(--text-display);
+  font-weight: var(--weight-strong);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-strong);
+}
+
+.subtitulo {
+  margin-top: var(--space-2);
+  max-width: 60ch;
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}
+
+.secao {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.tituloSecao {
+  font-size: var(--text-heading);
+  font-weight: var(--weight-strong);
+  color: var(--text-strong);
+}
+
+.passo {
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-inset);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-ui-small);
+}
+
+.ok,
+.erro,
+.nota {
+  font-size: var(--text-ui-small);
+  line-height: var(--leading-relaxed);
+}
+
+.ok {
+  padding: var(--space-2) var(--space-3);
+  background: var(--state-positive-quiet);
+  border-left: 3px solid var(--state-positive);
+  border-radius: var(--radius-xs);
+  color: var(--text-strong);
+}
+
+.erro {
+  padding: var(--space-2) var(--space-3);
+  background: var(--state-danger-quiet);
+  border-left: 3px solid var(--state-danger);
+  border-radius: var(--radius-xs);
+  color: var(--text-strong);
+}
+
+.nota {
+  max-width: 80ch;
+  color: var(--text-muted);
+}
+
+/* Tabelas largas rolam dentro do proprio contentor. A pagina nunca rola na
+   horizontal. */
+.tabelaEnvolvente {
+  overflow-x: auto;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-sm);
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-ui-small);
+}
+
+.tabela th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  border-bottom: 1px solid var(--line-default);
+  font-size: var(--text-label);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tabela td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line-subtle);
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.tabela tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.celulaTexto {
+  white-space: normal;
+  min-width: 30ch;
+  color: var(--text-muted);
+}
+
+.celulaOk {
+  color: var(--state-positive);
+  font-weight: var(--weight-medium);
+}
+
+.celulaFalha {
+  color: var(--state-danger);
+  font-weight: var(--weight-medium);
+}
+
+.definicoes {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-sm);
+}
+
+.par {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--line-subtle);
+}
+
+.par:last-child {
+  border-bottom: 0;
+}
+
+.par > dt {
+  flex: none;
+  min-width: 18ch;
+}
+
+.valor {
+  font-family: var(--font-data);
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+  min-width: 0;
+}
+
+.quebrar {
+  word-break: break-all;
+}
+
+.relatorio {
+  width: 100%;
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  color: var(--text-default);
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-data);
+  font-size: var(--text-ui-small);
+  resize: vertical;
+}
+
+@media (min-width: 768px) {
+  .pagina {
+    padding: var(--space-8) var(--space-6) var(--space-16);
+  }
+}

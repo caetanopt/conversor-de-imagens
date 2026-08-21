@@ -35,6 +35,9 @@ const resultado: ConversionResult = {
   height: 800,
   formatId: 'webp',
   durationMs: 120,
+  decodeMs: 40,
+  encodeMs: 80,
+  profilesKept: [],
 }
 
 describe('criarJob', () => {
@@ -58,9 +61,11 @@ describe('criarJob', () => {
     expect(job.error).toBeNull()
   })
 
-  it('remove metadados e corrige orientacao por defeito', () => {
+  it('preserva a cor e remove o resto dos metadados por defeito', () => {
     const job = criarJob(ficheiro(), 'jpeg', 'webp')
-    expect(job.options.stripMetadata).toBe(true)
+    // Nao e 'remover': sem o perfil de cor, uma imagem AdobeRGB muda de
+    // aspeto. Nao e 'manter': o GPS e o numero de serie tem de sair.
+    expect(job.options.metadata).toBe('preservar-cor')
     expect(job.options.autoOrient).toBe(true)
   })
 })

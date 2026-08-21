@@ -14,9 +14,8 @@
   color: var(--text-strong);
 }
 
-.detalhe {
-  font-family: var(--font-data);
-  font-size: var(--text-label);
+.sugestao {
+  font-size: var(--text-ui-small);
   color: var(--text-muted);
-  word-break: break-word;
+  line-height: var(--leading-relaxed);
 }

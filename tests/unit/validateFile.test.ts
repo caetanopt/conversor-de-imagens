@@ -104,21 +104,46 @@ describe('validarInspecao', () => {
   })
 
   it('rejeita acima do limite de pixels e explica a razao', () => {
+    // O limite e 40 MP, medido: 100 MP mata o worker e 60 MP levou 82 s.
     const r = validarInspecao(inspecao({ width: 20_000, height: 20_000 }))
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.error.kind).toBe('demasiado-grande')
-      expect(r.error.message).toContain('memória')
+      expect(r.error.message).toContain('40 MP')
+      expect(r.error.message).toMatch(/tempo útil/)
     }
   })
 
-  it('avisa numa imagem grande mas aceitavel', () => {
-    const r = validarInspecao(inspecao({ width: 8000, height: 6000 }))
+  it('aceita exatamente no limite', () => {
+    // 40 MP redondos tem de passar. Uma imagem de camara de topo cai aqui.
+    const r = validarInspecao(inspecao({ width: 8000, height: 5000 }))
+    expect(r.ok).toBe(true)
+  })
+
+  it('avisa em segundos entre 12 e 24 MP', () => {
+    // Medido: 4,6 s a 12 MP.
+    const r = validarInspecao(inspecao({ width: 5000, height: 3000 }))
     expect(r.ok).toBe(true)
     if (r.ok) {
       expect(r.warnings).toHaveLength(1)
-      expect(r.warnings[0]).toContain('segundos')
+      expect(r.warnings[0]).toContain('alguns segundos')
     }
+  })
+
+  it('avisa de demora longa acima de 24 MP', () => {
+    // Medido: 53 s a 40 MP. "Alguns segundos" seria enganador.
+    const r = validarInspecao(inspecao({ width: 7000, height: 4500 }))
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.warnings).toHaveLength(1)
+      expect(r.warnings[0]).toContain('mais de um minuto')
+    }
+  })
+
+  it('nao avisa abaixo do primeiro patamar', () => {
+    const r = validarInspecao(inspecao({ width: 2000, height: 1500 }))
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.warnings).toHaveLength(0)
   })
 
   it('nunca deixa passar animacao em silencio', () => {

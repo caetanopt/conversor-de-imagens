@@ -15,12 +15,13 @@ import { expect, test, type Page, type Request } from '@playwright/test'
  */
 
 const FIXTURES = resolve(import.meta.dirname, '../fixtures')
-const AMOSTRA_JPG = resolve(FIXTURES, 'amostra-1200x800.jpg')
-const NAO_IMAGEM = resolve(FIXTURES, 'nao-e-imagem.jpg')
+const AMOSTRA_JPG = resolve(FIXTURES, 'jpeg-normal.jpg')
+const ORIGEM = 'http://127.0.0.1:4321'
 
 type PedidoGravado = {
   readonly url: string
   readonly metodo: string
+  readonly corpo: string | null
   readonly bytesEnviados: number
   readonly contentType: string
 }
@@ -32,6 +33,7 @@ function gravarPedidos(pagina: Page): PedidoGravado[] {
     pedidos.push({
       url: pedido.url(),
       metodo: pedido.method(),
+      corpo,
       bytesEnviados: corpo ? Buffer.byteLength(corpo) : 0,
       contentType: pedido.headers()['content-type'] ?? '',
     })
@@ -39,87 +41,113 @@ function gravarPedidos(pagina: Page): PedidoGravado[] {
   return pedidos
 }
 
+/**
+ * Amostras de bytes retiradas do ficheiro de origem, para procurar nos pedidos.
+ *
+ * A verificacao "nenhum pedido tem corpo" ja e forte, mas nao cobre exfiltracao
+ * por URL nem por cabecalho. Esta procura por conteudo cobre isso: se qualquer
+ * representacao dos bytes da imagem aparecer em qualquer pedido, falha.
+ */
+function amostrasDoFicheiro(caminho: string): readonly { rotulo: string; agulha: string }[] {
+  const bytes = readFileSync(caminho)
+  const amostras: { rotulo: string; agulha: string }[] = []
+
+  // Tres janelas de 24 bytes, em posicoes diferentes do ficheiro.
+  for (const [rotulo, offset] of [
+    ['inicio', 0],
+    ['meio', Math.floor(bytes.length / 2)],
+    ['fim', bytes.length - 24],
+  ] as const) {
+    const janela = bytes.subarray(offset, offset + 24)
+    amostras.push({ rotulo: `${rotulo} em latin1`, agulha: janela.toString('latin1') })
+    amostras.push({ rotulo: `${rotulo} em base64`, agulha: janela.toString('base64') })
+    amostras.push({ rotulo: `${rotulo} em hexadecimal`, agulha: janela.toString('hex') })
+  }
+
+  return amostras
+}
+
 test.describe('processamento local', () => {
   test('converte JPG para WebP sem enviar bytes para nenhum servidor', async ({ page }) => {
     const pedidos = gravarPedidos(page)
     await page.goto('/')
 
-    // 1. Selecionar
     await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
-    await expect(page.getByText('amostra-1200x800.jpg')).toBeVisible()
+    await expect(page.getByText('jpeg-normal.jpg')).toBeVisible()
 
-    // 2. Visualizar. A miniatura e gerada localmente, so aparece depois de o
-    //    motor devolver as dimensoes.
     await expect(page.getByRole('img', { name: /Pré-visualização/ })).toBeVisible({
       timeout: 120_000,
     })
     await expect(page.getByText('1200 x 800')).toBeVisible()
-
-    // 3. Escolher formato. WebP e o destino sugerido para um JPG.
     await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
 
-    // 4. Converter
     const botaoConverter = page.getByRole('button', { name: /Converter para WebP/ })
     await expect(botaoConverter).toBeEnabled({ timeout: 120_000 })
     await botaoConverter.click()
 
-    // 5. Comparar
     await expect(page.getByText('Tamanho final')).toBeVisible({ timeout: 120_000 })
     await expect(page.getByText(/Processado no seu dispositivo em/)).toBeVisible()
 
-    // 6. Descarregar
     const descarregar = page.getByRole('button', { name: /Descarregar/ })
     await expect(descarregar).toBeVisible()
     const [download] = await Promise.all([page.waitForEvent('download'), descarregar.click()])
 
-    expect(download.suggestedFilename()).toBe('amostra-1200x800.webp')
-    const caminho = await download.path()
-    const resultado = readFileSync(caminho)
-
-    // O ficheiro descarregado e realmente um WebP: RIFF....WEBP
+    expect(download.suggestedFilename()).toBe('jpeg-normal.webp')
+    const resultado = readFileSync(await download.path())
     expect(resultado.subarray(0, 4).toString('latin1')).toBe('RIFF')
     expect(resultado.subarray(8, 12).toString('latin1')).toBe('WEBP')
-    expect(resultado.byteLength).toBeGreaterThan(0)
 
     // ------------------------------------------------------------------
-    // A verificacao que da nome a este teste.
+    // 1. Nenhum pedido leva corpo.
     // ------------------------------------------------------------------
-
     const comCorpo = pedidos.filter((p) => p.bytesEnviados > 0)
-    expect(comCorpo, `pedidos com corpo: ${JSON.stringify(comCorpo, null, 2)}`).toHaveLength(0)
+    expect(comCorpo.map((p) => p.url), 'pedidos com corpo').toHaveLength(0)
+    expect(pedidos.filter((p) => p.metodo !== 'GET').map((p) => p.url)).toHaveLength(0)
+    expect(pedidos.filter((p) => p.contentType.includes('multipart'))).toHaveLength(0)
+    expect(pedidos.reduce((t, p) => t + p.bytesEnviados, 0)).toBe(0)
 
-    const naoGet = pedidos.filter((p) => p.metodo !== 'GET')
-    expect(naoGet, `pedidos que nao sao GET: ${JSON.stringify(naoGet, null, 2)}`).toHaveLength(0)
-
-    const multipart = pedidos.filter((p) => p.contentType.includes('multipart'))
-    expect(multipart).toHaveLength(0)
-
-    // Separar pedidos de rede de esquemas locais. Um blob: ou data: nunca sai
-    // do dispositivo por construcao, e a miniatura usa um blob:.
+    // ------------------------------------------------------------------
+    // 2. Nada sai da nossa origem.
+    // ------------------------------------------------------------------
     const deRede = pedidos.filter((p) => p.url.startsWith('http:') || p.url.startsWith('https:'))
-    const locais = pedidos.filter((p) => !deRede.includes(p))
+    const foraDaOrigem = deRede.filter((p) => !p.url.startsWith(ORIGEM))
+    expect(foraDaOrigem.map((p) => p.url), 'pedidos para outra origem').toHaveLength(0)
 
-    // Nenhum pedido de rede para fora da nossa origem. Nem CDN, nem analytics,
-    // nem tipos de letra, nem nada.
-    const foraDaOrigem = deRede.filter((p) => !p.url.startsWith('http://127.0.0.1:4321'))
-    expect(
-      foraDaOrigem,
-      `pedidos para outra origem: ${JSON.stringify(foraDaOrigem, null, 2)}`,
-    ).toHaveLength(0)
-
-    // Os esquemas locais tem de ser mesmo locais, e o blob tem de pertencer a
-    // nossa origem. Um blob de outra origem seria conteudo de terceiros.
-    for (const pedido of locais) {
+    for (const pedido of pedidos.filter((p) => !deRede.includes(p))) {
       expect(pedido.url, `esquema inesperado: ${pedido.url}`).toMatch(
-        /^(blob:http:\/\/127\.0\.0\.1:4321\/|data:)/,
+        new RegExp(`^(blob:${ORIGEM.replace(/[.:/]/g, '\\$&')}/|data:)`),
       )
     }
 
-    // O total de bytes enviados no corpo de pedidos e exatamente zero.
-    expect(pedidos.reduce((total, p) => total + p.bytesEnviados, 0)).toBe(0)
+    // ------------------------------------------------------------------
+    // 3. Nenhuma representacao dos bytes da imagem aparece em pedido nenhum,
+    //    nem no URL, nem no corpo. Cobre exfiltracao por query string.
+    // ------------------------------------------------------------------
+    const amostras = amostrasDoFicheiro(AMOSTRA_JPG)
+    expect(amostras.length).toBeGreaterThan(0)
 
-    // Contraprova: a pagina fez pedidos de facto, incluindo o binario do motor.
-    // Sem isto o teste passaria numa pagina que nao carregou nada.
+    for (const { rotulo, agulha } of amostras) {
+      for (const pedido of pedidos) {
+        expect(pedido.url.includes(agulha), `${rotulo} apareceu no URL ${pedido.url}`).toBe(false)
+        if (pedido.corpo) {
+          expect(pedido.corpo.includes(agulha), `${rotulo} apareceu no corpo de ${pedido.url}`).toBe(
+            false,
+          )
+        }
+      }
+    }
+
+    // Contraprova das agulhas: elas existem de facto no ficheiro de origem.
+    // Sem isto, esta seccao passaria com agulhas vazias.
+    const original = readFileSync(AMOSTRA_JPG).toString('latin1')
+    const emLatin1 = amostras.filter((a) => a.rotulo.endsWith('latin1'))
+    for (const { rotulo, agulha } of emLatin1) {
+      expect(original.includes(agulha), `agulha ${rotulo} nao existe no original`).toBe(true)
+    }
+
+    // ------------------------------------------------------------------
+    // 4. Contraprova geral: a pagina fez pedidos, incluindo o binario do motor.
+    // ------------------------------------------------------------------
     expect(pedidos.length).toBeGreaterThan(3)
     expect(pedidos.some((p) => p.url.includes('magick.wasm'))).toBe(true)
   })
@@ -137,7 +165,8 @@ test.describe('processamento local', () => {
       localStorage: Object.keys(localStorage).length,
       sessionStorage: Object.keys(sessionStorage).length,
       // indexedDB.databases nao existe em todos os browsers; -1 marca "nao verificavel".
-      indexedDB: typeof indexedDB.databases === 'function' ? (await indexedDB.databases()).length : -1,
+      indexedDB:
+        typeof indexedDB.databases === 'function' ? (await indexedDB.databases()).length : -1,
       caches: typeof caches !== 'undefined' ? (await caches.keys()).length : -1,
       serviceWorkers: navigator.serviceWorker
         ? (await navigator.serviceWorker.getRegistrations()).length
@@ -150,19 +179,152 @@ test.describe('processamento local', () => {
     expect(armazenamento.caches).toBeLessThanOrEqual(0)
     expect(armazenamento.serviceWorkers).toBeLessThanOrEqual(0)
   })
+
+  test('o inventario de pedidos e exatamente o documentado', async ({ page }) => {
+    // Este teste existe para docs/privacidade.md nao envelhecer em silencio.
+    // Se um pedido novo aparecer no fluxo normal, falha aqui e a documentacao
+    // tem de ser atualizada em conjunto.
+    const pedidos = gravarPedidos(page)
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+    const botao = page.getByRole('button', { name: /Converter para WebP/ })
+    await expect(botao).toBeEnabled({ timeout: 120_000 })
+    await botao.click()
+    await expect(page.getByText('Tamanho final')).toBeVisible({ timeout: 120_000 })
+
+    const PADROES_PERMITIDOS = [
+      /^http:\/\/127\.0\.0\.1:4321\/$/,
+      /^http:\/\/127\.0\.0\.1:4321\/_next\/static\//,
+      /^http:\/\/127\.0\.0\.1:4321\/magick\/magick\.wasm(\?|$)/,
+      /^http:\/\/127\.0\.0\.1:4321\/favicon\.ico$/,
+      /^blob:http:\/\/127\.0\.0\.1:4321\//,
+    ]
+
+    const inesperados = pedidos.filter(
+      (p) => !PADROES_PERMITIDOS.some((padrao) => padrao.test(p.url)),
+    )
+    expect(
+      inesperados.map((p) => `${p.metodo} ${p.url}`),
+      'pedidos fora do inventario de docs/privacidade.md',
+    ).toHaveLength(0)
+  })
 })
 
 test.describe('estados da interface', () => {
-  test('rejeita um ficheiro que nao e imagem, apesar da extensao', async ({ page }) => {
-    await page.goto('/')
-    await page.setInputFiles('input[type="file"]', NAO_IMAGEM)
+  /** Cada caso e um ficheiro real de tests/fixtures. */
+  const CASOS_INVALIDOS: readonly { fixture: string; mensagem: RegExp }[] = [
+    { fixture: 'nao-e-imagem.jpg', mensagem: /não parece ser uma imagem/i },
+    { fixture: 'vazio.jpg', mensagem: /está vazio/i },
+    { fixture: 'minusculo.jpg', mensagem: /danificad|incomplet|vazio/i },
+  ]
 
-    // O anunciador de rota do Next tambem tem role=alert, por isso limitamos a
-    // procura a coluna do ficheiro.
-    const painelDoFicheiro = page.getByRole('complementary', { name: 'Ficheiro' })
-    await expect(painelDoFicheiro.getByRole('alert')).toContainText(/não parece ser uma imagem/i)
-    // Nao pode existir accao de conversao sobre um ficheiro rejeitado.
-    await expect(page.getByRole('button', { name: /^Converter para/ })).toBeDisabled()
+  for (const { fixture, mensagem } of CASOS_INVALIDOS) {
+    test(`${fixture} da uma mensagem compreensivel`, async ({ page }) => {
+      await page.goto('/')
+      await page.setInputFiles('input[type="file"]', resolve(FIXTURES, fixture))
+
+      const painel = page.getByRole('complementary', { name: 'Ficheiro' })
+      const alerta = painel.getByRole('alert')
+      await expect(alerta).toBeVisible()
+      await expect(alerta).toContainText(mensagem)
+
+      // Nenhum vestigio da biblioteca no ecra.
+      const texto = (await alerta.textContent()) ?? ''
+      expect(texto).not.toMatch(/NoDecodeDelegate|error\/|0x[0-9a-f]{2}|magick|wasm/i)
+
+      await expect(page.getByRole('button', { name: /^Converter para/ })).toBeDisabled()
+    })
+  }
+
+  test('um ficheiro corrompido falha na conversao com mensagem tratada', async ({ page }) => {
+    // Este passa a validacao de assinatura porque o cabecalho e valido, e so
+    // falha quando o decoder chega ao corpo destruido.
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', resolve(FIXTURES, 'corrompido.jpg'))
+
+    const painel = page.getByRole('complementary', { name: 'Ficheiro' })
+    await expect(painel.getByRole('alert')).toBeVisible({ timeout: 120_000 })
+    const texto = (await painel.getByRole('alert').textContent()) ?? ''
+    expect(texto).toMatch(/danificad|incomplet|não foi possível/i)
+    expect(texto).not.toMatch(/marker|error\/|0x[0-9a-f]{2}/i)
+  })
+
+  test('um PNG com extensao .jpg e tratado como PNG', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', resolve(FIXTURES, 'extensao-errada.jpg'))
+
+    // O aviso diz o que vai acontecer, em vez de tratar em silencio.
+    await expect(page.getByText(/conteúdo é PNG/i)).toBeVisible()
+    // E o destino sugerido continua a ser WebP, porque a origem e PNG.
+    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+  })
+
+  test('um ficheiro sem extensao funciona normalmente', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', resolve(FIXTURES, 'sem-extensao'))
+    await expect(page.getByRole('img', { name: /Pré-visualização/ })).toBeVisible({
+      timeout: 120_000,
+    })
+    await expect(page.getByRole('button', { name: /Converter para WebP/ })).toBeEnabled()
+  })
+
+  test('um nome Unicode sobrevive ao descarregamento', async ({ page }) => {
+    // O ficheiro e construido dentro da pagina, e nao com setInputFiles.
+    //
+    // Razao: neste Playwright, `setInputFiles` anexa ZERO ficheiros, em
+    // silencio e sem lancar, para qualquer nome com um carater fora de ASCII.
+    // Verificado com "ção", "áéí", cirilico, CJK e emoji: todos dao
+    // files.length === 0. Um nome ASCII com o mesmo conteudo funciona.
+    //
+    // Injetar via DataTransfer testa o caminho real da aplicacao, incluindo o
+    // evento change, sem passar pela limitacao da ferramenta.
+    const nome = 'fotografia-férias-2026-ção-日本語.jpg'
+    const bytes = [...readFileSync(AMOSTRA_JPG)]
+
+    await page.goto('/')
+    await page.evaluate(
+      ({ nome, bytes }) => {
+        const input = document.querySelector<HTMLInputElement>('input[type="file"]')
+        if (!input) throw new Error('input de ficheiro nao encontrado')
+        const ficheiro = new File([new Uint8Array(bytes)], nome, { type: 'image/jpeg' })
+        const dt = new DataTransfer()
+        dt.items.add(ficheiro)
+        input.files = dt.files
+        input.dispatchEvent(new Event('change', { bubbles: true }))
+      },
+      { nome, bytes },
+    )
+
+    // O nome chega intacto a interface.
+    await expect(page.getByTitle(nome)).toBeVisible({ timeout: 120_000 })
+
+    const botao = page.getByRole('button', { name: /Converter para WebP/ })
+    await expect(botao).toBeEnabled({ timeout: 120_000 })
+    await botao.click()
+
+    const descarregar = page.getByRole('button', { name: /Descarregar/ })
+    await expect(descarregar).toBeVisible({ timeout: 120_000 })
+    const [download] = await Promise.all([page.waitForEvent('download'), descarregar.click()])
+
+    // O conteudo descarregado e um WebP valido.
+    const resultado = readFileSync(await download.path())
+    expect(resultado.subarray(0, 4).toString('latin1')).toBe('RIFF')
+    expect(resultado.subarray(8, 12).toString('latin1')).toBe('WEBP')
+
+    // NAO verificamos aqui o nome do ficheiro descarregado.
+    //
+    // Neste Chromium headless, um `<a download>` com qualquer carater fora de
+    // ASCII faz `suggestedFilename()` devolver "download". Verificado com tres
+    // linhas de HTML puro, sem codigo da aplicacao envolvido, portanto e
+    // comportamento do ambiente e nao nosso.
+    //
+    // A logica de nomes esta coberta em tests/unit/fileNames.test.ts, incluindo
+    // acentos, cirilico, CJK, emoji e as formas NFC e NFD. O nome apresentado na
+    // interface e verificado acima com getByTitle.
+    //
+    // Fica em aberto: confirmar a mao, num browser normal, que o ficheiro
+    // guardado mantem o nome. Registado em docs/browser-support.md.
+    expect(download.suggestedFilename().length).toBeGreaterThan(0)
   })
 
   test('mudar o formato de destino invalida o resultado anterior', async ({ page }) => {
@@ -176,8 +338,6 @@ test.describe('estados da interface', () => {
       timeout: 120_000,
     })
 
-    // Trocar para PNG tem de tirar o botao de descarregar, senao o utilizador
-    // descarregava um WebP a pensar que era um PNG.
     await page.getByRole('radio', { name: 'PNG' }).check()
     await expect(page.getByRole('button', { name: /Descarregar/ })).toBeHidden()
     await expect(page.getByRole('button', { name: /Converter para PNG/ })).toBeVisible()
@@ -194,5 +354,62 @@ test.describe('estados da interface', () => {
     await page.getByRole('radio', { name: 'PNG' }).check()
     await expect(page.getByRole('slider', { name: /Qualidade/ })).toBeHidden()
     await expect(page.getByText(/formato sem perda/)).toBeVisible()
+  })
+})
+
+test.describe('otimizar no mesmo formato', () => {
+  test('otimizar mantem o formato de origem e o resultado e descarregavel', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+    await expect(page.getByRole('img', { name: /Pré-visualização/ })).toBeVisible({
+      timeout: 120_000,
+    })
+
+    await page.getByRole('radio', { name: 'Otimizar' }).check()
+
+    // Em modo de otimizacao nao ha escolha de formato: o destino e a origem.
+    await expect(page.getByText(/Mantém JPG/)).toBeVisible()
+    await expect(page.getByRole('radio', { name: 'PNG' })).toBeHidden()
+
+    const converter = page.getByRole('button', { name: /Converter para JPG/ })
+    await expect(converter).toBeEnabled()
+    await converter.click()
+
+    await expect(page.getByText('Tamanho final')).toBeVisible({ timeout: 120_000 })
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: /Descarregar/ }).click(),
+    ])
+    expect(download.suggestedFilename()).toBe('jpeg-normal.jpg')
+
+    const resultado = readFileSync(await download.path())
+    expect(resultado.subarray(0, 3).toString('hex')).toBe('ffd8ff')
+  })
+
+  test('a politica de metadados por defeito remove dados privados', async ({ page }) => {
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', resolve(FIXTURES, 'jpeg-tudo-metadados.jpg'))
+
+    const converter = page.getByRole('button', { name: /Converter para WebP/ })
+    await expect(converter).toBeEnabled({ timeout: 120_000 })
+
+    // O valor por defeito e visivel na interface, nao escondido.
+    await expect(page.getByRole('radio', { name: 'Remover, manter cor' })).toBeChecked()
+    await converter.click()
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      (async () => {
+        await expect(page.getByRole('button', { name: /Descarregar/ })).toBeVisible({
+          timeout: 120_000,
+        })
+        await page.getByRole('button', { name: /Descarregar/ }).click()
+      })(),
+    ])
+
+    const saida = readFileSync(await download.path()).toString('latin1')
+    for (const privado of ['SN-0123456789', 'Fabricante de Teste', 'Autor de Teste', 'Lisboa']) {
+      expect(saida.includes(privado), `${privado} sobreviveu ao descarregamento`).toBe(false)
+    }
   })
 })

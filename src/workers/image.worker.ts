@@ -26,10 +26,18 @@ function responder(resposta: WorkerResponse, transfer?: Transferable[]): void {
 
 function responderErro(requestId: string, erro: unknown): void {
   const bruto = erro instanceof Error ? erro.message : String(erro)
-  const { kind, message } = classificarErroDoMotor(bruto)
-  // `detail` guarda o nome da excecao do motor para diagnostico.
-  // Nunca contem nome de ficheiro nem metadados da imagem.
-  responder({ kind: 'erro', requestId, errorKind: kind, message, detail: bruto.slice(0, 200) })
+  const classificado = classificarErroDoMotor(bruto)
+  // `detail` guarda o texto do motor apenas para diagnostico em
+  // desenvolvimento. Nunca e mostrado ao utilizador, e nunca contem nome de
+  // ficheiro nem metadados da imagem.
+  responder({
+    kind: 'erro',
+    requestId,
+    errorKind: classificado.kind,
+    message: classificado.message,
+    ...(classificado.suggestion === undefined ? {} : { suggestion: classificado.suggestion }),
+    detail: bruto.slice(0, 200),
+  })
 }
 
 self.addEventListener('message', async (evento: MessageEvent<WorkerRequest>) => {
@@ -75,6 +83,9 @@ self.addEventListener('message', async (evento: MessageEvent<WorkerRequest>) => 
             height: r.height,
             formatId: r.formatId,
             durationMs: r.durationMs,
+            decodeMs: r.decodeMs,
+            encodeMs: r.encodeMs,
+            profilesKept: r.profilesKept,
           },
           [buffer],
         )

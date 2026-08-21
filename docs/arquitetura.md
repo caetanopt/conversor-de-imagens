@@ -51,18 +51,61 @@ do WASM e não é interrompível a meio. Não há cancelamento cooperativo poss�
 Cancelar termina o worker e recria-o à próxima utilização. É uma limitação real
 do motor, assumida em vez de disfarçada.
 
-**Reciclagem por marca de água.** A memória linear do WASM nunca encolhe. Medido:
-o heap estabiliza em cerca de 274 MB depois de uma imagem de 12 MP e não cresce
-em trabalhos repetidos, portanto não há fuga. O problema é o pico, cerca de
-23 MB por megapixel. Acima do limiar em `limits.ts`, o worker é substituído
-depois do trabalho.
+**Reciclagem por marca de água.** A memória linear do WASM nunca encolhe, e
+nenhum browser a expõe a JavaScript. Medido em Node, o heap estabiliza depois do
+primeiro trabalho grande e não cresce em trabalhos repetidos, portanto não há
+fuga: o que existe é um pico que fica. Acima do limiar em `limits.ts`, hoje
+8 MP, o worker é substituído depois do trabalho.
+
+A medição no browser mostrou que o fator limitante não é a memória, é o tempo:
+40 MP levaram 53 s e 100 MP mataram o worker. Ver `docs/medicoes.md`.
 
 **Sem progresso falso.** O `magick-wasm` não expõe progresso durante o encode.
 Por ficheiro mostramos estados nomeados. Uma percentagem determinada só faz
 sentido ao nível do lote, e entra quando o lote entrar.
 
+**Decode e encode medidos em separado.** O adaptador marca o instante em que o
+callback de `read` começa, que é quando a descodificação terminou. Medido no
+Chromium, o encode é 97 a 99 % do tempo total até aos 40 MP. Otimizar o decode
+não teria efeito visível.
+
 **Concorrência 1 nesta etapa.** O pool de vários workers entra com o lote,
 atrás da mesma API do `EngineClient`, sem os chamadores mudarem.
+
+## Otimizar e converter são o mesmo pipeline
+
+Não há dois caminhos de código. A única diferença é uma restrição no formato de
+destino: em `otimizar`, o destino é o formato de origem. A ação `modo` no
+reducer reajusta o `outputFormat` de cada trabalho, e `formatoDeOtimizacao`
+devolve `null` quando otimizar no mesmo formato não é possível, o que acontece
+se o motor souber ler mas não escrever esse formato. HEIC é o caso óbvio.
+
+Duas honestidades que as medições impuseram na interface:
+
+- **Otimizar um PNG não produz ganho.** O encoder de PNG do ImageMagick não é
+  um otimizador: acima do nível de compressão por defeito o resultado é
+  byte a byte idêntico. A interface diz isso e sugere WebP.
+- **WebP a qualidade 100 muda para modo sem perda.** Não é um degrau acima de
+  99: o ficheiro fica 3,4 vezes maior. A interface avisa.
+
+Ver `docs/medicoes.md` para os números.
+
+## Página de diagnóstico
+
+`/diagnostico` é uma ferramenta interna, fora do índice e sem ligações a partir
+do produto. Corre no browser que a abre: sonda de capacidades, informação do
+motor, otimização no mesmo formato, varredura de qualidade, e uma escada de
+dimensões que sobe até a conversão falhar.
+
+Existe porque nem Firefox nem WebKit podem ser instalados neste ambiente, e
+porque nenhum teste automatizado substitui abrir a aplicação num iPhone real.
+Ver `docs/browser-support.md`.
+
+As imagens de teste são geradas por `lib/dev/gerarPng.ts`, que constrói um PNG
+válido de dimensões arbitrárias sem usar canvas, em streaming. Duas razões:
+os browsers limitam a área de um canvas, e o Safari em iOS é o mais restritivo,
+portanto o limite medido seria o do canvas e não o do motor; e um canvas de
+24 MP ocuparia 96 MB na main thread antes de a conversão começar.
 
 ## Estado
 
@@ -107,6 +150,31 @@ Imposta em `aplicarDiretivas`, e a ordem não é arbitrária:
 4. `settings.interlace` para JPEG progressivo.
 5. defines específicos do formato, incluindo `heic:speed` para AVIF.
 
+## Detalhes do motor que causaram bugs reais
+
+Registados aqui porque nenhum deles é óbvio, e todos foram encontrados por
+testes e não por leitura do código.
+
+**`write` com um formato inválido não lança.** Cai na sobrecarga que grava no
+formato de origem e devolve um ficheiro válido do formato errado. Um utilizador
+receberia um `.jfif` que era um PNG, sem erro. `comoMagickFormat` valida agora o
+nome contra o enum real da biblioteca.
+
+**O objeto devolvido por `getProfile` não sobrevive ao `strip()`.** É uma vista
+sobre a memória da imagem. Guardá-lo e reutilizá-lo lança
+`ColorspaceColorProfileMismatch`, de forma dependente do estado do heap: em
+isolamento passa, depois de uma imagem grande ter sido descodificada falha. Os
+bytes são agora copiados de imediato.
+
+**`img.interlace` é apenas leitura.** O JPEG progressivo obtém-se com
+`img.settings.interlace`, confirmado pelo marcador SOF do ficheiro.
+
+**`setDefine` vive em `img.settings`**, não em `img`.
+
+**Um ficheiro truncado não lança.** O ImageMagick tolera a truncagem e
+descodifica o que consegue, produzindo uma imagem parcial. Não é um erro, mas
+também não é óbvio.
+
 ## Onde acrescentar coisas
 
 | Quero | Mexo em |
@@ -117,3 +185,6 @@ Imposta em `aplicarDiretivas`, e a ordem não é arbitrária:
 | Acrescentar uma opção de encoder | `lib/image-engine/options.ts` e o painel de definições |
 | Aplicar a identidade da marca | `styles/tokens.css` |
 | Acrescentar o lote | `EngineClient` passa a ter um pool, o reducer já suporta lista |
+| Mudar a política de metadados | `lib/image-engine/options.ts`, `resolveMetadataDirective` |
+| Acrescentar uma sonda de capacidade | `lib/dev/capacidades.ts` |
+| Acrescentar um degrau à escada de memória | `features/diagnostico/medicoes.ts`, `ESCADA` |
