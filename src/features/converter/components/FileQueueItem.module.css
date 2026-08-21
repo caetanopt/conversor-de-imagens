@@ -1,4 +1,5 @@
 .item {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -8,27 +9,57 @@
   border-radius: var(--radius-sm);
 }
 
-.cabecalho {
+/*
+ * O selecionado e marcado por uma barra a esquerda e pelo fundo, nao apenas
+ * por cor: a barra continua a ler-se sem distinguir cores.
+ * CLAUDE.md, seccao 20.4.
+ */
+.selecionado {
+  background: var(--surface-inset);
+  border-color: var(--line-strong);
+  box-shadow: inset 3px 0 0 0 var(--text-strong);
+}
+
+.topo {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
 }
 
-.nome {
+/*
+ * Quando nao ha selecao a fazer, o mesmo bloco e um titulo com o mesmo aspeto,
+ * sem comportamento.
+ */
+.seletor {
   flex: 1 1 auto;
   min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
   font-size: var(--text-ui);
   font-weight: var(--weight-medium);
   color: var(--text-strong);
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.remover {
-  flex: none;
-  /* Alinha o texto do botao com a margem direita do cartao. */
-  margin-right: calc(var(--space-2) * -1);
+.seletor:is(button) {
+  cursor: pointer;
+}
+
+/*
+ * O alvo clicavel estica-se por cima do cartao inteiro, para a linha toda
+ * selecionar o ficheiro. O botao de remover e as accoes ficam acima deste
+ * plano, portanto continuam a receber os seus proprios cliques.
+ */
+.seletor:is(button)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
 }
 
 .meta {
@@ -40,6 +71,14 @@
   color: var(--text-muted);
 }
 
+/* Original e final nao se separam em linhas diferentes. */
+.tamanhos {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
 .formato {
   padding: 1px var(--space-2);
   background: var(--surface-inset);
@@ -47,6 +86,19 @@
   font-size: var(--text-label);
   font-weight: var(--weight-medium);
   letter-spacing: var(--tracking-label);
+}
+
+.selecionado .formato {
+  background: var(--surface-raised);
+}
+
+.seta {
+  color: var(--text-faint);
+}
+
+.final {
+  color: var(--text-strong);
+  font-weight: var(--weight-medium);
 }
 
 /* Estado sempre em texto. A cor apenas reforca, nunca informa sozinha. */
@@ -76,4 +128,25 @@
 
 .cancelled {
   color: var(--text-faint);
+}
+
+.remover {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  /* Alinha o texto do botao com a margem direita do cartao. */
+  margin-right: calc(var(--space-2) * -1);
+}
+
+.acoes {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.acoes > * {
+  flex: 1 1 auto;
 }

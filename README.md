@@ -4,9 +4,10 @@ Plataforma web de otimização e conversão de imagens. Todo o processamento
 acontece no dispositivo do utilizador, através de WebAssembly num Web Worker.
 Nenhuma imagem é enviada para um servidor.
 
-Estado: núcleo funcional e validado. Suporta JPG, PNG, WebP e AVIF, em
-conversão e em otimização no mesmo formato, com redimensionamento e controlo de
-metadados. Falta o processamento em lote.
+Estado: primeira versão completa em âmbito. Suporta JPG, PNG, WebP e AVIF, em
+conversão e em otimização no mesmo formato, com redimensionamento, controlo de
+metadados, processamento em lote com concorrência controlada e descarregamento
+de vários resultados num ZIP criado no browser.
 
 Validado em Chromium. **Firefox, Safari, iPhone e iPad continuam por validar**,
 por o ambiente de desenvolvimento não permitir instalar esses browsers. Ver
@@ -67,11 +68,15 @@ deve ser repetido à mão sempre que o fluxo de conversão mudar.
 1. Abrir as ferramentas de desenvolvimento do browser.
 2. Abrir o painel Network.
 3. Limpar a lista de pedidos.
-4. Selecionar uma imagem.
-5. Converter a imagem.
-6. Descarregar o resultado.
-7. Confirmar que não existe qualquer pedido que contenha os bytes da imagem,
-   o ficheiro completo, ou um upload multipart.
+4. Selecionar várias imagens.
+5. Converter tudo.
+6. Descarregar um resultado individual.
+7. Descarregar todos os resultados em ZIP.
+8. Confirmar que não existe qualquer pedido que contenha os bytes de nenhuma
+   imagem, um ficheiro completo, o ZIP, ou um upload multipart.
+
+O ZIP é o passo que mais parece exigir um servidor e não exige: é montado em
+memória pelo `fflate` e entregue como um `Blob` local.
 
 O que deve aparecer no painel: pedidos GET para ficheiros da própria origem,
 incluindo `magick/magick.wasm`. Nada mais. Nenhum POST, nenhum corpo de
@@ -104,7 +109,7 @@ src/
   lib/
     image-engine/      contrato do motor, opções, adapter do ImageMagick
     files/             leitura, assinatura, object URLs, miniaturas
-    download/          nomes de ficheiro e descarregamento
+    download/          nomes de ficheiro, descarregamento e ZIP local
     validation/        limites e validação de entrada
     format/            formatação de bytes, dimensões e percentagens
   workers/             image.worker.ts, o único sítio onde o motor corre

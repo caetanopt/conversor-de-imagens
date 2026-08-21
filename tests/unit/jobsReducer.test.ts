@@ -16,7 +16,13 @@ function ficheiro(nome = 'foto.jpg', tamanho = 1000): File {
 
 function comJob(nome = 'foto.jpg') {
   const job = criarJob(ficheiro(nome), 'jpeg', 'webp')
-  return { job, estado: jobsReducer(estadoInicial, { type: 'adicionar', job }) }
+  return { job, estado: jobsReducer(estadoInicial, { type: 'adicionar', jobs: [job] }) }
+}
+
+/** Fila com varios ficheiros, para os testes de lote. */
+function comJobs(...nomes: readonly string[]) {
+  const jobs = nomes.map((nome) => criarJob(ficheiro(nome), 'jpeg', 'webp'))
+  return { jobs, estado: jobsReducer(estadoInicial, { type: 'adicionar', jobs }) }
 }
 
 const inspecao: ImageInspection = {
@@ -309,5 +315,130 @@ describe('opcoesParaFormato', () => {
   it('mantem lossless num formato que o suporta', () => {
     const base = { ...opcoesPorDefeito('webp'), lossless: true }
     expect(opcoesParaFormato(base, 'png').lossless).toBe(true)
+  })
+})
+
+describe('fila com varios ficheiros', () => {
+  it('adiciona todos de uma vez e seleciona o primeiro dos novos', () => {
+    const { jobs, estado } = comJobs('a.jpg', 'b.jpg', 'c.jpg')
+    expect(estado.jobs).toHaveLength(3)
+    expect(estado.selecionadoId).toBe(jobs[0]!.id)
+  })
+
+  it('adicionar a uma fila existente preserva os anteriores', () => {
+    const { estado } = comJobs('a.jpg', 'b.jpg')
+    const novo = criarJob(ficheiro('c.jpg'), 'jpeg', 'webp')
+    const maior = jobsReducer(estado, { type: 'adicionar', jobs: [novo] })
+
+    expect(maior.jobs.map((j) => j.sourceName)).toEqual(['a.jpg', 'b.jpg', 'c.jpg'])
+    // A selecao segue o que o utilizador acabou de adicionar.
+    expect(maior.selecionadoId).toBe(novo.id)
+  })
+
+  it('adicionar uma lista vazia devolve o mesmo estado', () => {
+    const { estado } = comJobs('a.jpg')
+    expect(jobsReducer(estado, { type: 'adicionar', jobs: [] })).toBe(estado)
+  })
+
+  it('selecionar o mesmo id devolve o mesmo estado', () => {
+    const { jobs, estado } = comJobs('a.jpg', 'b.jpg')
+    expect(jobsReducer(estado, { type: 'selecionar', id: jobs[0]!.id })).toBe(estado)
+  })
+
+  it('remover o selecionado passa a selecao para o primeiro que sobra', () => {
+    const { jobs, estado } = comJobs('a.jpg', 'b.jpg', 'c.jpg')
+    const semPrimeiro = jobsReducer(estado, { type: 'remover', id: jobs[0]!.id })
+    expect(semPrimeiro.selecionadoId).toBe(jobs[1]!.id)
+  })
+
+  it('remover outro ficheiro nao mexe na selecao', () => {
+    const { jobs, estado } = comJobs('a.jpg', 'b.jpg')
+    const semSegundo = jobsReducer(estado, { type: 'remover', id: jobs[1]!.id })
+    expect(semSegundo.selecionadoId).toBe(jobs[0]!.id)
+  })
+
+  it('remover o ultimo deixa a selecao vazia', () => {
+    const { jobs, estado } = comJobs('a.jpg')
+    const vazio = jobsReducer(estado, { type: 'remover', id: jobs[0]!.id })
+    expect(vazio.selecionadoId).toBeNull()
+  })
+
+  it('limpar tambem limpa a selecao', () => {
+    const { estado } = comJobs('a.jpg', 'b.jpg')
+    expect(jobsReducer(estado, { type: 'limpar' }).selecionadoId).toBeNull()
+  })
+})
+
+describe('aplicar a todos', () => {
+  function comDefinicoesDiferentes() {
+    const { jobs, estado } = comJobs('a.jpg', 'b.jpg', 'c.jpg')
+    const origem = jobs[0]!
+    let seguinte = jobsReducer(estado, { type: 'formato-de-saida', id: origem.id, outputFormat: 'avif' })
+    seguinte = jobsReducer(seguinte, { type: 'qualidade', id: origem.id, quality: 41 })
+    seguinte = jobsReducer(seguinte, { type: 'metadados', id: origem.id, metadata: 'remover' })
+    seguinte = jobsReducer(seguinte, {
+      type: 'resize',
+      id: origem.id,
+      resize: { width: 800, height: null, preserveAspectRatio: true, allowUpscale: false },
+    })
+    return { jobs, origem, estado: seguinte }
+  }
+
+  it('copia formato, qualidade, metadados e dimensoes para os restantes', () => {
+    const { origem, estado } = comDefinicoesDiferentes()
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: origem.id })
+
+    for (const job of aplicado.jobs) {
+      expect(job.options.outputFormat).toBe('avif')
+      expect(job.options.metadata).toBe('remover')
+      expect(job.options.resize?.width).toBe(800)
+    }
+  })
+
+  it('nao altera o ficheiro de origem', () => {
+    const { origem, estado } = comDefinicoesDiferentes()
+    const antes = estado.jobs.find((j) => j.id === origem.id)
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: origem.id })
+    expect(aplicado.jobs.find((j) => j.id === origem.id)).toBe(antes)
+  })
+
+  it('invalida resultados que ja nao correspondem as definicoes', () => {
+    const { jobs, estado } = comDefinicoesDiferentes()
+    const outro = jobs[1]!
+    const comResultado = jobsReducer(estado, { type: 'resultado', id: outro.id, result: resultado })
+    expect(comResultado.jobs.find((j) => j.id === outro.id)?.result).not.toBeNull()
+
+    const aplicado = jobsReducer(comResultado, { type: 'aplicar-a-todos', id: jobs[0]!.id })
+    const depois = aplicado.jobs.find((j) => j.id === outro.id)
+    expect(depois?.result).toBeNull()
+    expect(depois?.status).toBe('ready')
+  })
+
+  it('em modo otimizar cada ficheiro mantem o formato da sua origem', () => {
+    const jpg = criarJob(ficheiro('a.jpg'), 'jpeg', 'webp')
+    const png = criarJob(ficheiro('b.png'), 'png', 'webp')
+    let estado = jobsReducer(estadoInicial, { type: 'adicionar', jobs: [jpg, png] })
+    estado = jobsReducer(estado, { type: 'modo', mode: 'otimizar' })
+    estado = jobsReducer(estado, { type: 'metadados', id: jpg.id, metadata: 'manter' })
+
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: jpg.id })
+
+    // O destino nao se copia: otimizar um PNG produz PNG, nao JPEG.
+    expect(aplicado.jobs.find((j) => j.id === jpg.id)?.options.outputFormat).toBe('jpeg')
+    expect(aplicado.jobs.find((j) => j.id === png.id)?.options.outputFormat).toBe('png')
+    // O resto das definicoes copia-se.
+    expect(aplicado.jobs.find((j) => j.id === png.id)?.options.metadata).toBe('manter')
+  })
+
+  it('um id que nao existe devolve o mesmo estado', () => {
+    const { estado } = comJobs('a.jpg', 'b.jpg')
+    expect(jobsReducer(estado, { type: 'aplicar-a-todos', id: 'inexistente' })).toBe(estado)
+  })
+
+  it('nao toca em ficheiros que ja tinham as mesmas definicoes', () => {
+    const { jobs, estado } = comJobs('a.jpg', 'b.jpg')
+    const antes = estado.jobs[1]
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: jobs[0]!.id })
+    expect(aplicado.jobs[1]).toBe(antes)
   })
 })

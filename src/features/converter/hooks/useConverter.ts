@@ -3,17 +3,25 @@
 /**
  * Orquestracao do fluxo de conversao.
  *
- * Junta tres coisas e nada mais: o reducer da fila, o cliente do motor e o
- * ciclo de vida dos object URLs. Nao sabe nada sobre ImageMagick.
+ * Junta quatro coisas e nada mais: o reducer da fila, o cliente do motor, o
+ * ciclo de vida dos object URLs e o empacotamento do ZIP. Nao sabe nada sobre
+ * ImageMagick.
+ *
+ * O lote nao introduziu um segundo caminho de codigo. Converter um ficheiro e
+ * converter trinta usam a mesma funcao por trabalho; a diferenca esta em quem
+ * a chama e em quem conta os resultados. A concorrencia real e imposta pelo
+ * WorkerPool, nao aqui.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 
-import { formatoPorId, type FormatId } from '@/config/formats'
+import type { FormatId } from '@/config/formats'
+import { LIMITES } from '@/config/limits'
 import type { PresetId } from '@/config/presets'
-import { EngineClient, ErroDoMotor } from '@/lib/image-engine/client/EngineClient'
+import { EngineClient, ErroDoMotor, type ContextoDaTarefa } from '@/lib/image-engine/client/EngineClient'
 import { registarConversao, registarFalha } from '@/lib/dev/metrics'
 import { descarregarBlob } from '@/lib/download/saveBlob'
 import { trocarExtensao } from '@/lib/download/fileNames'
+import { criarZip, nomeDoZip } from '@/lib/download/zipResults'
 import { revogarObjectUrl, revogarTodosOsObjectUrls } from '@/lib/files/objectUrls'
 import { criarPreview } from '@/lib/files/preview'
 import { lerCabecalho } from '@/lib/files/readFile'
@@ -22,8 +30,10 @@ import {
   criarJob,
   destinoSugerido,
   estadoInicial,
+  formatoDeOtimizacao,
   jobsReducer,
 } from '../state/jobsReducer'
+import { convertiveis, jobSelecionado, resumirLote } from '../state/selectors'
 import type {
   ConversionMode,
   ImageJob,
@@ -39,13 +49,26 @@ import type {
  */
 export type EstadoDoMotor = 'inativo' | 'a-preparar' | 'pronto' | 'indisponivel'
 
+/** Desfecho de um trabalho. Contado no fim do lote, sem depender do render. */
+type Desfecho = 'ok' | 'erro' | 'cancelado'
+
 export function useConverter() {
   const [estado, dispatch] = useReducer(jobsReducer, estadoInicial)
   const [estadoDoMotor, setEstadoDoMotor] = useState<EstadoDoMotor>('inativo')
   const [anuncio, setAnuncio] = useState('')
+  const [aAnalisar, setAAnalisar] = useState(false)
+  const [aEmpacotar, setAEmpacotar] = useState(false)
 
   const clienteRef = useRef<EngineClient | null>(null)
   const montadoRef = useRef(true)
+
+  /**
+   * O lote e assincrono e demorado. Um closure sobre `estado` ficava velho a
+   * meio de trinta conversoes, e a alternativa era recriar todas as funcoes a
+   * cada dispatch. As funcoes assincronas leem daqui.
+   */
+  const estadoRef = useRef(estado)
+  estadoRef.current = estado
 
   const cliente = useCallback((): EngineClient => {
     clienteRef.current ??= new EngineClient()
@@ -76,66 +99,27 @@ export function useConverter() {
     }
   }, [cliente])
 
-  /**
-   * Nesta etapa a area de trabalho trata uma imagem de cada vez, por isso um
-   * ficheiro novo substitui o anterior. O estado ja e uma lista, portanto o
-   * lote nao obriga a mudar nada disto.
-   */
-  const adicionarFicheiro = useCallback(
-    async (file: File): Promise<void> => {
-      for (const job of estado.jobs) revogarObjectUrl(job.preview?.url)
-      dispatch({ type: 'limpar' })
-
-      const cabecalho = await lerCabecalho(file)
-      const validacao = validarFicheiro(file, cabecalho)
-
-      if (!validacao.ok) {
-        const job = criarJob(file, null, 'webp')
-        dispatch({ type: 'adicionar', job })
-        dispatch({ type: 'erro', id: job.id, error: validacao.error })
-        setAnuncio(`Ficheiro rejeitado. ${validacao.error.message}`)
-        return
-      }
-
-      const job = criarJob(file, validacao.formatId, destinoSugerido(validacao.formatId))
-      dispatch({ type: 'adicionar', job })
-      if (validacao.warnings.length > 0) {
-        dispatch({ type: 'avisos', id: job.id, warnings: validacao.warnings })
-      }
-      setAnuncio(`Imagem carregada. Formato ${formatoPorId(validacao.formatId).label}.`)
-
-      if (!(await prepararMotor())) {
-        if (montadoRef.current) {
-          dispatch({
-            type: 'erro',
-            id: job.id,
-            error: {
-              kind: 'motor-indisponivel',
-              message:
-                'Não foi possível preparar o motor de conversão. Verifique a ligação e recarregue a página.',
-            },
-          })
-        }
-        return
-      }
+  /** Dimensoes e miniatura de um trabalho. Precisa do motor pronto. */
+  const analisar = useCallback(
+    async (job: ImageJob): Promise<void> => {
+      if (!job.sourceFormat) return
 
       try {
-        const inspecao = await cliente().inspect(file)
+        const inspecao = await cliente().inspect(job.file, { chave: job.id })
         if (!montadoRef.current) return
 
-        const validacaoDimensoes = validarInspecao(inspecao)
-        if (!validacaoDimensoes.ok) {
-          dispatch({ type: 'erro', id: job.id, error: validacaoDimensoes.error })
-          setAnuncio(validacaoDimensoes.error.message)
+        const validacao = validarInspecao(inspecao)
+        if (!validacao.ok) {
+          dispatch({ type: 'erro', id: job.id, error: validacao.error })
           return
         }
 
         dispatch({ type: 'inspecao', id: job.id, inspection: inspecao })
-        if (validacaoDimensoes.warnings.length > 0) {
-          dispatch({ type: 'avisos', id: job.id, warnings: validacaoDimensoes.warnings })
+        if (validacao.warnings.length > 0) {
+          dispatch({ type: 'avisos', id: job.id, warnings: validacao.warnings })
         }
 
-        const preview = await criarPreview(file, validacao.formatId, inspecao)
+        const preview = await criarPreview(job.file, job.sourceFormat, inspecao)
         if (!montadoRef.current) {
           revogarObjectUrl(preview?.url)
           return
@@ -146,24 +130,108 @@ export function useConverter() {
         dispatch({ type: 'erro', id: job.id, error: erroDeDominio(erro) })
       }
     },
-    [cliente, estado.jobs, prepararMotor],
+    [cliente],
   )
 
-  const converter = useCallback(
-    async (id: string): Promise<void> => {
-      const job = estado.jobs.find((j) => j.id === id)
-      if (!job) return
+  const adicionarFicheiros = useCallback(
+    async (ficheiros: readonly File[]): Promise<void> => {
+      if (ficheiros.length === 0) return
 
-      dispatch({ type: 'estado', id, status: 'processing' })
-      setAnuncio('A converter.')
+      const espaco = Math.max(0, LIMITES.maxFicheiros - estadoRef.current.jobs.length)
+      const aceites = ficheiros.slice(0, espaco)
+      const semEspaco = ficheiros.length - aceites.length
+
+      if (aceites.length === 0) {
+        setAnuncio(
+          `Já tem ${LIMITES.maxFicheiros} ficheiros na fila, que é o limite. ` +
+            'Remova alguns antes de adicionar outros.',
+        )
+        return
+      }
+
+      setAAnalisar(true)
+      try {
+        const modo = estadoRef.current.mode
+
+        // A leitura do cabecalho sao 32 bytes por ficheiro, portanto em
+        // paralelo nao custa nada e evita esperar em serie por trinta fatias.
+        const validados = await Promise.all(
+          aceites.map(async (file) => ({
+            file,
+            validacao: validarFicheiro(file, await lerCabecalho(file)),
+          })),
+        )
+        if (!montadoRef.current) return
+
+        const novos = validados.map(({ file, validacao }) =>
+          validacao.ok
+            ? criarJob(file, validacao.formatId, destinoParaModo(modo, validacao.formatId))
+            : // Um ficheiro rejeitado continua a entrar na fila, para o
+              // utilizador ver qual foi e porque. CLAUDE.md, seccao 20.6.
+              criarJob(file, null, 'webp'),
+        )
+
+        // Um unico dispatch: a lista aparece de uma vez, sem trinta renders.
+        dispatch({ type: 'adicionar', jobs: novos })
+
+        for (const [indice, { validacao }] of validados.entries()) {
+          const job = novos[indice]!
+          if (!validacao.ok) {
+            dispatch({ type: 'erro', id: job.id, error: validacao.error })
+          } else if (validacao.warnings.length > 0) {
+            dispatch({ type: 'avisos', id: job.id, warnings: validacao.warnings })
+          }
+        }
+
+        const validos = novos.filter((_, indice) => validados[indice]!.validacao.ok)
+        setAnuncio(anuncioDeEntrada(validos.length, novos.length - validos.length, semEspaco))
+
+        if (validos.length === 0) return
+
+        if (!(await prepararMotor())) {
+          if (!montadoRef.current) return
+          for (const job of validos) {
+            dispatch({ type: 'erro', id: job.id, error: ERRO_MOTOR_INDISPONIVEL })
+          }
+          return
+        }
+
+        // Sequencial de proposito: cada inspecao le o ficheiro inteiro para
+        // memoria antes de o transferir para o worker. Trinta em paralelo
+        // seriam trinta ficheiros em memoria ao mesmo tempo.
+        for (const job of validos) {
+          if (!montadoRef.current) return
+          await analisar(job)
+        }
+      } finally {
+        if (montadoRef.current) setAAnalisar(false)
+      }
+    },
+    [analisar, prepararMotor],
+  )
+
+  /** Converte um trabalho e devolve o desfecho, sem depender do render. */
+  const converterJob = useCallback(
+    async (job: ImageJob): Promise<Desfecho> => {
+      const pixels = job.inspection ? job.inspection.width * job.inspection.height : null
+      const contexto: ContextoDaTarefa = {
+        chave: job.id,
+        ...(pixels === null ? {} : { pixels }),
+        // O estado passa a 'processing' quando a tarefa arranca de facto, nao
+        // quando entra na fila. Com concorrencia 2 e trinta ficheiros, a
+        // alternativa era mostrar trinta conversoes a decorrer.
+        onInicio: () => {
+          if (montadoRef.current) dispatch({ type: 'estado', id: job.id, status: 'processing' })
+        },
+      }
 
       try {
-        const resultado = await cliente().convert(job.file, job.options)
-        if (!montadoRef.current) return
+        const resultado = await cliente().convert(job.file, job.options, contexto)
+        if (!montadoRef.current) return 'ok'
 
         dispatch({
           type: 'resultado',
-          id,
+          id: job.id,
           result: {
             blob: resultado.blob,
             size: resultado.size,
@@ -185,39 +253,124 @@ export function useConverter() {
           bytesDestino: resultado.size,
           duracaoMs: resultado.durationMs,
         })
-        setAnuncio('Conversão concluída.')
+        return 'ok'
       } catch (erro) {
-        if (!montadoRef.current) return
         const dominio = erroDeDominio(erro)
-        dispatch({ type: 'erro', id, error: dominio })
+
+        // Cancelar nao e falhar. O worker e terminado nos dois casos, mas o
+        // trabalho fica em 'cancelled' e pode ser repetido.
+        if (dominio.kind === 'cancelado') {
+          if (montadoRef.current) dispatch({ type: 'estado', id: job.id, status: 'cancelled' })
+          return 'cancelado'
+        }
+
+        if (montadoRef.current) dispatch({ type: 'erro', id: job.id, error: dominio })
         registarFalha(job.options.outputFormat, dominio.kind, dominio.detail)
-        setAnuncio(`Conversão falhou. ${dominio.message}`)
+        return 'erro'
       }
     },
-    [cliente, estado.jobs],
+    [cliente],
   )
 
-  const cancelar = useCallback(() => {
-    clienteRef.current?.cancel()
-    for (const job of estado.jobs) {
-      if (job.status === 'processing') dispatch({ type: 'estado', id: job.id, status: 'cancelled' })
-    }
-    setAnuncio('Conversão cancelada.')
-  }, [estado.jobs])
+  const converter = useCallback(
+    async (id: string): Promise<void> => {
+      const job = estadoRef.current.jobs.find((j) => j.id === id)
+      if (!job) return
 
-  const remover = useCallback(
-    (id: string) => {
-      const job = estado.jobs.find((j) => j.id === id)
-      revogarObjectUrl(job?.preview?.url)
-      dispatch({ type: 'remover', id })
-      setAnuncio('Imagem removida.')
+      setAnuncio('A converter.')
+      const desfecho = await converterJob(job)
+      if (!montadoRef.current) return
+
+      if (desfecho === 'ok') setAnuncio('Conversão concluída.')
+      else if (desfecho === 'erro') setAnuncio('A conversão falhou.')
     },
-    [estado.jobs],
+    [converterJob],
   )
+
+  const converterTodos = useCallback(async (): Promise<void> => {
+    const alvos = convertiveis(estadoRef.current)
+    if (alvos.length === 0) return
+
+    if (!(await prepararMotor())) {
+      if (!montadoRef.current) return
+      for (const job of alvos) dispatch({ type: 'erro', id: job.id, error: ERRO_MOTOR_INDISPONIVEL })
+      return
+    }
+
+    setAnuncio(
+      alvos.length === 1 ? 'A converter.' : `A converter ${alvos.length} imagens no seu dispositivo.`,
+    )
+
+    // Todos entram na fila do pool ao mesmo tempo; o pool e que decide quantos
+    // correm. Contar os desfechos e mais fiavel do que ler o estado a seguir,
+    // porque os ultimos dispatches ainda podem nao ter sido aplicados.
+    const desfechos = await Promise.all(alvos.map((job) => converterJob(job)))
+    if (!montadoRef.current) return
+
+    setAnuncio(anuncioDeLote(desfechos))
+  }, [converterJob, prepararMotor])
+
+  const cancelar = useCallback((id?: string) => {
+    if (id === undefined) {
+      clienteRef.current?.cancel()
+      setAnuncio('Conversões canceladas.')
+      return
+    }
+    clienteRef.current?.cancelarTrabalho(id)
+    setAnuncio('Conversão cancelada.')
+  }, [])
+
+  const remover = useCallback((id: string) => {
+    const job = estadoRef.current.jobs.find((j) => j.id === id)
+    clienteRef.current?.cancelarTrabalho(id)
+    revogarObjectUrl(job?.preview?.url)
+    dispatch({ type: 'remover', id })
+    setAnuncio('Imagem removida.')
+  }, [])
+
+  const removerTodos = useCallback(() => {
+    clienteRef.current?.cancel()
+    for (const job of estadoRef.current.jobs) revogarObjectUrl(job.preview?.url)
+    dispatch({ type: 'limpar' })
+    setAnuncio('Fila limpa.')
+  }, [])
 
   const descarregar = useCallback((job: ImageJob) => {
     if (!job.result) return
     descarregarBlob(job.result.blob, trocarExtensao(job.sourceName, job.result.formatId))
+  }, [])
+
+  const descarregarTodos = useCallback(async (): Promise<void> => {
+    const entradas = resumirLote(estadoRef.current)
+      .concluidosComResultado.map((job) =>
+        job.result === null
+          ? null
+          : { nome: trocarExtensao(job.sourceName, job.result.formatId), blob: job.result.blob },
+      )
+      .filter((entrada): entrada is { nome: string; blob: Blob } => entrada !== null)
+
+    if (entradas.length === 0) return
+
+    setAEmpacotar(true)
+    try {
+      const { blob } = await criarZip(entradas)
+      if (!montadoRef.current) return
+      descarregarBlob(blob, nomeDoZip(entradas.length))
+      setAnuncio(`ZIP com ${entradas.length} ${entradas.length === 1 ? 'imagem' : 'imagens'} criado no seu dispositivo.`)
+    } catch {
+      if (montadoRef.current) setAnuncio('Não foi possível criar o ficheiro ZIP.')
+    } finally {
+      if (montadoRef.current) setAEmpacotar(false)
+    }
+  }, [])
+
+  const selecionar = useCallback((id: string) => {
+    dispatch({ type: 'selecionar', id })
+  }, [])
+
+  const aplicarATodos = useCallback((id: string) => {
+    dispatch({ type: 'aplicar-a-todos', id })
+    setAnuncio('Definições aplicadas a todos os ficheiros.')
   }, [])
 
   const definirFormatoDeSaida = useCallback((id: string, outputFormat: FormatId) => {
@@ -244,19 +397,25 @@ export function useConverter() {
     dispatch({ type: 'modo', mode })
   }, [])
 
-  const jobAtivo = useMemo(() => estado.jobs.at(-1) ?? null, [estado.jobs])
-
   return {
     jobs: estado.jobs,
-    jobAtivo,
+    selecionado: jobSelecionado(estado),
+    resumo: resumirLote(estado),
     mode: estado.mode,
     estadoDoMotor,
+    aAnalisar,
+    aEmpacotar,
     anuncio,
-    adicionarFicheiro,
+    adicionarFicheiros,
     converter,
+    converterTodos,
     cancelar,
     remover,
+    removerTodos,
     descarregar,
+    descarregarTodos,
+    selecionar,
+    aplicarATodos,
     definirFormatoDeSaida,
     definirQualidade,
     definirPreset,
@@ -264,6 +423,63 @@ export function useConverter() {
     definirResize,
     definirModo,
   }
+}
+
+const ERRO_MOTOR_INDISPONIVEL: JobError = {
+  kind: 'motor-indisponivel',
+  message:
+    'Não foi possível preparar o motor de conversão. Verifique a ligação e recarregue a página.',
+}
+
+/**
+ * Destino de um ficheiro novo, respeitando o modo em curso.
+ *
+ * Em 'otimizar' o destino e o formato de origem. Quando esse formato nao pode
+ * ser escrito pelo motor, cai no destino sugerido em vez de ficar preso.
+ */
+function destinoParaModo(modo: ConversionMode, sourceFormat: FormatId): FormatId {
+  if (modo === 'otimizar') return formatoDeOtimizacao(sourceFormat) ?? destinoSugerido(sourceFormat)
+  return destinoSugerido(sourceFormat)
+}
+
+function anuncioDeEntrada(validos: number, invalidos: number, semEspaco: number): string {
+  const partes: string[] = []
+
+  if (validos === 1) partes.push('1 imagem carregada.')
+  else if (validos > 1) partes.push(`${validos} imagens carregadas.`)
+
+  if (invalidos === 1) partes.push('1 ficheiro foi rejeitado.')
+  else if (invalidos > 1) partes.push(`${invalidos} ficheiros foram rejeitados.`)
+
+  if (semEspaco > 0) {
+    partes.push(
+      `${semEspaco} ${semEspaco === 1 ? 'ficheiro ficou' : 'ficheiros ficaram'} de fora: ` +
+        `o limite é ${LIMITES.maxFicheiros}.`,
+    )
+  }
+
+  return partes.join(' ')
+}
+
+/**
+ * Resumo honesto do lote.
+ *
+ * Um lote com falhas nao diz "concluido". CLAUDE.md, seccao 17.7 exige um
+ * estado explicito para a conversao parcialmente concluida.
+ */
+function anuncioDeLote(desfechos: readonly Desfecho[]): string {
+  const ok = desfechos.filter((d) => d === 'ok').length
+  const erros = desfechos.filter((d) => d === 'erro').length
+  const cancelados = desfechos.filter((d) => d === 'cancelado').length
+
+  if (erros === 0 && cancelados === 0) {
+    return ok === 1 ? 'Conversão concluída.' : `${ok} conversões concluídas.`
+  }
+
+  const partes = [`${ok} de ${desfechos.length} ${ok === 1 ? 'conversão' : 'conversões'} concluída${ok === 1 ? '' : 's'}.`]
+  if (erros > 0) partes.push(`${erros} ${erros === 1 ? 'falhou' : 'falharam'}.`)
+  if (cancelados > 0) partes.push(`${cancelados} ${cancelados === 1 ? 'foi cancelada' : 'foram canceladas'}.`)
+  return partes.join(' ')
 }
 
 function erroDeDominio(erro: unknown): JobError {

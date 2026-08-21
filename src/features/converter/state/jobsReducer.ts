@@ -23,12 +23,21 @@ import type {
 export type ConverterState = {
   readonly jobs: readonly ImageJob[]
   readonly mode: ConversionMode
+  /**
+   * Ficheiro cujas definicoes o painel edita.
+   *
+   * Com um ficheiro e sempre esse. Com varios, o utilizador escolhe na lista e
+   * pode empurrar as definicoes para os restantes com "aplicar a todos".
+   */
+  readonly selecionadoId: string | null
 }
 
-export const estadoInicial: ConverterState = { jobs: [], mode: 'converter' }
+export const estadoInicial: ConverterState = { jobs: [], mode: 'converter', selecionadoId: null }
 
 export type ConverterAction =
-  | { readonly type: 'adicionar'; readonly job: ImageJob }
+  | { readonly type: 'adicionar'; readonly jobs: readonly ImageJob[] }
+  | { readonly type: 'selecionar'; readonly id: string }
+  | { readonly type: 'aplicar-a-todos'; readonly id: string }
   | { readonly type: 'inspecao'; readonly id: string; readonly inspection: ImageInspection }
   | { readonly type: 'preview'; readonly id: string; readonly preview: PreviewRef }
   | { readonly type: 'estado'; readonly id: string; readonly status: ConversionStatus }
@@ -46,8 +55,63 @@ export type ConverterAction =
 
 export function jobsReducer(estado: ConverterState, acao: ConverterAction): ConverterState {
   switch (acao.type) {
-    case 'adicionar':
-      return { ...estado, jobs: [...estado.jobs, acao.job] }
+    case 'adicionar': {
+      if (acao.jobs.length === 0) return estado
+      const jobs = [...estado.jobs, ...acao.jobs]
+      return {
+        ...estado,
+        jobs,
+        // O primeiro dos novos passa a ser o selecionado, para o painel mostrar
+        // logo o que o utilizador acabou de adicionar.
+        selecionadoId: acao.jobs[0]!.id,
+      }
+    }
+
+    case 'selecionar':
+      return estado.selecionadoId === acao.id ? estado : { ...estado, selecionadoId: acao.id }
+
+    case 'aplicar-a-todos': {
+      const origem = estado.jobs.find((job) => job.id === acao.id)
+      if (!origem) return estado
+
+      const jobs = estado.jobs.map((job) => {
+        if (job.id === origem.id) return job
+
+        // No modo de otimizacao o destino e imposto pela origem de cada
+        // ficheiro, portanto o formato nao se copia: copia-se tudo o resto.
+        const destino =
+          estado.mode === 'otimizar'
+            ? (formatoDeOtimizacao(job.sourceFormat) ?? job.options.outputFormat)
+            : origem.options.outputFormat
+
+        const options: ConversionOptions = {
+          ...opcoesParaFormato({ ...origem.options }, destino),
+          // O resize e as opcoes de metadados sao independentes do formato.
+          resize: origem.options.resize,
+          metadata: origem.options.metadata,
+          autoOrient: origem.options.autoOrient,
+        }
+
+        const mudou =
+          options.outputFormat !== job.options.outputFormat ||
+          options.quality !== job.options.quality ||
+          options.metadata !== job.options.metadata ||
+          options.resize !== job.options.resize ||
+          options.lossless !== job.options.lossless
+
+        if (!mudou) return job
+
+        return {
+          ...job,
+          status: job.status === 'done' || job.status === 'error' ? 'ready' : job.status,
+          result: null,
+          error: null,
+          options,
+        } satisfies ImageJob
+      })
+
+      return { ...estado, jobs }
+    }
 
     case 'inspecao':
       return atualizar(estado, acao.id, (job) => ({
@@ -166,11 +230,17 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
       return { ...estado, mode: acao.mode, jobs }
     }
 
-    case 'remover':
-      return { ...estado, jobs: estado.jobs.filter((job) => job.id !== acao.id) }
+    case 'remover': {
+      const jobs = estado.jobs.filter((job) => job.id !== acao.id)
+      // Se o removido era o selecionado, selecionamos o primeiro que sobra em
+      // vez de deixar o painel sem contexto.
+      const selecionadoId =
+        estado.selecionadoId === acao.id ? (jobs[0]?.id ?? null) : estado.selecionadoId
+      return { ...estado, jobs, selecionadoId }
+    }
 
     case 'limpar':
-      return { ...estado, jobs: [] }
+      return { ...estado, jobs: [], selecionadoId: null }
   }
 }
 

@@ -129,9 +129,14 @@
     display: grid;
     grid-template-columns: var(--rail-width) minmax(0, 1fr) var(--panel-width);
     grid-template-rows: auto 1fr;
+    /*
+     * O resumo do ficheiro selecionado fica debaixo da pre-visualizacao, e nao
+     * debaixo da fila: com trinta ficheiros na fila, na coluna da esquerda
+     * ficaria fora do ecra.
+     */
     grid-template-areas:
       'rail palco painel'
-      'resultado palco painel';
+      'rail resultado painel';
     gap: var(--space-4) var(--space-6);
     padding: var(--space-6);
     align-items: start;
@@ -147,6 +152,9 @@
 
   .resultado {
     grid-area: resultado;
+    /* O resumo e uma lista de pares. Esticado a toda a largura do palco, o
+       rotulo e o valor ficavam nas pontas opostas do ecra. */
+    max-width: 46rem;
   }
 
   .colunaPainel {
@@ -169,4 +177,22 @@
     width: 100%;
     margin: 0 auto;
   }
+}
+
+/*
+ * Com varios ficheiros o painel precisa de dizer qual esta a editar, senao
+ * uma alteracao parece aplicar-se a tudo.
+ */
+.alvo {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aplicar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }

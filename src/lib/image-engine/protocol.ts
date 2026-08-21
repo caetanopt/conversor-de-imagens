@@ -75,14 +75,14 @@ export function classificarErroDoMotor(mensagem: string): Omit<JobError, 'detail
   if (m.includes('nodecodedelegate')) {
     return {
       kind: 'formato-nao-suportado',
-      message: 'Este formato de imagem nao e suportado para leitura.',
+      message: 'Este formato de imagem não é suportado para leitura.',
       suggestion: 'Converta a imagem para JPG, PNG ou WebP antes de a usar aqui.',
     }
   }
   if (m.includes('noencodedelegate')) {
     return {
       kind: 'formato-nao-suportado',
-      message: 'Nao e possivel gravar neste formato.',
+      message: 'Não é possível gravar neste formato.',
       suggestion: 'Escolha outro formato de destino.',
     }
   }
@@ -101,8 +101,8 @@ export function classificarErroDoMotor(mensagem: string): Omit<JobError, 'detail
   ) {
     return {
       kind: 'ficheiro-invalido',
-      message: 'Este ficheiro esta danificado ou incompleto e nao pode ser lido.',
-      suggestion: 'Tente exportar a imagem de novo a partir da aplicacao de origem.',
+      message: 'Este ficheiro está danificado ou incompleto e não pode ser lido.',
+      suggestion: 'Tente exportar a imagem de novo a partir da aplicação de origem.',
     }
   }
 
@@ -116,7 +116,7 @@ export function classificarErroDoMotor(mensagem: string): Omit<JobError, 'detail
   ) {
     return {
       kind: 'sem-memoria',
-      message: 'Nao ha memoria suficiente neste dispositivo para processar esta imagem.',
+      message: 'Não há memória suficiente neste dispositivo para processar esta imagem.',
       suggestion: 'Tente uma imagem com menos pixels, ou feche outros separadores.',
     }
   }
@@ -125,14 +125,14 @@ export function classificarErroDoMotor(mensagem: string): Omit<JobError, 'detail
   if (m.includes('motor nao inicializado') || m.includes('aborted')) {
     return {
       kind: 'motor-terminado',
-      message: 'O motor de conversao foi interrompido antes de terminar.',
+      message: 'O motor de conversão foi interrompido antes de terminar.',
       suggestion: 'Tente converter de novo.',
     }
   }
 
   return {
     kind: 'falha-de-conversao',
-    message: 'Nao foi possivel converter esta imagem.',
+    message: 'Não foi possível converter esta imagem.',
     suggestion: 'Tente outro formato de destino, ou uma qualidade diferente.',
   }
 }

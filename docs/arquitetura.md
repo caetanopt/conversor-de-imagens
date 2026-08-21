@@ -9,12 +9,15 @@ ImageMagick.
 Componentes React            não conhecem o motor nem o worker
         |
 useConverter + jobsReducer   fila, estados por ficheiro, presets
+   + selectors               estado do lote derivado, sem estado duplicado
         |
 EngineClient                 API tipada, promessas, timeouts, cancelamento
         |
+WorkerPool                   concorrência, exclusividade, reciclagem, fila
+        |
     ..... fronteira postMessage, ArrayBuffer transferido .....
         |
-image.worker.ts              único ficheiro onde o motor corre
+image.worker.ts              único ficheiro onde o motor corre, um por slot
         |
 MagickImageEngine            implementa ImageEngine sobre magick-wasm
 ```
@@ -61,16 +64,86 @@ A medição no browser mostrou que o fator limitante não é a memória, é o te
 40 MP levaram 53 s e 100 MP mataram o worker. Ver `docs/medicoes.md`.
 
 **Sem progresso falso.** O `magick-wasm` não expõe progresso durante o encode.
-Por ficheiro mostramos estados nomeados. Uma percentagem determinada só faz
-sentido ao nível do lote, e entra quando o lote entrar.
+Por ficheiro mostramos estados nomeados. No lote a contagem é real, porque
+contar ficheiros terminados é uma medida que existe: "a converter 2 de 10", e
+não uma percentagem inventada dentro de cada conversão.
 
 **Decode e encode medidos em separado.** O adaptador marca o instante em que o
 callback de `read` começa, que é quando a descodificação terminou. Medido no
 Chromium, o encode é 97 a 99 % do tempo total até aos 40 MP. Otimizar o decode
 não teria efeito visível.
 
-**Concorrência 1 nesta etapa.** O pool de vários workers entra com o lote,
-atrás da mesma API do `EngineClient`, sem os chamadores mudarem.
+## O pool de workers
+
+`WorkerPool` substituiu o worker único sem mudar a API do `EngineClient`:
+nenhum chamador foi alterado. Três comportamentos, todos com origem em medições
+e não em precaução genérica.
+
+**Slots preguiçosos.** Cada worker paga o seu próprio heap de WASM e a sua
+própria compilação do módulo. O segundo slot só é criado quando há contenção
+real, para o caso comum de um único ficheiro não pagar por concorrência que não
+usa.
+
+**Exclusividade acima de 8 MP.** Uma tarefa grande espera que todos os slots
+fiquem livres e corre sozinha. Duas conversões de 8 MP em paralelo duplicam o
+pico de memória, e a memória linear do WASM nunca encolhe: o pico fica.
+
+**Cancelamento dirigido por chave.** Cancelar é terminar o worker, portanto
+cancelar um ficheiro não pode matar os outros que estão a correr. O pool guarda
+a chave da tarefa em cada slot e termina apenas o slot certo. Uma tarefa ainda
+em fila é rejeitada sem tocar em worker nenhum.
+
+O erro de cancelamento tem um `kind` próprio, `cancelado`, distinto de
+`motor-terminado`. Sem essa distinção, cancelar um ficheiro pintava-o de
+vermelho como se tivesse falhado.
+
+**`onInicio` para a interface não mentir.** O estado passa a `processing`
+quando a tarefa recebe um slot, não quando entra na fila. Com 30 ficheiros e
+concorrência 2, a alternativa era mostrar 30 conversões a decorrer quando
+estão duas.
+
+A concorrência efetiva é `min(2, hardwareConcurrency - 1)`. O limite superior
+está em `limits.ts` e é conservador de propósito.
+
+## O lote
+
+Não há um segundo caminho de código. `converterJob` converte um trabalho, e
+`converter` e `converterTodos` diferem apenas em quantos chamam e em quem conta
+os resultados. Todos os trabalhos entram na fila do pool ao mesmo tempo; o pool
+decide quantos correm.
+
+O resumo do lote conta os desfechos devolvidos pelas promessas, não o estado
+depois do `await`. Os últimos `dispatch` podem ainda não ter sido aplicados
+quando o `Promise.all` resolve, e um resumo lido nesse instante estaria errado
+por um ficheiro.
+
+`resumirLote` deriva o estado do lote a partir da lista, e inclui `parcial`:
+com três falhas em dez, dizer "concluído" seria mentira. O CLAUDE.md, secção
+17.7, exige esse estado explícito.
+
+`porConverter` sai do mesmo predicado que `convertiveis`, para o número no
+botão nunca divergir do que a ação faz. Esse predicado distingue erros que
+valem uma nova tentativa, como um erro do motor, de erros que são propriedades
+do ficheiro de entrada, como um ficheiro danificado: mudar a qualidade não
+torna um ficheiro corrompido legível.
+
+A análise inicial dos ficheiros é sequencial de propósito. Cada `inspect` lê o
+ficheiro inteiro para memória antes de o transferir para o worker, e trinta em
+paralelo seriam trinta ficheiros em memória ao mesmo tempo.
+
+## ZIP local
+
+`fflate`, com `level: 0`. Os ficheiros que entram no ZIP já são JPEG, PNG, WebP
+ou AVIF, todos comprimidos: voltar a comprimir gasta tempo e memória para
+ganhar quase nada, e em dados incompressíveis aumenta.
+
+Os nomes são resolvidos antes de empacotar. `foto.jpg` e `foto.png` convertidos
+para WebP dão os dois `foto.webp`, e um ZIP com nomes repetidos perde uma
+entrada em silêncio. O segundo passa a `foto-2.webp`.
+
+O nome do ZIP não tem data nem hora. Um carimbo temporal revelaria quando o
+utilizador processou as imagens, que é exatamente o tipo de dado que a política
+de metadados remove dos ficheiros.
 
 ## Otimizar e converter são o mesmo pipeline
 
@@ -122,9 +195,15 @@ portanto o limite medido seria o do canvas e não o do motor; e um canvas de
 
 ## Estado
 
-`useReducer` para a fila, sem store global. O estado já é uma lista de
-`ImageJob` mesmo que a interface trate um ficheiro de cada vez: quando o lote
-entrar, a forma do estado não muda.
+`useReducer` para a fila, sem store global. O estado é uma lista de `ImageJob`
+mais o modo e o identificador do ficheiro selecionado. Foi lista desde a
+primeira etapa, quando a interface tratava um ficheiro de cada vez, e por isso
+o lote não obrigou a mudar a forma do estado.
+
+As funções assíncronas do lote leem o estado de uma referência atualizada a
+cada render, e não de um closure. Um closure sobre o estado ficava velho a meio
+de trinta conversões, e a alternativa era recriar todas as funções a cada
+`dispatch`.
 
 Invariantes que o reducer garante, cobertas por testes:
 
@@ -135,6 +214,12 @@ Invariantes que o reducer garante, cobertas por testes:
 - mudar para um formato sem perda apaga a qualidade herdada
 - ajustar a qualidade à mão desliga o preset, e escolher um preset recalcula a
   qualidade para o formato atual
+- `aplicar a todos` não altera o ficheiro de origem, invalida resultados que
+  deixaram de corresponder às definições, e em modo `otimizar` não copia o
+  formato de destino, porque nesse modo o destino é imposto pela origem de cada
+  ficheiro
+- remover o ficheiro selecionado passa a seleção para o primeiro que sobra, em
+  vez de deixar o painel sem contexto
 
 ## Ciclo de vida dos bytes
 
@@ -208,7 +293,9 @@ com a degradação, ao contrário do que o nome sugere.
 | Mudar valores dos presets | `config/presets.ts` |
 | Acrescentar uma opção de encoder | `lib/image-engine/options.ts` e o painel de definições |
 | Aplicar a identidade da marca | `styles/tokens.css` |
-| Acrescentar o lote | `EngineClient` passa a ter um pool, o reducer já suporta lista |
+| Mudar a concorrência ou os limiares do pool | `config/limits.ts`, e `WorkerPool` se a política mudar |
+| Mudar a compressão do ZIP | `lib/download/zipResults.ts` |
+| Virtualizar a fila | `features/converter/components/FileQueue.tsx` |
 | Mudar a política de metadados | `lib/image-engine/options.ts`, `resolveMetadataDirective` |
 | Acrescentar uma sonda de capacidade | `lib/dev/capacidades.ts` |
 | Acrescentar um degrau à escada de memória | `features/diagnostico/medicoes.ts`, `ESCADA` |

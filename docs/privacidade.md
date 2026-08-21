@@ -31,6 +31,34 @@ representações dos bytes da imagem em cada URL e em cada corpo.
 
 ---
 
+## O ZIP é criado no dispositivo
+
+De todo o fluxo, o descarregamento de vários resultados num ZIP é o passo que
+mais parece exigir um servidor. Não exige.
+
+O `fflate` monta o arquivo em memória a partir dos `Blob` que já estão no
+browser, e o resultado é entregue por um `blob:` da nossa própria origem, como
+qualquer descarregamento individual. Não existe serviço de compressão remoto,
+não existe endpoint de empacotamento, e nenhum byte atravessa a rede.
+
+Três decisões com consequência para privacidade:
+
+- **Sem compressão.** `level: 0`. Os ficheiros já são JPEG, PNG, WebP ou AVIF.
+  A razão principal é de desempenho, mas tem um efeito lateral útil: menos
+  trabalho sobre os bytes do utilizador.
+- **Sem carimbo temporal no nome.** O ZIP chama-se `3-imagens-convertidas.zip`
+  e não inclui data nem hora. Um carimbo revelaria quando o utilizador
+  processou as imagens, que é o tipo de dado que a política de metadados remove
+  dos ficheiros. O teste unitário verifica o determinismo do nome.
+- **Nomes de origem resolvidos, não descartados.** Dois ficheiros que produzem
+  o mesmo nome de saída ficam `foto.webp` e `foto-2.webp`. Sem isto o ZIP
+  perdia uma entrada em silêncio.
+
+O teste `tests/e2e/lote.spec.ts` converte três imagens, descarrega o ZIP,
+volta a abri-lo em Node, confirma que as três entradas são WebP válidos, e
+verifica no mesmo teste que nenhum pedido de rede levou corpo e que nada saiu
+da nossa origem.
+
 ## Inventário completo de pedidos de rede
 
 Durante a utilização normal, do primeiro carregamento até ao descarregamento do
@@ -115,6 +143,8 @@ deliberadas em vez de as ler:
 | Motor fora da main thread | `scripts/verificar-bundle.mjs` | `initializeImageMagick` não aparece em nenhum chunk carregado pela página |
 | Object URLs emparelhados | `tests/unit/objectUrls.test.ts` | nenhum URL fica pendente no fim de um fluxo |
 | Metadados ao nível dos bytes | `tests/unit/fixtures.test.ts` | sete dados privados confirmados presentes no original e ausentes na saída |
+| O ZIP é local | `tests/e2e/lote.spec.ts` | três imagens convertidas e empacotadas sem um único pedido com corpo |
+| O lote não mente | idem | um lote com falhas nunca se apresenta como concluído |
 
 A procura por conteúdo tem uma contraprova deliberada: verifica que as janelas
 de bytes existem de facto no ficheiro de origem. Sem isso, passaria com agulhas

@@ -112,6 +112,14 @@ export type JobErrorKind =
   | 'motor-indisponivel'
   | 'motor-terminado'
   | 'tempo-excedido'
+  /**
+   * Cancelamento pedido pelo utilizador.
+   *
+   * Tem de ser distinguivel de uma falha: o worker e terminado nos dois casos,
+   * mas cancelar nao e um erro e o trabalho fica em 'cancelled', nao em
+   * 'error'. Sem esta distincao, cancelar um ficheiro pintava-o de vermelho.
+   */
+  | 'cancelado'
 
 export type JobError = {
   readonly kind: JobErrorKind

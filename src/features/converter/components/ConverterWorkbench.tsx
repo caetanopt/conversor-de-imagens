@@ -3,17 +3,21 @@
 /**
  * Mesa de trabalho.
  *
- * Composicao dos estados da area: vazia, a preparar o motor, e com uma imagem
- * carregada. Sem hero, sem cartoes de beneficios, sem secoes de marketing
+ * Composicao dos estados da area: vazia, a preparar o motor, e com imagens
+ * carregadas. Sem hero, sem cartoes de beneficios, sem secoes de marketing
  * antes da ferramenta. CLAUDE.md, seccoes 13 e 26.
  *
- * A ordem no telemovel nao e a ordem do desktop comprimida: ficheiro,
+ * A ordem no telemovel nao e a ordem do desktop comprimida: fila,
  * pre-visualizacao, resultado, definicoes. No desktop as mesmas quatro zonas
  * organizam-se em rail, palco e painel.
+ *
+ * O painel edita sempre um ficheiro, o selecionado. Com varios, "Aplicar a
+ * todos" empurra essas definicoes para os restantes, o que evita repetir a
+ * mesma escolha trinta vezes. CLAUDE.md, seccao 13.
  */
 import { useState } from 'react'
 
-import { ErrorMessage } from '@/components/feedback/ErrorMessage'
+import { Button } from '@/components/controls/Button'
 import { LiveRegion } from '@/components/feedback/LiveRegion'
 import { ProgressIndicator } from '@/components/feedback/ProgressIndicator'
 import { formatoDeOtimizacao } from '../state/jobsReducer'
@@ -22,7 +26,7 @@ import { BatchActionBar } from './BatchActionBar'
 import { ConversionModeControl } from './ConversionModeControl'
 import { ConversionSummary } from './ConversionSummary'
 import { DropZone } from './DropZone'
-import { FileQueueItem } from './FileQueueItem'
+import { FileQueue } from './FileQueue'
 import { FormatSelect } from './FormatSelect'
 import { ImagePreview } from './ImagePreview'
 import { MetadataControl } from './MetadataControl'
@@ -33,18 +37,22 @@ import styles from './ConverterWorkbench.module.css'
 export function ConverterWorkbench() {
   const conversor = useConverter()
   const [painelAberto, setPainelAberto] = useState(true)
-  const job = conversor.jobAtivo
+  const job = conversor.selecionado
+  const { resumo } = conversor
 
   if (!job) {
     return (
       <div className={styles.vazio}>
         <LiveRegion mensagem={conversor.anuncio} />
-        <DropZone onFicheiro={conversor.adicionarFicheiro} />
+        <DropZone onFicheiros={conversor.adicionarFicheiros} />
       </div>
     )
   }
 
-  const aProcessar = job.status === 'processing'
+  const lote = resumo.total > 1
+  // Enquanto o lote corre, as definicoes de um ficheiro que ja esta na fila do
+  // motor deixariam de corresponder ao que vai ser produzido.
+  const definicoesBloqueadas = resumo.aProcessar > 0 || conversor.aAnalisar
   const destinoDeOtimizacao = formatoDeOtimizacao(job.sourceFormat)
 
   return (
@@ -52,8 +60,18 @@ export function ConverterWorkbench() {
       <LiveRegion mensagem={conversor.anuncio} />
 
       <div className={styles.corpo}>
-        <aside className={styles.rail} aria-label="Ficheiro">
-          <FileQueueItem job={job} onRemover={conversor.remover} />
+        <aside className={styles.rail} aria-label="Ficheiros na fila">
+          <FileQueue
+            jobs={conversor.jobs}
+            selecionadoId={job.id}
+            onSelecionar={conversor.selecionar}
+            onRemover={conversor.remover}
+            onRemoverTodos={conversor.removerTodos}
+            onCancelar={conversor.cancelar}
+            onDescarregar={conversor.descarregar}
+            onAdicionar={conversor.adicionarFicheiros}
+            disabled={conversor.aAnalisar}
+          />
 
           {conversor.estadoDoMotor === 'a-preparar' ? (
             <ProgressIndicator
@@ -62,8 +80,16 @@ export function ConverterWorkbench() {
             />
           ) : null}
 
-          {job.error ? <ErrorMessage erro={job.error} /> : null}
+          {conversor.aAnalisar ? (
+            <ProgressIndicator
+              etiqueta="A analisar os ficheiros"
+              detalhe="A ler dimensões e a criar pré-visualizações."
+            />
+          ) : null}
 
+          {/* O erro de cada ficheiro e mostrado dentro da sua linha na fila,
+              junto do ficheiro a que pertence. Aqui ficam apenas os avisos do
+              ficheiro selecionado, que sao sobre o que o painel esta a editar. */}
           {job.warnings.length > 0 ? (
             <ul className={styles.avisos}>
               {job.warnings.map((aviso) => (
@@ -75,9 +101,13 @@ export function ConverterWorkbench() {
 
         <main className={styles.palco}>
           <ImagePreview job={job} />
-          {aProcessar ? (
+          {resumo.aProcessar > 0 ? (
             <ProgressIndicator
-              etiqueta="A converter no seu dispositivo"
+              etiqueta={
+                resumo.aProcessar === 1
+                  ? 'A converter no seu dispositivo'
+                  : `A converter ${resumo.aProcessar} imagens no seu dispositivo`
+              }
               detalhe="A interface continua utilizável."
             />
           ) : null}
@@ -108,12 +138,18 @@ export function ConverterWorkbench() {
               .join(' ')}
             aria-label="Definições de conversão"
           >
+            {lote ? (
+              <p className={styles.alvo}>
+                A editar <strong>{job.sourceName}</strong>
+              </p>
+            ) : null}
+
             <ConversionModeControl
               modo={conversor.mode}
               sourceFormat={job.sourceFormat}
               formatoDeOtimizacao={destinoDeOtimizacao}
               onChange={conversor.definirModo}
-              disabled={aProcessar}
+              disabled={definicoesBloqueadas}
             />
 
             <hr className={styles.divisor} />
@@ -123,7 +159,7 @@ export function ConverterWorkbench() {
                 <FormatSelect
                   valor={job.options.outputFormat}
                   onChange={(formato) => conversor.definirFormatoDeSaida(job.id, formato)}
-                  disabled={aProcessar}
+                  disabled={definicoesBloqueadas}
                 />
                 <hr className={styles.divisor} />
               </>
@@ -135,7 +171,7 @@ export function ConverterWorkbench() {
               preset={job.options.preset}
               onQualidade={(valor) => conversor.definirQualidade(job.id, valor)}
               onPreset={(preset) => conversor.definirPreset(job.id, preset)}
-              disabled={aProcessar}
+              disabled={definicoesBloqueadas}
             />
 
             <hr className={styles.divisor} />
@@ -144,7 +180,7 @@ export function ConverterWorkbench() {
               valor={job.options.resize}
               origem={job.inspection}
               onChange={(resize) => conversor.definirResize(job.id, resize)}
-              disabled={aProcessar}
+              disabled={definicoesBloqueadas}
             />
 
             <hr className={styles.divisor} />
@@ -152,10 +188,27 @@ export function ConverterWorkbench() {
             <MetadataControl
               valor={job.options.metadata}
               onChange={(politica) => conversor.definirMetadados(job.id, politica)}
-              disabled={aProcessar}
+              disabled={definicoesBloqueadas}
             />
 
             <hr className={styles.divisor} />
+
+            {lote ? (
+              <div className={styles.aplicar}>
+                <Button
+                  variante="secundario"
+                  onClick={() => conversor.aplicarATodos(job.id)}
+                  disabled={definicoesBloqueadas}
+                >
+                  Aplicar a todos os ficheiros
+                </Button>
+                <p className={styles.nota}>
+                  {conversor.mode === 'otimizar'
+                    ? 'No modo otimizar cada ficheiro mantém o seu formato de origem. Copiamos qualidade, dimensões e metadados.'
+                    : 'Substitui as definições dos outros ficheiros e descarta resultados já produzidos com definições diferentes.'}
+                </p>
+              </div>
+            ) : null}
 
             <p className={styles.nota}>
               A orientação é sempre corrigida a partir do EXIF antes de os metadados serem
@@ -167,11 +220,16 @@ export function ConverterWorkbench() {
 
       <footer className={styles.rodape}>
         <BatchActionBar
-          job={job}
+          resumo={resumo}
+          selecionado={job}
           motorPronto={conversor.estadoDoMotor === 'pronto'}
-          onConverter={() => void conversor.converter(job.id)}
-          onDescarregar={() => conversor.descarregar(job)}
-          onCancelar={conversor.cancelar}
+          aAnalisar={conversor.aAnalisar}
+          aEmpacotar={conversor.aEmpacotar}
+          onConverter={(id) => void conversor.converter(id)}
+          onConverterTodos={() => void conversor.converterTodos()}
+          onDescarregar={conversor.descarregar}
+          onDescarregarTodos={() => void conversor.descarregarTodos()}
+          onCancelar={() => conversor.cancelar()}
         />
       </footer>
     </div>

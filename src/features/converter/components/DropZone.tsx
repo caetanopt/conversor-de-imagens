@@ -11,19 +11,20 @@
  * conteudo assenta numa faixa inferior a largura toda. Sem essa faixa, o texto
  * flutuava num vazio grande em ecras altos.
  */
-import { useCallback, useId, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
-import { acceptDeEntrada, formatosDeEntrada } from '@/config/formats'
+import { FileInput } from '@/components/controls/FileInput'
+import { formatosDeEntrada } from '@/config/formats'
+import { LIMITES } from '@/config/limits'
 import styles from './DropZone.module.css'
 
 type Props = {
-  readonly onFicheiro: (file: File) => void
+  readonly onFicheiros: (ficheiros: File[]) => void
   readonly disabled?: boolean
 }
 
-export function DropZone({ onFicheiro, disabled = false }: Props) {
+export function DropZone({ onFicheiros, disabled = false }: Props) {
   const [sobreposto, setSobreposto] = useState(false)
-  const inputId = useId()
   const contadorArrasto = useRef(0)
 
   const formatos = formatosDeEntrada()
@@ -31,11 +32,11 @@ export function DropZone({ onFicheiro, disabled = false }: Props) {
     .join(', ')
 
   const receber = useCallback(
-    (ficheiros: FileList | null) => {
-      const primeiro = ficheiros?.[0]
-      if (primeiro) onFicheiro(primeiro)
+    (lista: FileList | null) => {
+      const ficheiros = Array.from(lista ?? [])
+      if (ficheiros.length > 0) onFicheiros(ficheiros)
     },
-    [onFicheiro],
+    [onFicheiros],
   )
 
   // dragenter e dragleave disparam tambem nos filhos. Sem contador, a moldura
@@ -75,26 +76,14 @@ export function DropZone({ onFicheiro, disabled = false }: Props) {
         <div className={styles.texto}>
           <h1 className={styles.titulo}>Otimize e converta imagens no seu dispositivo</h1>
           <p className={styles.subtexto}>
-            Escolha uma imagem, defina o formato e descarregue o resultado. Os ficheiros não são
+            Escolha as imagens, defina o formato e descarregue o resultado. Os ficheiros não são
             enviados para os nossos servidores.
           </p>
 
           <div className={styles.acoes}>
-            <input
-              id={inputId}
-              type="file"
-              className="visualmente-oculto"
-              accept={acceptDeEntrada()}
-              disabled={disabled}
-              onChange={(evento) => {
-                receber(evento.target.files)
-                // Permite escolher o mesmo ficheiro outra vez depois de o remover.
-                evento.target.value = ''
-              }}
-            />
-            <label htmlFor={inputId} className={styles.botao}>
-              Selecionar ficheiro
-            </label>
+            <FileInput onFicheiros={onFicheiros} className={styles.botao} disabled={disabled}>
+              Selecionar ficheiros
+            </FileInput>
             <span className={styles.ouArraste} aria-hidden="true">
               ou arraste para aqui
             </span>
@@ -105,6 +94,10 @@ export function DropZone({ onFicheiro, disabled = false }: Props) {
           <p className={styles.grupoMeta}>
             <span className="etiqueta">Formatos aceites</span>
             <span className="numerico">{formatos}</span>
+          </p>
+          <p className={styles.grupoMeta}>
+            <span className="etiqueta">De cada vez</span>
+            <span className={styles.valorMeta}>Até {LIMITES.maxFicheiros} imagens</span>
           </p>
           <p className={styles.grupoMeta}>
             <span className="etiqueta">Processamento</span>

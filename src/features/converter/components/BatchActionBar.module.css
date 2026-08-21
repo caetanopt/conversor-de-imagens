@@ -57,3 +57,28 @@
     padding: var(--space-3) var(--space-6);
   }
 }
+
+.estado {
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+}
+
+.reduziu {
+  color: var(--state-positive);
+}
+
+.aumentou {
+  color: var(--state-caution);
+}
+
+/*
+ * Com o lote sao quatro pares de numeros em vez de dois. Em ecras estreitos
+ * passam a duas linhas em vez de encolherem cada um ate ficar ilegivel.
+ */
+@media (max-width: 720px) {
+  .numeros {
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-4);
+  }
+}

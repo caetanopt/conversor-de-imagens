@@ -21,10 +21,10 @@ type Props = {
 
 const EXPLICACAO: Record<MetadataPolicy, string> = {
   'preservar-cor':
-    'Remove localizacao GPS, data, equipamento, autor e legendas. Mantem o perfil de cor, para a imagem nao mudar de aspeto.',
+    'Remove localização GPS, data, equipamento, autor e legendas. Mantém o perfil de cor, para a imagem não mudar de aspeto.',
   remover:
-    'Remove tudo, incluindo o perfil de cor. Ficheiro ligeiramente menor, mas as cores podem mudar se a imagem nao estiver em sRGB.',
-  manter: 'Nao remove nada. A localizacao GPS e os dados do equipamento ficam no ficheiro.',
+    'Remove tudo, incluindo o perfil de cor. Ficheiro ligeiramente menor, mas as cores podem mudar se a imagem não estiver em sRGB.',
+  manter: 'Não remove nada. A localização GPS e os dados do equipamento ficam no ficheiro.',
 }
 
 export function MetadataControl({ valor, onChange, disabled = false }: Props) {

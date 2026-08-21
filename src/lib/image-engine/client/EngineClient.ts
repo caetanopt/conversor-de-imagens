@@ -2,46 +2,26 @@
  * Lado da main thread da fronteira do motor.
  *
  * Responsabilidades:
- *  - criar o worker apenas quando for necessario (o binario tem 5,1 MB
+ *  - criar workers apenas quando forem necessarios (o binario tem 5,1 MB
  *    comprimidos, e nao se descarrega antes de existir um ficheiro);
- *  - correlacionar pedidos e respostas por id;
+ *  - correlacionar pedidos e respostas;
  *  - impor timeouts;
- *  - cancelar;
- *  - reciclar o worker depois de imagens grandes.
+ *  - cancelar, por ficheiro ou tudo.
  *
- * Cancelamento e reciclagem sao a mesma operacao: terminar o worker. A
- * conversao e uma chamada sincrona dentro do WASM e nao e interrompivel a
- * meio, portanto nao ha cancelamento cooperativo possivel. Isto e uma
- * limitacao real do motor, assumida em vez de disfarcada.
- *
- * A concorrencia fica em 1 nesta etapa. O pool de varios workers entra com o
- * lote, atras desta mesma API, sem os chamadores mudarem.
+ * A concorrencia, a exclusividade para imagens grandes e a reciclagem de
+ * workers vivem no WorkerPool. Esta classe e a API estavel que o resto da
+ * aplicacao usa, e nao mudou quando o worker unico passou a pool.
  */
 import { MAGICK_WASM_URL } from '@/config/engine'
-import { LIMITES } from '@/config/limits'
+import { concorrenciaSugerida, LIMITES } from '@/config/limits'
 import { formatoPorId } from '@/config/formats'
-import type {
-  ConversionOptions,
-  ImageInspection,
-  JobError,
-} from '@/features/converter/types'
+import type { ConversionOptions, ImageInspection } from '@/features/converter/types'
 import { lerComoBuffer } from '@/lib/files/readFile'
 import { registarArranqueDoMotor } from '@/lib/dev/metrics'
 import type { EngineCapabilities } from '../ImageEngine'
-import type { WorkerRequest, WorkerResponse } from '../protocol'
+import { inesperado, novoId, WorkerPool } from './WorkerPool'
 
-export class ErroDoMotor extends Error {
-  constructor(readonly detalhe: JobError) {
-    super(detalhe.message)
-    this.name = 'ErroDoMotor'
-  }
-}
-
-type Pendente = {
-  readonly resolve: (resposta: WorkerResponse) => void
-  readonly reject: (erro: unknown) => void
-  readonly timer: ReturnType<typeof setTimeout>
-}
+export { ErroDoMotor } from './WorkerPool'
 
 export type ResultadoConversao = {
   readonly blob: Blob
@@ -54,10 +34,19 @@ export type ResultadoConversao = {
   readonly profilesKept: readonly string[]
 }
 
+/** Contexto que ajuda o pool a agendar. Opcional: sem ele o agendamento e conservador. */
+export type ContextoDaTarefa = {
+  /** Identificador do trabalho, para cancelar so este ficheiro. */
+  readonly chave?: string
+  /** Numero de pixels, para decidir exclusividade e reciclagem. */
+  readonly pixels?: number
+  /** Chamado quando a tarefa deixa a fila e comeca de facto. */
+  readonly onInicio?: () => void
+}
+
 export class EngineClient {
-  #worker: Worker | null = null
+  #pool: WorkerPool | null = null
   #arranque: Promise<EngineCapabilities> | null = null
-  #pendentes = new Map<string, Pendente>()
   #capacidades: EngineCapabilities | null = null
 
   /** Garante que o motor esta pronto. Chamadas concorrentes partilham o arranque. */
@@ -70,42 +59,59 @@ export class EngineClient {
     return this.#capacidades
   }
 
-  async inspect(file: File): Promise<ImageInspection> {
+  get concorrencia(): number {
+    return this.#pool?.concorrencia ?? 0
+  }
+
+  get emCurso(): number {
+    return this.#pool?.emCurso ?? 0
+  }
+
+  get emFila(): number {
+    return this.#pool?.emFila ?? 0
+  }
+
+  async inspect(file: File, contexto: ContextoDaTarefa = {}): Promise<ImageInspection> {
     await this.prepare()
     const bytes = await lerComoBuffer(file)
-    const resposta = await this.#pedir(
+
+    const resposta = await this.#garantirPool().pedir(
+      { kind: 'inspecionar', requestId: novoId(), bytes, magickFormatHint: null },
       {
-        kind: 'inspecionar',
-        requestId: novoId(),
-        bytes,
-        magickFormatHint: null,
+        chave: contexto.chave ?? novoId(),
+        timeoutMs: LIMITES.timeoutConversaoMs,
+        transfer: [bytes],
+        // A inspecao le apenas cabecalhos, portanto nao paga exclusividade.
       },
-      [bytes],
-      LIMITES.timeoutConversaoMs,
     )
+
     if (resposta.kind !== 'inspecionado') throw inesperado(resposta)
     return resposta.inspection
   }
 
-  async convert(file: File, options: ConversionOptions): Promise<ResultadoConversao> {
+  async convert(
+    file: File,
+    options: ConversionOptions,
+    contexto: ContextoDaTarefa = {},
+  ): Promise<ResultadoConversao> {
     await this.prepare()
     const bytes = await lerComoBuffer(file)
 
-    const resposta = await this.#pedir(
+    const resposta = await this.#garantirPool().pedir(
       { kind: 'converter', requestId: novoId(), bytes, options },
-      [bytes],
-      LIMITES.timeoutConversaoMs,
+      {
+        chave: contexto.chave ?? novoId(),
+        ...(contexto.pixels === undefined ? {} : { pixels: contexto.pixels }),
+        ...(contexto.onInicio === undefined ? {} : { onInicio: contexto.onInicio }),
+        timeoutMs: LIMITES.timeoutConversaoMs,
+        transfer: [bytes],
+      },
     )
+
     if (resposta.kind !== 'convertido') throw inesperado(resposta)
 
     const formato = formatoPorId(resposta.formatId)
     const blob = new Blob([resposta.bytes], { type: formato.mimeTypes[0] })
-
-    // A memoria linear do WASM nunca encolhe. Depois de uma imagem grande, o
-    // worker fica inflado para o resto da sessao, por isso e substituido.
-    if (resposta.width * resposta.height > LIMITES.reciclarWorkerAcimaDePixels) {
-      this.reciclar()
-    }
 
     return {
       blob,
@@ -119,142 +125,50 @@ export class EngineClient {
     }
   }
 
-  /** Cancela tudo o que esta em curso. Unica forma de parar um encode do WASM. */
-  cancel(): void {
-    this.#rejeitarPendentes({
-      kind: 'motor-terminado',
-      message: 'Conversão cancelada.',
-    })
-    this.#destruirWorker()
+  /** Cancela apenas o trabalho com esta chave. Os restantes continuam. */
+  cancelarTrabalho(chave: string): void {
+    this.#pool?.cancelar(chave)
   }
 
-  /** Substitui o worker para devolver memoria, sem afetar pedidos futuros. */
-  reciclar(): void {
-    if (this.#pendentes.size > 0) return
-    this.#destruirWorker()
+  /** Cancela tudo o que esta em curso ou em fila. */
+  cancel(): void {
+    this.#pool?.cancelarTudo()
   }
 
   dispose(): void {
-    this.cancel()
+    this.#pool?.dispose()
+    this.#pool = null
+    this.#arranque = null
     this.#capacidades = null
   }
 
   // ------------------------------------------------------------------ interno
 
   async #arrancar(): Promise<EngineCapabilities> {
-    const arrancado = await this.#pedir(
-      { kind: 'arrancar', requestId: novoId(), wasmUrl: MAGICK_WASM_URL },
-      undefined,
-      LIMITES.timeoutArranqueMotorMs,
-    )
-    if (arrancado.kind !== 'arrancado') throw inesperado(arrancado)
+    const pool = this.#garantirPool()
+    const initMs = await pool.prepararUmSlot()
 
-    const capacidades = await this.#pedir(
+    const capacidades = await pool.pedir(
       { kind: 'capacidades', requestId: novoId() },
-      undefined,
-      LIMITES.timeoutArranqueMotorMs,
+      { chave: 'capacidades', timeoutMs: LIMITES.timeoutArranqueMotorMs },
     )
     if (capacidades.kind !== 'capacidades') throw inesperado(capacidades)
 
     this.#capacidades = capacidades.capabilities
-    registarArranqueDoMotor(arrancado.initMs, capacidades.capabilities.engineVersion)
+    registarArranqueDoMotor(initMs, capacidades.capabilities.engineVersion)
     return capacidades.capabilities
   }
 
-  #garantirWorker(): Worker {
-    if (this.#worker) return this.#worker
-
-    const worker = new Worker(new URL('../../../workers/image.worker.ts', import.meta.url), {
-      type: 'module',
-      name: 'motor-de-imagem',
-    })
-
-    worker.addEventListener('message', (evento: MessageEvent<WorkerResponse>) => {
-      const resposta = evento.data
-      const pendente = this.#pendentes.get(resposta.requestId)
-      if (!pendente) return
-      clearTimeout(pendente.timer)
-      this.#pendentes.delete(resposta.requestId)
-
-      if (resposta.kind === 'erro') {
-        pendente.reject(
-          new ErroDoMotor({
-            kind: resposta.errorKind,
-            message: resposta.message,
-            ...(resposta.suggestion === undefined ? {} : { suggestion: resposta.suggestion }),
-            ...(resposta.detail === undefined ? {} : { detail: resposta.detail }),
-          }),
-        )
-        return
-      }
-      pendente.resolve(resposta)
-    })
-
-    // Um erro nao capturado no worker deixaria todos os pedidos pendurados.
-    worker.addEventListener('error', () => {
-      this.#rejeitarPendentes({
-        kind: 'motor-terminado',
-        message: 'O motor de conversão parou de responder.',
-        suggestion: 'Recarregue a página e tente de novo.',
-      })
-      this.#destruirWorker()
-    })
-
-    this.#worker = worker
-    return worker
+  #garantirPool(): WorkerPool {
+    this.#pool ??= new WorkerPool(
+      () =>
+        new Worker(new URL('../../../workers/image.worker.ts', import.meta.url), {
+          type: 'module',
+          name: 'motor-de-imagem',
+        }),
+      MAGICK_WASM_URL,
+      concorrenciaSugerida(),
+    )
+    return this.#pool
   }
-
-  #pedir(
-    pedido: WorkerRequest,
-    transfer: Transferable[] | undefined,
-    timeoutMs: number,
-  ): Promise<WorkerResponse> {
-    const worker = this.#garantirWorker()
-
-    return new Promise<WorkerResponse>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.#pendentes.delete(pedido.requestId)
-        // Um worker que excedeu o tempo pode estar preso dentro do WASM.
-        // Terminar e a unica saida.
-        this.#destruirWorker()
-        reject(
-          new ErroDoMotor({
-            kind: 'tempo-excedido',
-            message: 'A operação demorou demasiado tempo e foi interrompida.',
-            suggestion: 'Tente uma imagem com menos pixels.',
-          }),
-        )
-      }, timeoutMs)
-
-      this.#pendentes.set(pedido.requestId, { resolve, reject, timer })
-
-      if (transfer && transfer.length > 0) {
-        worker.postMessage(pedido, transfer)
-      } else {
-        worker.postMessage(pedido)
-      }
-    })
-  }
-
-  #rejeitarPendentes(erro: JobError): void {
-    for (const pendente of this.#pendentes.values()) {
-      clearTimeout(pendente.timer)
-      pendente.reject(new ErroDoMotor(erro))
-    }
-    this.#pendentes.clear()
-  }
-
-  #destruirWorker(): void {
-    this.#worker?.terminate()
-    this.#worker = null
-    this.#arranque = null
-  }
-}
-
-function novoId(): string {
-  return crypto.randomUUID()
-}
-
-function inesperado(resposta: WorkerResponse): Error {
-  return new Error(`Resposta inesperada do worker: ${resposta.kind}`)
 }
