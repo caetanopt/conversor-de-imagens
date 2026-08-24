@@ -44,6 +44,8 @@ const resultado: ConversionResult = {
   decodeMs: 40,
   encodeMs: 80,
   profilesKept: [],
+  frameCount: 1,
+  outputFrameCount: 1,
 }
 
 describe('criarJob', () => {

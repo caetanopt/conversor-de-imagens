@@ -21,6 +21,7 @@ import {
   Magick,
   MagickFormat,
   MagickImage,
+  MagickImageCollection,
   MagickReadSettings,
 } from '@imagemagick/magick-wasm'
 
@@ -80,6 +81,31 @@ function escrever(origem, formato, ajustar = () => {}) {
       return img.write(formato, (d) => new Uint8Array(d))
     }),
   )
+}
+
+/**
+ * Animacao construida frame a frame.
+ *
+ * Cada frame tem uma semente diferente, senao os frames sairiam identicos e o
+ * ficheiro nao exercitava nada: `optimize()` reduzia tudo a um frame mais
+ * deltas vazios e o teste passava sem provar que a animacao sobrevive.
+ */
+function animacao(formato, frames, largura, altura, atrasoCentesimos = 10) {
+  const colecao = MagickImageCollection.create()
+  for (let i = 0; i < frames; i += 1) {
+    Magick.setRandomSeed(SEMENTE + i * 977)
+    const settings = new MagickReadSettings()
+    settings.width = largura
+    settings.height = altura
+    const frame = MagickImage.create('plasma:', settings)
+    for (const nome of CARIMBOS_DO_MOTOR) frame.removeAttribute(nome)
+    frame.animationDelay = atrasoCentesimos
+    frame.animationIterations = 0
+    colecao.push(frame)
+  }
+  const bytes = Buffer.from(colecao.write(formato, (d) => new Uint8Array(d)))
+  colecao.dispose()
+  return bytes
 }
 
 const manifesto = []
@@ -308,6 +334,32 @@ await guardar(
     img.quality = 85
   }),
   'nome Unicode, acentos e caracteres nao latinos',
+)
+
+// -------------------------------------------------------- formatos da fase 5
+
+await guardar(
+  'gif-animado.gif',
+  animacao(MagickFormat.Gif, 6, 240, 160),
+  '6 fotogramas: a animacao tem de sobreviver a conversao para GIF e WebP',
+)
+
+await guardar(
+  'gif-estatico.gif',
+  escrever(base1200, MagickFormat.Gif),
+  'GIF de um fotograma, que nao deve ganhar aviso de animacao',
+)
+
+await guardar(
+  'bmp-rgb.bmp',
+  escrever(baseSaturada, MagickFormat.Bmp),
+  'BMP sem compressao, o caso mais simples de entrada',
+)
+
+await guardar(
+  'webp-animado.webp',
+  animacao(MagickFormat.WebP, 4, 200, 150),
+  'WebP animado como entrada: 4 fotogramas',
 )
 
 // ------------------------------------------------------------------ manifesto

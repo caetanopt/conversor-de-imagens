@@ -145,6 +145,45 @@ O nome do ZIP não tem data nem hora. Um carimbo temporal revelaria quando o
 utilizador processou as imagens, que é exatamente o tipo de dado que a política
 de metadados remove dos ficheiros.
 
+## Uma única via de conversão, pela coleção
+
+A conversão deixou de usar `ImageMagick.read` e passou a usar
+`MagickImageCollection`. A razão é uma armadilha medida: a API de imagem única
+achata um ficheiro de vários fotogramas para um, sem lançar nem avisar, o que o
+CLAUDE.md, secção 5.8, proíbe.
+
+Não há dois caminhos. Um ficheiro de um fotograma pela via de coleção produz
+bytes idênticos, no mesmo tempo (JPEG 800x600 para WebP: 51 164 bytes nas duas
+vias, 196 ms contra 206 ms). Manter o caminho antigo para o caso comum só criava
+a possibilidade de um deles esquecer os fotogramas.
+
+A ordem dentro da conversão de vários fotogramas não é arbitrária:
+
+1. `coalesce`, para os fotogramas parciais com deslocamento passarem a
+   fotogramas completos. Sem isto, redimensionar cada um em separado parte a
+   animação.
+2. as diretivas por fotograma: orientação, metadados, geometria, qualidade.
+3. `optimize`, só na saída para GIF.
+4. `write` da coleção.
+
+`multiFrame` no registry decide quando preservar: vários fotogramas só se
+mantêm quando a origem e o destino querem dizer o mesmo com eles. Uma animação
+não se guarda como conjunto de tamanhos de um ícone. Quando é preciso reduzir a
+um fotograma, num ICO escolhe-se o maior e não o primeiro, porque medido um ICO
+com 16, 48 e 256 px devolvia 16x16 pela API de imagem única.
+
+O `EngineConversion` devolve `frameCount` e `outputFrameCount`. Diferentes
+significa perda, e a interface não a esconde.
+
+## O aviso tem de vir antes, não depois
+
+O que acontece aos fotogramas depende do par (origem, destino), e o destino
+muda depois de o ficheiro entrar: o mesmo GIF mantém a animação em WebP e
+perde-a em PNG. Por isso não é um aviso guardado na validação: é
+`avaliarFrames(inspection, outputFormat)`, uma função pura recalculada a cada
+render e mostrada junto ao seletor de destino, com os formatos que resolveriam
+o problema. Depois da conversão seria uma desculpa.
+
 ## Otimizar e converter são o mesmo pipeline
 
 Não há dois caminhos de código. A única diferença é uma restrição no formato de

@@ -36,6 +36,22 @@ describe('formatarDimensoes e formatarMegapixels', () => {
     expect(formatarMegapixels(4000, 3000)).toBe('12 MP')
     expect(formatarMegapixels(6000, 4000)).toBe('24 MP')
   })
+
+  it('nao diz "0,0 MP" a uma imagem pequena', () => {
+    // Um GIF de 240x160 sao 38 400 pixels. Arredondado a uma decima daria
+    // "0,0 MP", que parece uma avaria em vez de uma medida.
+    //
+    // O separador de milhares em pt-PT e um espaco estreito inquebravel
+    // (U+202F) e nao um espaco normal, por isso a comparacao normaliza os
+    // espacos em vez de fingir que sao iguais.
+    const normalizar = (s: string) => s.replace(/\s/gu, ' ')
+    expect(normalizar(formatarMegapixels(240, 160))).toBe('38 400 pixels')
+    expect(formatarMegapixels(16, 16)).toBe('256 pixels')
+  })
+
+  it('volta a megapixels assim que o valor e legivel', () => {
+    expect(formatarMegapixels(300, 200)).toBe('0,1 MP')
+  })
 })
 
 describe('formatarDuracao', () => {

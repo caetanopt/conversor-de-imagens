@@ -146,12 +146,40 @@ describe('validarInspecao', () => {
     if (r.ok) expect(r.warnings).toHaveLength(0)
   })
 
-  it('nunca deixa passar animacao em silencio', () => {
-    const r = validarInspecao(inspecao({ frameCount: 12 }))
-    expect(r.ok).toBe(true)
-    if (r.ok) {
-      expect(r.warnings.some((a) => a.includes('12'))).toBe(true)
-      expect(r.warnings.some((a) => a.includes('fotogramas'))).toBe(true)
+  /*
+   * Os fotogramas multiplicam o trabalho: cada um e uma imagem a codificar.
+   * O que acontece a animacao em si nao se decide aqui, porque depende do
+   * formato de destino, que muda depois de o ficheiro entrar. Essa parte esta
+   * em tests/unit/frames.test.ts.
+   */
+  it('conta os fotogramas no trabalho total', () => {
+    // 12 fotogramas de 2000x1500 sao 36 MP a converter, e um unico frame
+    // dessas dimensoes seriam 3 MP, que nao avisaria nada.
+    const um = validarInspecao(inspecao({ width: 2000, height: 1500 }))
+    const doze = validarInspecao(inspecao({ width: 2000, height: 1500, frameCount: 12 }))
+
+    expect(um.ok && um.warnings).toHaveLength(0)
+    expect(doze.ok).toBe(true)
+    if (doze.ok) {
+      expect(doze.warnings.some((a) => a.includes('12 fotogramas'))).toBe(true)
+      expect(doze.warnings.some((a) => a.includes('mais de um minuto'))).toBe(true)
     }
+  })
+
+  it('recusa quando o total dos fotogramas passa o limite', () => {
+    // 30 fotogramas de 1920x1080 sao 62 MP. Cada frame passa, o total nao.
+    const r = validarInspecao(inspecao({ width: 1920, height: 1080, frameCount: 30 }))
+    expect(r.ok).toBe(false)
+    if (!r.ok) {
+      expect(r.error.kind).toBe('demasiado-grande')
+      expect(r.error.message).toContain('30 fotogramas')
+      expect(r.error.message).toContain('40 MP')
+    }
+  })
+
+  it('recusa pela area de um frame mesmo com um fotograma so', () => {
+    const r = validarInspecao(inspecao({ width: 9000, height: 6000 }))
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.error.message).toMatch(/tempo útil/)
   })
 })

@@ -71,7 +71,9 @@ self.addEventListener('message', async (evento: MessageEvent<WorkerRequest>) => 
       }
 
       case 'converter': {
-        const r = await motor.convert(pedido.bytes, pedido.options)
+        const r = await motor.convert(pedido.bytes, pedido.options, {
+          magickFormat: pedido.magickFormatHint,
+        })
         // Transferido, nao copiado: o buffer sai daqui sem duplicar megabytes.
         const buffer = r.bytes.buffer as ArrayBuffer
         responder(
@@ -86,6 +88,8 @@ self.addEventListener('message', async (evento: MessageEvent<WorkerRequest>) => 
             decodeMs: r.decodeMs,
             encodeMs: r.encodeMs,
             profilesKept: r.profilesKept,
+            frameCount: r.frameCount,
+            outputFrameCount: r.outputFrameCount,
           },
           [buffer],
         )

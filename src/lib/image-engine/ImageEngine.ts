@@ -33,6 +33,16 @@ export type EngineConversion = {
   readonly encodeMs: number
   /** Perfis que sobreviveram a politica de metadados. */
   readonly profilesKept: readonly string[]
+  /** Frames que o ficheiro de entrada tinha. */
+  readonly frameCount: number
+  /**
+   * Frames que o ficheiro de saida tem.
+   *
+   * Menos do que a entrada significa que houve perda: uma animacao achatada,
+   * ou um ICO de varios tamanhos reduzido a um. A interface tem de o dizer, e
+   * antes da conversao, nao depois. CLAUDE.md, seccao 5.8.
+   */
+  readonly outputFrameCount: number
 }
 
 /** Pista de formato para entradas com magic bytes fracos, como ICO ou TGA. */
@@ -41,6 +51,10 @@ export type FormatHint = { readonly magickFormat: string | null }
 export interface ImageEngine {
   getCapabilities(): Promise<EngineCapabilities>
   inspect(input: ArrayBuffer, hint: FormatHint): Promise<ImageInspection>
-  convert(input: ArrayBuffer, options: ConversionOptions): Promise<EngineConversion>
+  convert(
+    input: ArrayBuffer,
+    options: ConversionOptions,
+    hint?: FormatHint,
+  ): Promise<EngineConversion>
   dispose(): void
 }

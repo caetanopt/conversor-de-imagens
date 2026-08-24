@@ -35,10 +35,37 @@ describe('registry de formatos', () => {
     }
   })
 
-  it('a saida ativa e JPG, PNG, WebP e AVIF', () => {
+  it('a saida ativa e JPG, PNG, WebP, AVIF, GIF e BMP', () => {
     // Ordem do registry, nao alfabetica. Mudar isto e uma decisao de produto e
     // nao um detalhe: cada formato aqui exige fixture e validacao.
-    expect(formatosDeSaida().map((f) => f.id)).toEqual(['jpeg', 'png', 'webp', 'avif'])
+    expect(formatosDeSaida().map((f) => f.id)).toEqual([
+      'jpeg',
+      'png',
+      'webp',
+      'avif',
+      'gif',
+      'bmp',
+    ])
+  })
+
+  it('supportsAnimation e multiFrame nao podem divergir', () => {
+    // Dois campos sobre a mesma realidade. O motor decide o que preservar por
+    // multiFrame, e a interface fala de animacao por supportsAnimation: se um
+    // deles for editado sem o outro, o produto passa a mentir num dos lados.
+    for (const formato of FORMATOS) {
+      expect(formato.supportsAnimation, formato.id).toBe(formato.multiFrame === 'animacao')
+    }
+  })
+
+  it('cada valor de multiFrame descreve o que o formato realmente guarda', () => {
+    expect(formatoPorId('gif').multiFrame).toBe('animacao')
+    expect(formatoPorId('webp').multiFrame).toBe('animacao')
+    // Um ICO guarda o mesmo icone em varias dimensoes, nao uma sequencia.
+    expect(formatoPorId('ico').multiFrame).toBe('tamanhos')
+    // Um TIFF guarda paginas de um documento.
+    expect(formatoPorId('tiff').multiFrame).toBe('paginas')
+    expect(formatoPorId('jpeg').multiFrame).toBe('nenhum')
+    expect(formatoPorId('bmp').multiFrame).toBe('nenhum')
   })
 
   it('nunca expoe HEIC como saida, porque o motor nao o escreve', () => {

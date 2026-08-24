@@ -13,8 +13,19 @@
   border-radius: var(--radius-sm);
 }
 
+/*
+ * Em linha, mas com mudanca de linha permitida. Com seis formatos de destino
+ * num painel de 320 px, uma unica linha punha o ultimo botao fora do ecra.
+ * `flex-basis` garante que os botoes de uma segunda linha nao ficam com metade
+ * da largura dos da primeira.
+ */
 .horizontal {
   flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.horizontal .opcao {
+  flex: 1 1 4.5rem;
 }
 
 .vertical {

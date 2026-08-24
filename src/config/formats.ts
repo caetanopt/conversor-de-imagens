@@ -54,6 +54,21 @@ export type ImageFormatCapability = {
    */
   readonly magickFormat: string
 
+  /**
+   * O que significam varios frames neste formato.
+   *
+   * Nao e um detalhe academico: decide o que fazer quando a origem tem mais do
+   * que um frame e o destino tambem podia ter. Preservar so faz sentido quando
+   * os dois lados querem dizer a mesma coisa. Um GIF animado gravado como ICO
+   * de varios tamanhos seria um icone com quatro copias da mesma dimensao.
+   *
+   *  'animacao'  sequencia no tempo (GIF, WebP)
+   *  'tamanhos'  a mesma imagem em varias dimensoes (ICO)
+   *  'paginas'   documento de varias paginas (TIFF)
+   *  'nenhum'    o formato guarda uma imagem so
+   */
+  readonly multiFrame: 'nenhum' | 'animacao' | 'tamanhos' | 'paginas'
+
   /** O browser descodifica nativamente, logo a miniatura nao precisa do motor. */
   readonly browserDecodable: boolean
 
@@ -77,6 +92,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: true,
     supportsResize: true,
     magickFormat: 'JPEG',
+    multiFrame: 'nenhum',
     browserDecodable: true,
     defaultQuality: 82,
     release: 'ativo',
@@ -97,6 +113,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: false,
     supportsResize: true,
     magickFormat: 'PNG',
+    multiFrame: 'nenhum',
     browserDecodable: true,
     defaultQuality: null,
     release: 'ativo',
@@ -117,13 +134,13 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: true,
     supportsResize: true,
     magickFormat: 'WEBP',
+    multiFrame: 'animacao',
     browserDecodable: true,
     defaultQuality: 80,
     release: 'ativo',
     notes: 'Animacao preservada apenas pela via de colecao de frames.',
   },
 
-  // --------------------------------------------------- confirmados, escondidos
   {
     id: 'avif',
     label: 'AVIF',
@@ -137,6 +154,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: true,
     supportsResize: true,
     magickFormat: 'AVIF',
+    multiFrame: 'nenhum',
     browserDecodable: true,
     defaultQuality: 60,
     release: 'ativo',
@@ -159,12 +177,16 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: false,
     supportsResize: true,
     magickFormat: 'GIF',
+    multiFrame: 'animacao',
     browserDecodable: true,
     defaultQuality: null,
-    release: 'em-avaliacao',
+    release: 'ativo',
     notes:
       'Animacao so sobrevive pela via de colecao. A via de imagem unica achata ' +
-      'para 1 frame em silencio, o que o CLAUDE.md proibe.',
+      'para 1 frame em silencio, o que o CLAUDE.md proibe, e por isso a ' +
+      'conversao passa toda pela colecao. Sem qualidade: o tamanho controla-se ' +
+      'pela paleta, e a paleta fica para as definicoes avancadas. Medido: um GIF ' +
+      'animado de 10 frames a 320x240 ocupa 475 KB, e o mesmo em WebP 104 KB.',
   },
   {
     id: 'bmp',
@@ -179,10 +201,17 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: false,
     supportsResize: true,
     magickFormat: 'BMP',
+    multiFrame: 'nenhum',
     browserDecodable: true,
     defaultQuality: null,
-    release: 'em-avaliacao',
+    release: 'ativo',
+    notes:
+      'Sem compressao com perda e sem nivel de compressao util. Existe como ' +
+      'entrada, que e o caso real: capturas de ecra antigas e exportacoes de ' +
+      'software de Windows. Como saida serve para quem precisa dele, e a ' +
+      'interface nao esconde que o ficheiro fica maior.',
   },
+  // --------------------------------------------------- confirmados, escondidos
   {
     id: 'tiff',
     label: 'TIFF',
@@ -196,6 +225,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: false,
     supportsResize: true,
     magickFormat: 'TIFF',
+    multiFrame: 'paginas',
     browserDecodable: false,
     defaultQuality: null,
     release: 'em-avaliacao',
@@ -216,6 +246,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: false,
     supportsResize: true,
     magickFormat: 'ICO',
+    multiFrame: 'tamanhos',
     browserDecodable: true,
     defaultQuality: null,
     release: 'em-avaliacao',
@@ -236,6 +267,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: true,
     supportsResize: true,
     magickFormat: 'JXL',
+    multiFrame: 'nenhum',
     browserDecodable: false,
     defaultQuality: 80,
     release: 'em-avaliacao',
@@ -256,6 +288,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsQuality: false,
     supportsResize: true,
     magickFormat: 'HEIC',
+    multiFrame: 'nenhum',
     browserDecodable: false,
     defaultQuality: null,
     release: 'em-avaliacao',

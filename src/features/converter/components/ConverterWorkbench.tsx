@@ -28,6 +28,7 @@ import { ConversionSummary } from './ConversionSummary'
 import { DropZone } from './DropZone'
 import { FileQueue } from './FileQueue'
 import { FormatSelect } from './FormatSelect'
+import { FramesNotice } from './FramesNotice'
 import { ImagePreview } from './ImagePreview'
 import { MetadataControl } from './MetadataControl'
 import { QualityControl } from './QualityControl'
@@ -164,6 +165,12 @@ export function ConverterWorkbench() {
                 <hr className={styles.divisor} />
               </>
             ) : null}
+
+            {/* Antes da conversao, nao depois. CLAUDE.md, seccao 5.8. */}
+            <FramesNotice
+              inspection={job.inspection}
+              outputFormat={job.options.outputFormat}
+            />
 
             <QualityControl
               outputFormat={job.options.outputFormat}

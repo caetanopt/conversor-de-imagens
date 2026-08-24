@@ -1,0 +1,34 @@
+/*
+ * Duas variantes com a mesma estrutura: a barra a esquerda e a cor mudam, o
+ * texto diz sempre o que vai acontecer. A informacao nao depende da cor.
+ * CLAUDE.md, seccao 20.4.
+ */
+.perda,
+.mantido {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-left: 3px solid;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-ui-small);
+  line-height: var(--leading-relaxed);
+}
+
+.perda {
+  background: var(--state-caution-quiet);
+  border-left-color: var(--state-caution);
+}
+
+.mantido {
+  background: var(--surface-inset);
+  border-left-color: var(--line-strong);
+}
+
+.mensagem {
+  color: var(--text-strong);
+}
+
+.alternativa {
+  color: var(--text-muted);
+}

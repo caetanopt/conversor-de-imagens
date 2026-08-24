@@ -26,11 +26,11 @@ está documentado em vez de escondido.
 | JPG, JPEG, JFIF | sim | sim | ativo | aliases do mesmo formato |
 | PNG | sim | sim | ativo | sem perda, sem qualidade |
 | WebP | sim | sim | ativo | suporta animação e lossless |
-| AVIF | sim | sim | **ativo** | exige o define `heic:speed`, presets calibrados por SSIM |
-| GIF | sim | sim | em avaliação | animação só pela via de coleção |
-| BMP | sim | sim | em avaliação | |
+| AVIF | sim | sim | ativo | exige o define `heic:speed`, presets calibrados por SSIM |
+| GIF | sim | sim | **ativo** | animação preservada, e declarada antes de se perder |
+| BMP | sim | sim | **ativo** | sem compressão, existe sobretudo como entrada |
 | TIFF, TIF | sim | sim | em avaliação | o browser não descodifica, miniatura tem de vir do motor |
-| ICO | sim | sim | em avaliação | magic bytes fracos, releitura exige formato explícito |
+| ICO | sim | sim | em avaliação | magic bytes fracos, e acima de 256 px o ficheiro mente sobre as próprias dimensões |
 | JPEG XL | sim | sim | em avaliação | encode funciona, quase nenhum browser descodifica |
 | HEIC, HEIF | sim | **não** | em avaliação | o motor não tem encoder |
 
@@ -131,6 +131,67 @@ para um fotograma sem lançar nem avisar, o que o CLAUDE.md proíbe
 explicitamente. `collection.length` dá a contagem de fotogramas a partir de um
 `ping`, o que permite avisar antes de converter.
 
+Por isso **toda** a conversão passa pela coleção, e não apenas a de ficheiros
+animados. Medido antes de trocar: um JPEG de 800x600 para WebP dá 51 164 bytes
+pelas duas vias, em 196 ms contra 206 ms. Sendo o resultado idêntico e o custo
+igual, manter dois caminhos só criava a possibilidade de um deles esquecer os
+fotogramas.
+
+Um GIF animado de 6 fotogramas para WebP mantém os 6, verificado nos chunks
+`VP8X`, `ANIM` e `ANMF` do ficheiro de saída.
+
+### Vários fotogramas não significam sempre a mesma coisa
+
+Três formatos guardam mais do que uma imagem, e por razões diferentes:
+
+| Formato | O que são os fotogramas |
+|---|---|
+| GIF, WebP | uma sequência no tempo |
+| ICO | o mesmo ícone em várias dimensões |
+| TIFF | páginas de um documento |
+
+Preservá-los só faz sentido quando a origem e o destino querem dizer o mesmo:
+um GIF animado gravado como ICO daria um ícone com seis cópias da mesma
+dimensão. O campo `multiFrame` no registry codifica isto, e o motor decide a
+partir dele.
+
+Quando é preciso reduzir a um fotograma, qual sobrevive também depende do
+significado. Num ICO é o **maior**, e não o primeiro: medido, um ICO com 16, 48
+e 256 px lido por `ImageMagick.read` devolvia 16x16, portanto converter um
+favicon para PNG dava um PNG de 16 px quando o ficheiro tinha 256 px lá dentro.
+Numa animação ou num documento, o primeiro fotograma é a resposta certa.
+
+### `coalesce` antes de redimensionar, `optimize` no fim
+
+Um GIF otimizado guarda fotogramas parciais com deslocamento: medido, um GIF de
+dois fotogramas lia-se como `200x200+0+0` e `50x50+30+30`. Redimensionar cada
+um em separado parte a animação. `collection.coalesce()` expande todos para o
+tamanho completo antes de qualquer geometria.
+
+`collection.optimize()` faz o inverso no fim, e o ganho depende inteiramente da
+repetição entre fotogramas: com 8 fotogramas iguais, 523 089 bytes passaram a
+66 290; com fotogramas genuinamente diferentes, 819 174 bytes ficaram em
+819 174. Nunca aumentou, por isso é sempre aplicado na saída para GIF.
+
+### Um ICO acima de 256 px declara dimensões erradas
+
+O motor aceita escrever ICO até 512x512 e recusa a partir de 640 com
+`WidthOrHeightExceedsLimit`. Mas o limite útil é mais baixo: o campo de largura
+do `ICONDIRENTRY` tem um byte, e na norma o valor 0 significa 256. Medido nos
+bytes de saída:
+
+| Dimensão pedida | Byte de largura escrito |
+|---|---|
+| 16 px | 16 |
+| 256 px | 0, que é 256 |
+| 320 px | 0, que é 256 |
+| 512 px | 0, que é 256 |
+
+Um ICO de 320 px produzido por este motor anuncia-se como 256 px. O ImageMagick
+volta a lê-lo bem, um leitor que siga a norma não. É o mesmo tipo de falha do
+formato inválido no `write`: um ficheiro válido que diz algo que não é. A saída
+para ICO tem de ficar limitada a 256 px.
+
 ### Progressivo em JPEG não é `img.interlace`
 
 `img.interlace` é apenas leitura. O JPEG progressivo obtém-se com
@@ -197,6 +258,19 @@ zero ficheiros, em silencio e sem lancar, para qualquer nome com um carater fora
 de ASCII. Verificado com acentos do portugues, cirilico, CJK e emoji. O teste
 end to end constroi o ficheiro dentro da pagina com `DataTransfer` para
 contornar essa limitacao da ferramenta.
+
+### Fixtures dos formatos da fase 5
+
+| Fixture | Testa |
+|---|---|
+| `gif-animado.gif` | 6 fotogramas com sementes diferentes, para a animação não sobreviver por acidente |
+| `gif-estatico.gif` | um fotograma, que não pode ganhar aviso de animação |
+| `webp-animado.webp` | WebP animado como entrada, 4 fotogramas |
+| `bmp-rgb.bmp` | BMP sem compressão |
+
+Os fotogramas do GIF animado usam sementes diferentes de propósito. Com
+fotogramas idênticos, `optimize()` reduzi-los-ia a um mais deltas vazios e o
+teste passaria sem provar nada.
 
 ## Formatos deliberadamente fora
 

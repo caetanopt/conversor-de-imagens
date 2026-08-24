@@ -77,6 +77,9 @@ export type ConversionResult = {
   readonly encodeMs: number
   /** Perfis que sobreviveram, para a interface poder ser honesta sobre isso. */
   readonly profilesKept: readonly string[]
+  /** Frames na entrada e na saida. Diferentes significa perda a declarar. */
+  readonly frameCount: number
+  readonly outputFrameCount: number
 }
 
 export type ImageJob = {

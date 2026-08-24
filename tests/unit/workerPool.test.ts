@@ -73,6 +73,8 @@ class WorkerFalso {
       decodeMs: 2,
       encodeMs: 3,
       profilesKept: [],
+      frameCount: 1,
+      outputFrameCount: 1,
     })
   }
 }
@@ -86,6 +88,7 @@ function pedidoDeConversao(id: string): WorkerRequest {
     kind: 'converter',
     requestId: id,
     bytes: new ArrayBuffer(8),
+    magickFormatHint: null,
     options: {
       outputFormat: 'webp',
       quality: 80,

@@ -32,7 +32,9 @@ function resultado(size: number): ConversionResult {
     decodeMs: 4,
     encodeMs: 6,
     profilesKept: [],
-  }
+    frameCount: 1,
+    outputFrameCount: 1,
+}
 }
 
 /** Fila montada pelo reducer, para o teste nao inventar um estado impossivel. */

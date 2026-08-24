@@ -345,6 +345,68 @@ Sem o perfil, o browser assume sRGB e apresenta os números crus. A diferença d
 
 ---
 
+## Animação e fotogramas
+
+Medido em Node com o mesmo binário WASM, fotogramas de `plasma:` com sementes
+diferentes, o pior caso de compressão.
+
+### Custo do encode animado
+
+| Fotogramas | Dimensão | GIF | WebP |
+|---|---|---|---|
+| 2 | 320x240 | 92 790 B, 164 ms | 20 796 B, 65 ms |
+| 5 | 320x240 | 234 462 B, 265 ms | 52 410 B, 159 ms |
+| 10 | 320x240 | 475 019 B, 747 ms | 104 204 B, 340 ms |
+| 20 | 640x480 | 3 381 904 B, 2 795 ms | — |
+
+Duas conclusões que a interface usa:
+
+1. **WebP é 4,5 vezes mais pequeno que GIF** para a mesma animação, e mais
+   rápido a codificar. Quando um GIF animado vai perder a animação, a sugestão
+   nomeia WebP em primeiro lugar.
+2. **O tempo cresce com o número de fotogramas**, o que a área de um fotograma
+   não captura. Um GIF de 20 fotogramas a 640x480 são 0,3 MP por fotograma mas
+   6,1 MP de trabalho, e levou 2,8 s. Por isso os limites e o agendamento do
+   pool passaram a contar `área × fotogramas`, e não só a área.
+
+### `optimize` depende inteiramente da repetição
+
+| Caso | Sem `optimize` | Com `optimize` |
+|---|---|---|
+| 8 fotogramas idênticos, 400x300 | 523 089 B | 66 290 B |
+| 5 fotogramas diferentes, 640x480 | 819 174 B | 819 174 B |
+| 20 fotogramas diferentes, 640x480 | 3 381 904 B | 3 381 904 B |
+
+O ganho de 87 % no primeiro caso não é um resultado geral: são fotogramas
+byte a byte iguais, reduzidos a um fotograma mais deltas vazios. Com conteúdo
+que muda de facto, o ganho é nulo. Custa 36 ms a 115 ms e nunca aumentou o
+ficheiro, por isso é aplicado sempre na saída para GIF, sem ser anunciado como
+uma otimização que sempre ganha.
+
+### WebP animado com fotogramas iguais
+
+Uma medição que quase levou a uma conclusão errada: com 2, 5, 10 e 20
+fotogramas **idênticos**, o WebP animado dava sempre 34 404 bytes e 115 ms.
+Parecia que só o primeiro fotograma era escrito. Não era: a predição
+inter-fotograma do WebP comprime duplicados para quase nada. Com fotogramas
+diferentes o tamanho cresce linearmente e o ficheiro tem `ANIM` e `ANMF`, como
+deve.
+
+Fica registado porque é o género de número que se interpreta mal: uma constante
+onde se esperava crescimento parecia um defeito e era compressão a funcionar.
+
+### Limite real do ICO
+
+| Dimensão | `write` para ICO |
+|---|---|
+| 320x320 | aceita |
+| 512x512 | aceita |
+| 640x640 | `WidthOrHeightExceedsLimit` |
+
+O limite do motor é 512, mas o limite utilizável é 256: acima disso o byte de
+largura do `ICONDIRENTRY` passa a 0, que na norma significa 256. Ver
+`docs/formatos.md`.
+
 ## Capacidades do browser
 
 Chromium 141: **17 de 17** capacidades suportadas.

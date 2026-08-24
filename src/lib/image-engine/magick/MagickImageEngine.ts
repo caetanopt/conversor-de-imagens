@@ -30,9 +30,26 @@
  *    PNG grava-os em chunks tEXt. Nao sao metadados do utilizador, sao
  *    carimbos do momento da conversao, e tem de sair mesmo quando a politica
  *    e manter tudo.
+ *  - `ImageMagick.read` de um ficheiro com varios frames devolve UM frame e
+ *    nao avisa. Num GIF animado isso destroi a animacao em silencio, que e
+ *    exatamente o que o CLAUDE.md, seccao 5.8, proibe. Por isso a conversao
+ *    passa toda pela colecao. Medido: para um ficheiro de um frame, a colecao
+ *    produz bytes identicos ao caminho de imagem unica, no mesmo tempo
+ *    (JPEG 800x600 para WebP: 51 164 bytes nos dois casos, 196 ms contra
+ *    206 ms). Nao ha dois caminhos a manter.
+ *  - num ICO com varios tamanhos, `ImageMagick.read` escolhe o PRIMEIRO frame.
+ *    Medido: um ICO com 16, 48 e 256 px devolvia 16x16. A colecao permite
+ *    escolher o maior, que e o que o utilizador quer.
+ *  - `collection.coalesce()` transforma frames parciais em frames completos.
+ *    E obrigatorio antes de redimensionar: um GIF otimizado guarda frames de
+ *    50x50 com deslocamento, e redimensionar cada um separadamente parte a
+ *    animacao.
+ *  - `collection.optimize()` volta a reduzir os frames as regioes que mudam.
+ *    Medido: com 8 frames iguais, 523 089 bytes passaram a 66 290. Com frames
+ *    genuinamente diferentes o ganho e nulo, porque nao ha nada repetido para
+ *    remover. Nunca aumentou.
  */
 import {
-  ImageMagick,
   initializeImageMagick,
   Interlace,
   Magick,
@@ -41,10 +58,15 @@ import {
   MagickImageCollection,
   MagickReadSettings,
   type IMagickImage,
+  type IMagickImageCollection,
 } from '@imagemagick/magick-wasm'
 
 import { PROFUNDIDADE_DE_CANAL } from '@/config/engine'
-import { formatoPorId, formatoPorMagickFormat } from '@/config/formats'
+import {
+  formatoPorId,
+  formatoPorMagickFormat,
+  type ImageFormatCapability,
+} from '@/config/formats'
 import type { ConversionOptions, ImageInspection } from '@/features/converter/types'
 import type {
   EngineCapabilities,
@@ -76,10 +98,19 @@ function comoMagickFormat(nome: string): MagickFormat {
 export class MagickImageEngine implements ImageEngine {
   #pronto = false
 
-  /** Recebe um URL e deixa o proprio magick-wasm buscar o binario. */
-  async initialize(wasmUrl: string): Promise<void> {
+  /**
+   * Arranca o motor a partir de um URL ou de bytes.
+   *
+   * O worker passa um URL e deixa o magick-wasm buscar o binario. Os testes em
+   * Node passam os bytes, porque nao existe `self.location` fora do browser.
+   * Aceitar as duas formas permite testar este adaptador pela porta real, em
+   * vez de chamar a biblioteca por fora e verificar outra coisa.
+   */
+  async initialize(fonte: string | Uint8Array): Promise<void> {
     if (this.#pronto) return
-    await initializeImageMagick(new URL(wasmUrl, self.location.origin))
+    await initializeImageMagick(
+      typeof fonte === 'string' ? new URL(fonte, self.location.origin) : fonte,
+    )
     this.#pronto = true
   }
 
@@ -108,48 +139,104 @@ export class MagickImageEngine implements ImageEngine {
       if (!primeiro) throw new Error('ImproperImageHeader: nenhuma imagem no ficheiro')
 
       const magickFormat = String(primeiro.format)
+      const formato = formatoPorMagickFormat(magickFormat)
+
+      // As dimensoes reportadas tem de ser as do frame que a conversao vai
+      // usar, senao a interface promete um tamanho e entrega outro. Num ICO com
+      // 16, 48 e 256 px, o primeiro frame e o de 16 e o convertido e o de 256.
+      const escolhido = escolherFrame(colecao, formato)
+
       return {
-        formatId: formatoPorMagickFormat(magickFormat)?.id ?? null,
+        formatId: formato?.id ?? null,
         magickFormat,
-        width: primeiro.width,
-        height: primeiro.height,
+        width: escolhido.width,
+        height: escolhido.height,
         frameCount: colecao.length,
-        hasAlpha: primeiro.hasAlpha,
+        hasAlpha: escolhido.hasAlpha,
       }
     } finally {
       colecao.dispose()
     }
   }
 
-  async convert(input: ArrayBuffer, options: ConversionOptions): Promise<EngineConversion> {
+  async convert(
+    input: ArrayBuffer,
+    options: ConversionOptions,
+    hint: FormatHint = { magickFormat: null },
+  ): Promise<EngineConversion> {
     this.#assertPronto()
     const diretivas = resolveEncodeDirectives(options)
     const destino = formatoPorId(options.outputFormat)
 
     const inicio = performance.now()
-    let fimDoDecode = inicio
+    const colecao = MagickImageCollection.create()
 
-    const resultado = ImageMagick.read(new Uint8Array(input), (img) => {
-      // A chamada a `read` ja descodificou quando o callback comeca, portanto
-      // este e o ponto que separa decode de encode.
-      fimDoDecode = performance.now()
+    try {
+      // O hint existe para formatos de magic bytes fracos. Medido: um ICO sem
+      // formato explicito lanca NoDecodeDelegateForThisImageFormat.
+      if (hint.magickFormat) {
+        colecao.read(new Uint8Array(input), new MagickReadSettings({
+          format: comoMagickFormat(hint.magickFormat),
+        }))
+      } else {
+        colecao.read(new Uint8Array(input))
+      }
 
-      const profilesKept = aplicarDiretivas(img, diretivas)
-      const bytes = img.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
-      return { bytes, width: img.width, height: img.height, profilesKept }
-    })
+      const fimDoDecode = performance.now()
 
-    const fim = performance.now()
+      const primeiro = colecao[0]
+      if (!primeiro) throw new Error('ImproperImageHeader: nenhuma imagem no ficheiro')
 
-    return {
-      bytes: resultado.bytes,
-      width: resultado.width,
-      height: resultado.height,
-      formatId: destino.id,
-      durationMs: Math.round(fim - inicio),
-      decodeMs: Math.round(fimDoDecode - inicio),
-      encodeMs: Math.round(fim - fimDoDecode),
-      profilesKept: resultado.profilesKept,
+      const framesDeEntrada = colecao.length
+      const origem = formatoPorMagickFormat(String(primeiro.format))
+      const preservarFrames = devePreservarFrames(framesDeEntrada, origem, destino)
+
+      let bytes: Uint8Array
+      let largura: number
+      let altura: number
+      let profilesKept: string[]
+      let framesDeSaida: number
+
+      if (preservarFrames) {
+        // Frames parciais viram frames completos antes de qualquer geometria.
+        colecao.coalesce()
+
+        profilesKept = []
+        for (const frame of colecao) profilesKept = aplicarDiretivas(frame, diretivas)
+
+        // Ganha onde ha repeticao entre frames, e nunca perde.
+        if (destino.multiFrame === 'animacao') colecao.optimize()
+
+        bytes = colecao.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
+        const cabeca = colecao[0]!
+        largura = cabeca.width
+        altura = cabeca.height
+        framesDeSaida = colecao.length
+      } else {
+        const frame = escolherFrame(colecao, origem)
+        profilesKept = aplicarDiretivas(frame, diretivas)
+        bytes = frame.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
+        largura = frame.width
+        altura = frame.height
+        framesDeSaida = 1
+      }
+
+      const fim = performance.now()
+
+      return {
+        bytes,
+        width: largura,
+        height: altura,
+        formatId: destino.id,
+        durationMs: Math.round(fim - inicio),
+        decodeMs: Math.round(fimDoDecode - inicio),
+        encodeMs: Math.round(fim - fimDoDecode),
+        profilesKept,
+        frameCount: framesDeEntrada,
+        outputFrameCount: framesDeSaida,
+      }
+    } finally {
+      colecao.dispose()
     }
   }
 
@@ -162,6 +249,48 @@ export class MagickImageEngine implements ImageEngine {
   #assertPronto(): void {
     if (!this.#pronto) throw new Error('Motor nao inicializado')
   }
+}
+
+/**
+ * Preservar varios frames so faz sentido quando os dois lados querem dizer a
+ * mesma coisa com eles.
+ *
+ * Um GIF animado gravado como ICO daria um icone com N copias da mesma
+ * dimensao, e um ICO de tres tamanhos gravado como GIF daria uma animacao de
+ * tres frames de tamanhos diferentes. Nos dois casos o resultado e lixo, e o
+ * que o utilizador quer e uma imagem so.
+ */
+function devePreservarFrames(
+  frames: number,
+  origem: ImageFormatCapability | null,
+  destino: ImageFormatCapability,
+): boolean {
+  if (frames <= 1) return false
+  if (destino.multiFrame === 'nenhum') return false
+  return origem?.multiFrame === destino.multiFrame
+}
+
+/**
+ * Que frame sobrevive quando o destino guarda uma imagem so.
+ *
+ * Num ICO os frames sao tamanhos do mesmo icone, portanto o maior e o unico
+ * que interessa: manter o primeiro daria os 16x16 de um ficheiro que tambem
+ * tinha 256x256. Numa animacao ou num documento de varias paginas, o primeiro
+ * frame e a resposta certa.
+ */
+function escolherFrame(
+  colecao: IMagickImageCollection,
+  origem: ImageFormatCapability | null,
+): IMagickImage {
+  const primeiro = colecao[0]
+  if (!primeiro) throw new Error('ImproperImageHeader: nenhuma imagem no ficheiro')
+  if (origem?.multiFrame !== 'tamanhos') return primeiro
+
+  let maior = primeiro
+  for (const frame of colecao) {
+    if (frame.width * frame.height > maior.width * maior.height) maior = frame
+  }
+  return maior
 }
 
 /**

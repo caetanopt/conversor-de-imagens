@@ -14,7 +14,7 @@
  */
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 
-import type { FormatId } from '@/config/formats'
+import { formatoPorId, type FormatId } from '@/config/formats'
 import { LIMITES } from '@/config/limits'
 import type { PresetId } from '@/config/presets'
 import { EngineClient, ErroDoMotor, type ContextoDaTarefa } from '@/lib/image-engine/client/EngineClient'
@@ -213,10 +213,18 @@ export function useConverter() {
   /** Converte um trabalho e devolve o desfecho, sem depender do render. */
   const converterJob = useCallback(
     async (job: ImageJob): Promise<Desfecho> => {
-      const pixels = job.inspection ? job.inspection.width * job.inspection.height : null
+      // Cada frame e uma imagem a codificar. Um GIF de 20 frames a 640x480 sao
+      // 6,1 MP de trabalho, nao 0,3 MP. Medido: 2,8 s de encode.
+      const pixels = job.inspection
+        ? job.inspection.width * job.inspection.height * Math.max(1, job.inspection.frameCount)
+        : null
       const contexto: ContextoDaTarefa = {
         chave: job.id,
         ...(pixels === null ? {} : { pixels }),
+        // Um ICO nao se identifica pelos proprios bytes de forma fiavel, e o
+        // motor recusa-o sem formato explicito. O formato ja foi determinado
+        // pela assinatura na entrada, portanto passa-se adiante.
+        magickFormatHint: job.sourceFormat ? formatoPorId(job.sourceFormat).magickFormat : null,
         // O estado passa a 'processing' quando a tarefa arranca de facto, nao
         // quando entra na fila. Com concorrencia 2 e trinta ficheiros, a
         // alternativa era mostrar trinta conversoes a decorrer.
@@ -242,6 +250,8 @@ export function useConverter() {
             decodeMs: resultado.decodeMs,
             encodeMs: resultado.encodeMs,
             profilesKept: resultado.profilesKept,
+            frameCount: resultado.frameCount,
+            outputFrameCount: resultado.outputFrameCount,
           },
         })
 

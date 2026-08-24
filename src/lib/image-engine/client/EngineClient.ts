@@ -32,6 +32,8 @@ export type ResultadoConversao = {
   readonly decodeMs: number
   readonly encodeMs: number
   readonly profilesKept: readonly string[]
+  readonly frameCount: number
+  readonly outputFrameCount: number
 }
 
 /** Contexto que ajuda o pool a agendar. Opcional: sem ele o agendamento e conservador. */
@@ -40,6 +42,8 @@ export type ContextoDaTarefa = {
   readonly chave?: string
   /** Numero de pixels, para decidir exclusividade e reciclagem. */
   readonly pixels?: number
+  /** Formato de origem para o motor, quando os magic bytes nao bastam. */
+  readonly magickFormatHint?: string | null
   /** Chamado quando a tarefa deixa a fila e comeca de facto. */
   readonly onInicio?: () => void
 }
@@ -98,7 +102,13 @@ export class EngineClient {
     const bytes = await lerComoBuffer(file)
 
     const resposta = await this.#garantirPool().pedir(
-      { kind: 'converter', requestId: novoId(), bytes, options },
+      {
+        kind: 'converter',
+        requestId: novoId(),
+        bytes,
+        options,
+        magickFormatHint: contexto.magickFormatHint ?? null,
+      },
       {
         chave: contexto.chave ?? novoId(),
         ...(contexto.pixels === undefined ? {} : { pixels: contexto.pixels }),
@@ -122,6 +132,8 @@ export class EngineClient {
       decodeMs: resposta.decodeMs,
       encodeMs: resposta.encodeMs,
       profilesKept: resposta.profilesKept,
+      frameCount: resposta.frameCount,
+      outputFrameCount: resposta.outputFrameCount,
     }
   }
 

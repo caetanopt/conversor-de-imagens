@@ -27,7 +27,16 @@ export function formatarDimensoes(largura: number, altura: number): string {
 }
 
 export function formatarMegapixels(largura: number, altura: number): string {
-  const mp = (largura * altura) / 1_000_000
+  const pixels = largura * altura
+  const mp = pixels / 1_000_000
+
+  // Abaixo de 0,05 MP o valor arredondado seria "0,0 MP", que nao informa nada
+  // e parece uma avaria. Um icone de 240x160 sao 38 400 pixels: dizer isso e
+  // mais util do que dizer zero.
+  if (mp < 0.05) {
+    return `${new Intl.NumberFormat('pt-PT').format(pixels)} pixels`
+  }
+
   const decimais = mp < 10 ? 1 : 0
   return `${new Intl.NumberFormat('pt-PT', {
     minimumFractionDigits: decimais,

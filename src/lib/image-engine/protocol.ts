@@ -22,6 +22,8 @@ export type WorkerRequest =
       readonly requestId: string
       readonly bytes: ArrayBuffer
       readonly options: ConversionOptions
+      /** Formato de origem, para entradas de magic bytes fracos como ICO. */
+      readonly magickFormatHint: string | null
     }
 
 export type WorkerResponse =
@@ -47,6 +49,8 @@ export type WorkerResponse =
       readonly decodeMs: number
       readonly encodeMs: number
       readonly profilesKept: readonly string[]
+      readonly frameCount: number
+      readonly outputFrameCount: number
     }
   | {
       readonly kind: 'erro'
