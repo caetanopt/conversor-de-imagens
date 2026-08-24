@@ -108,6 +108,13 @@ Sao hipoteses fundamentadas nas APIs que usamos, nao resultados.
 
 ### Safari, macOS e iOS
 
+0. **Decode de BMP, GIF e ICO em `createImageBitmap`.** Marcamos os tres como
+   descodificaveis pelo browser, o que foi confirmado apenas em Chromium. O
+   caso menos certo e o ICO, que os browsers mostram em `<img>` mas podem
+   recusar em `createImageBitmap`. Isto deixou de ser um risco de correcao: se
+   o browser recusar, a miniatura passa a vir do motor e a conversao continua.
+   O unico efeito de estarmos errados e a miniatura custar mais uma leitura.
+
 1. **Encode de WebP em `canvas.toBlob`.** A miniatura pede WebP e conta com o
    browser devolver PNG quando nao sabe escrever WebP. Se em vez disso devolver
    `null`, a pre-visualizacao desaparece. O codigo trata `null` sem quebrar, mas

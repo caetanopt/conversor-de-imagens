@@ -72,6 +72,28 @@ export type ImageFormatCapability = {
   /** O browser descodifica nativamente, logo a miniatura nao precisa do motor. */
   readonly browserDecodable: boolean
 
+  /**
+   * Maior dimensao que a saida pode ter, ou null quando nao ha limite util.
+   *
+   * Existe por causa do ICO. O motor aceita escrever ate 512x512 e recusa a
+   * partir de 640, mas o limite utilizavel e 256: o campo de largura do
+   * ICONDIRENTRY tem um byte e o valor 0 significa 256 na norma. Medido, um ICO
+   * de 320 px escrito por este motor declara 0, ou seja 256, e passa a mentir
+   * sobre as proprias dimensoes. Um ficheiro valido que diz o que nao e.
+   */
+  readonly maxOutputDimension: number | null
+
+  /**
+   * O motor precisa de saber o formato para conseguir ler o ficheiro.
+   *
+   * Verificado no ICO: `read` e `ping` sem formato explicito lancam
+   * NoDecodeDelegateForThisImageFormat, porque os magic bytes (00 00 01 00) sao
+   * demasiado fracos para o detetor do ImageMagick decidir. Nos outros formatos
+   * ativos o motor identifica sozinho, e nao forcamos: quando o motor discorda
+   * da nossa deteccao por assinatura, essa divergencia e informacao util.
+   */
+  readonly requiresFormatHint: boolean
+
   readonly defaultQuality: number | null
   readonly release: ReleaseFormato
   readonly notes?: string
@@ -93,6 +115,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'JPEG',
     multiFrame: 'nenhum',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: true,
     defaultQuality: 82,
     release: 'ativo',
@@ -114,6 +138,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'PNG',
     multiFrame: 'nenhum',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: true,
     defaultQuality: null,
     release: 'ativo',
@@ -135,6 +161,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'WEBP',
     multiFrame: 'animacao',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: true,
     defaultQuality: 80,
     release: 'ativo',
@@ -155,6 +183,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'AVIF',
     multiFrame: 'nenhum',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: true,
     defaultQuality: 60,
     release: 'ativo',
@@ -178,6 +208,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'GIF',
     multiFrame: 'animacao',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: true,
     defaultQuality: null,
     release: 'ativo',
@@ -202,6 +234,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'BMP',
     multiFrame: 'nenhum',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: true,
     defaultQuality: null,
     release: 'ativo',
@@ -226,12 +260,16 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'TIFF',
     multiFrame: 'paginas',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: false,
     defaultQuality: null,
-    release: 'em-avaliacao',
+    release: 'ativo',
     notes:
-      'O browser nao descodifica TIFF, logo a miniatura tem de vir do motor. ' +
-      'Multipagina fora de ambito. Build Q8 reduz 16 bits a 8.',
+      'O browser nao descodifica TIFF, logo a miniatura vem do motor, pela via ' +
+      'de thumbnail. Multipagina preservado de TIFF para TIFF e reduzido a ' +
+      'primeira pagina nos outros destinos, sempre com aviso. Build Q8 reduz ' +
+      '16 bits por canal a 8, o que e uma perda real e nao reversivel.',
   },
   {
     id: 'ico',
@@ -247,12 +285,17 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'ICO',
     multiFrame: 'tamanhos',
+    maxOutputDimension: 256,
+    requiresFormatHint: true,
     browserDecodable: true,
     defaultQuality: null,
-    release: 'em-avaliacao',
+    release: 'ativo',
     notes:
-      'Magic bytes fracos: a releitura exige formato explicito. Saida limitada a ' +
-      'dimensoes de icone.',
+      'Magic bytes fracos: o motor recusa ler sem formato explicito, por isso a ' +
+      'conversao passa sempre o magickFormat de origem. Um ICO de varios ' +
+      'tamanhos e uma colecao, e a via de imagem unica devolvia o menor. Saida ' +
+      'limitada a 256 px: acima disso o ICONDIRENTRY declara 256 e o ficheiro ' +
+      'mente sobre as proprias dimensoes.',
   },
   {
     id: 'jxl',
@@ -268,6 +311,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'JXL',
     multiFrame: 'nenhum',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: false,
     defaultQuality: 80,
     release: 'em-avaliacao',
@@ -289,6 +334,8 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsResize: true,
     magickFormat: 'HEIC',
     multiFrame: 'nenhum',
+    maxOutputDimension: null,
+    requiresFormatHint: false,
     browserDecodable: false,
     defaultQuality: null,
     release: 'em-avaliacao',

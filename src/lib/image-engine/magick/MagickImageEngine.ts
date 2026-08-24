@@ -71,10 +71,20 @@ import type { ConversionOptions, ImageInspection } from '@/features/converter/ty
 import type {
   EngineCapabilities,
   EngineConversion,
+  EngineThumbnail,
   FormatHint,
   ImageEngine,
 } from '../ImageEngine'
 import { resolveEncodeDirectives, type EncodeDirectives } from '../options'
+
+/**
+ * Formato e qualidade da miniatura.
+ *
+ * WebP porque todos os browsers alvo o descodificam e porque um WebP de 720 px
+ * a qualidade 80 fica na ordem das dezenas de KB, contra centenas em PNG.
+ */
+const FORMATO_DA_MINIATURA = 'webp' as const
+const QUALIDADE_DA_MINIATURA = 80
 
 /** Nomes que este binario reconhece de facto, lidos da propria biblioteca. */
 const FORMATOS_DO_MOTOR: ReadonlySet<string> = new Set(Object.values(MagickFormat))
@@ -93,6 +103,34 @@ function comoMagickFormat(nome: string): MagickFormat {
     throw new Error(`NoEncodeDelegateForThisImageFormat: formato invalido "${String(nome)}"`)
   }
   return nome as MagickFormat
+}
+
+/**
+ * Le uma colecao, declarando o formato quando o chamador o conhece.
+ *
+ * `ping` le apenas cabecalhos e `read` descodifica os pixels. Os dois precisam
+ * do mesmo tratamento do hint, e ter isto num sitio evita que um dos tres
+ * caminhos do motor se esqueca dele. Ja aconteceu na camada acima.
+ */
+function abrir(
+  colecao: IMagickImageCollection,
+  input: ArrayBuffer,
+  hint: FormatHint,
+  modo: 'ping' | 'read',
+): void {
+  const bytes = new Uint8Array(input)
+  const settings = hint.magickFormat
+    ? new MagickReadSettings({ format: comoMagickFormat(hint.magickFormat) })
+    : null
+
+  if (modo === 'ping') {
+    if (settings) colecao.ping(bytes, settings)
+    else colecao.ping(bytes)
+    return
+  }
+
+  if (settings) colecao.read(bytes, settings)
+  else colecao.read(bytes)
 }
 
 export class MagickImageEngine implements ImageEngine {
@@ -125,15 +163,10 @@ export class MagickImageEngine implements ImageEngine {
 
   async inspect(input: ArrayBuffer, hint: FormatHint): Promise<ImageInspection> {
     this.#assertPronto()
-    const bytes = new Uint8Array(input)
     const colecao = MagickImageCollection.create()
     try {
       // ping le cabecalhos. Nao descodifica pixels, logo e barato mesmo a 24 MP.
-      if (hint.magickFormat) {
-        colecao.ping(bytes, new MagickReadSettings({ format: comoMagickFormat(hint.magickFormat) }))
-      } else {
-        colecao.ping(bytes)
-      }
+      abrir(colecao, input, hint, 'ping')
 
       const primeiro = colecao[0]
       if (!primeiro) throw new Error('ImproperImageHeader: nenhuma imagem no ficheiro')
@@ -174,13 +207,7 @@ export class MagickImageEngine implements ImageEngine {
     try {
       // O hint existe para formatos de magic bytes fracos. Medido: um ICO sem
       // formato explicito lanca NoDecodeDelegateForThisImageFormat.
-      if (hint.magickFormat) {
-        colecao.read(new Uint8Array(input), new MagickReadSettings({
-          format: comoMagickFormat(hint.magickFormat),
-        }))
-      } else {
-        colecao.read(new Uint8Array(input))
-      }
+      abrir(colecao, input, hint, 'read')
 
       const fimDoDecode = performance.now()
 
@@ -189,51 +216,77 @@ export class MagickImageEngine implements ImageEngine {
 
       const framesDeEntrada = colecao.length
       const origem = formatoPorMagickFormat(String(primeiro.format))
-      const preservarFrames = devePreservarFrames(framesDeEntrada, origem, destino)
 
-      let bytes: Uint8Array
-      let largura: number
-      let altura: number
-      let profilesKept: string[]
-      let framesDeSaida: number
-
-      if (preservarFrames) {
-        // Frames parciais viram frames completos antes de qualquer geometria.
-        colecao.coalesce()
-
-        profilesKept = []
-        for (const frame of colecao) profilesKept = aplicarDiretivas(frame, diretivas)
-
-        // Ganha onde ha repeticao entre frames, e nunca perde.
-        if (destino.multiFrame === 'animacao') colecao.optimize()
-
-        bytes = colecao.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
-        const cabeca = colecao[0]!
-        largura = cabeca.width
-        altura = cabeca.height
-        framesDeSaida = colecao.length
-      } else {
-        const frame = escolherFrame(colecao, origem)
-        profilesKept = aplicarDiretivas(frame, diretivas)
-        bytes = frame.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
-        largura = frame.width
-        altura = frame.height
-        framesDeSaida = 1
-      }
+      const codificado = devePreservarFrames(framesDeEntrada, origem, destino)
+        ? escreverTodosOsFrames(colecao, diretivas, destino)
+        : escreverUmFrame(colecao, origem, diretivas)
 
       const fim = performance.now()
 
       return {
-        bytes,
-        width: largura,
-        height: altura,
+        bytes: codificado.bytes,
+        width: codificado.width,
+        height: codificado.height,
         formatId: destino.id,
         durationMs: Math.round(fim - inicio),
         decodeMs: Math.round(fimDoDecode - inicio),
         encodeMs: Math.round(fim - fimDoDecode),
-        profilesKept,
+        profilesKept: codificado.profilesKept,
         frameCount: framesDeEntrada,
-        outputFrameCount: framesDeSaida,
+        outputFrameCount: codificado.frames,
+      }
+    } finally {
+      colecao.dispose()
+    }
+  }
+
+  /**
+   * Miniatura para os formatos que o browser nao descodifica.
+   *
+   * Nao e uma conversao com outro nome: nao ha politica de metadados a
+   * respeitar nem qualidade a escolher, porque o ficheiro nunca chega ao
+   * utilizador. Sai sempre sem metadados e em WebP, que qualquer browser alvo
+   * descodifica. Medido: 31 ms para um TIFF de 320x200.
+   */
+  async thumbnail(
+    input: ArrayBuffer,
+    hint: FormatHint,
+    larguraMaxima: number,
+  ): Promise<EngineThumbnail> {
+    this.#assertPronto()
+    const inicio = performance.now()
+    const colecao = MagickImageCollection.create()
+
+    try {
+      abrir(colecao, input, hint, 'read')
+
+      const primeiro = colecao[0]
+      if (!primeiro) throw new Error('ImproperImageHeader: nenhuma imagem no ficheiro')
+
+      // O mesmo frame que a conversao vai usar, senao a pre-visualizacao
+      // mostra uma imagem e o resultado e outra.
+      const frame = escolherFrame(colecao, formatoPorMagickFormat(String(primeiro.format)))
+
+      frame.autoOrient()
+      // Uma miniatura nao leva metadados: nao vai para lado nenhum e o perfil
+      // de cor nao compensa os bytes num objeto de 720 px de largura.
+      frame.strip()
+
+      const geo = new MagickGeometry(larguraMaxima, larguraMaxima)
+      // Nunca aumentar: uma miniatura esticada nao ajuda ninguem.
+      geo.greater = true
+      frame.resize(geo)
+      frame.quality = QUALIDADE_DA_MINIATURA
+
+      const destino = formatoPorId(FORMATO_DA_MINIATURA)
+      const bytes = frame.write(comoMagickFormat(destino.magickFormat), (d) => d.slice())
+
+      return {
+        bytes,
+        width: frame.width,
+        height: frame.height,
+        formatId: destino.id,
+        durationMs: Math.round(performance.now() - inicio),
       }
     } finally {
       colecao.dispose()
@@ -248,6 +301,68 @@ export class MagickImageEngine implements ImageEngine {
 
   #assertPronto(): void {
     if (!this.#pronto) throw new Error('Motor nao inicializado')
+  }
+}
+
+type Codificado = {
+  readonly bytes: Uint8Array
+  readonly width: number
+  readonly height: number
+  readonly profilesKept: string[]
+  /** Frames que o ficheiro de saida tem. */
+  readonly frames: number
+}
+
+/** Saida com todos os frames, para animacao, paginas ou tamanhos preservados. */
+function escreverTodosOsFrames(
+  colecao: IMagickImageCollection,
+  diretivas: EncodeDirectives,
+  destino: ImageFormatCapability,
+): Codificado {
+  // Frames parciais viram frames completos antes de qualquer geometria: um GIF
+  // otimizado guarda regioes com deslocamento, e redimensionar cada uma em
+  // separado parte a animacao.
+  colecao.coalesce()
+
+  const perfis: string[][] = []
+  for (const frame of colecao) perfis.push(aplicarDiretivas(frame, diretivas))
+
+  // Apenas em GIF: e uma otimizacao do formato GIF, que substitui cada frame
+  // pela regiao que mudou. Medido, no WebP nao muda nada (34 104 bytes com e
+  // sem), porque o WebP ja faz predicao entre frames por dentro. Aplica-la ali
+  // seria um passo especulativo.
+  if (destino.id === 'gif') colecao.optimize()
+
+  const bytes = colecao.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
+  const cabeca = colecao[0]
+  if (!cabeca) throw new Error('ImproperImageHeader: colecao vazia depois de coalesce')
+
+  return {
+    bytes,
+    width: cabeca.width,
+    height: cabeca.height,
+    // A politica de metadados e a mesma em todos os frames, portanto os perfis
+    // do primeiro descrevem o ficheiro.
+    profilesKept: perfis[0] ?? [],
+    frames: colecao.length,
+  }
+}
+
+/** Saida de um frame so, quando o destino guarda uma imagem apenas. */
+function escreverUmFrame(
+  colecao: IMagickImageCollection,
+  origem: ImageFormatCapability | null,
+  diretivas: EncodeDirectives,
+): Codificado {
+  const frame = escolherFrame(colecao, origem)
+  const profilesKept = aplicarDiretivas(frame, diretivas)
+
+  return {
+    bytes: frame.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice()),
+    width: frame.width,
+    height: frame.height,
+    profilesKept,
+    frames: 1,
   }
 }
 

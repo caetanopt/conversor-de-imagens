@@ -25,6 +25,7 @@ import { useConverter } from '../hooks/useConverter'
 import { BatchActionBar } from './BatchActionBar'
 import { ConversionModeControl } from './ConversionModeControl'
 import { ConversionSummary } from './ConversionSummary'
+import { DimensionNotice } from './DimensionNotice'
 import { DropZone } from './DropZone'
 import { FileQueue } from './FileQueue'
 import { FormatSelect } from './FormatSelect'
@@ -170,6 +171,11 @@ export function ConverterWorkbench() {
             <FramesNotice
               inspection={job.inspection}
               outputFormat={job.options.outputFormat}
+            />
+            <DimensionNotice
+              inspection={job.inspection}
+              outputFormat={job.options.outputFormat}
+              resize={job.options.resize}
             />
 
             <QualityControl

@@ -362,6 +362,69 @@ await guardar(
   'WebP animado como entrada: 4 fotogramas',
 )
 
+/**
+ * ICO com varios tamanhos, como um favicon real.
+ *
+ * Existe para provar que a conversao escolhe o MAIOR fotograma. A via de imagem
+ * unica do motor devolvia o primeiro, que aqui e o de 16 px.
+ */
+function icoMultiTamanho(lados) {
+  const colecao = MagickImageCollection.create()
+  for (const lado of lados) {
+    Magick.setRandomSeed(SEMENTE)
+    const settings = new MagickReadSettings()
+    settings.width = lado
+    settings.height = lado
+    const frame = MagickImage.create('plasma:', settings)
+    for (const nome of CARIMBOS_DO_MOTOR) frame.removeAttribute(nome)
+    colecao.push(frame)
+  }
+  const bytes = Buffer.from(colecao.write(MagickFormat.Ico, (d) => new Uint8Array(d)))
+  colecao.dispose()
+  return bytes
+}
+
+/** TIFF de varias paginas, para o aviso de paginas ter um caso real. */
+function tiffMultiPagina(paginas) {
+  const colecao = MagickImageCollection.create()
+  for (let i = 0; i < paginas; i += 1) {
+    Magick.setRandomSeed(SEMENTE + i * 331)
+    const settings = new MagickReadSettings()
+    settings.width = 320
+    settings.height = 240
+    const frame = MagickImage.create('plasma:', settings)
+    for (const nome of CARIMBOS_DO_MOTOR) frame.removeAttribute(nome)
+    colecao.push(frame)
+  }
+  const bytes = Buffer.from(colecao.write(MagickFormat.Tiff, (d) => new Uint8Array(d)))
+  colecao.dispose()
+  return bytes
+}
+
+await guardar(
+  'tiff-normal.tif',
+  escrever(base1200, MagickFormat.Tiff),
+  'TIFF de uma pagina: o browser nao o descodifica, a miniatura vem do motor',
+)
+
+await guardar(
+  'tiff-multipagina.tiff',
+  tiffMultiPagina(3),
+  '3 paginas: preservadas em TIFF, reduzidas a primeira nos outros destinos',
+)
+
+await guardar(
+  'ico-multi.ico',
+  icoMultiTamanho([16, 48, 256]),
+  'ICO com tres tamanhos: a conversao tem de escolher o de 256 px',
+)
+
+await guardar(
+  'ico-simples.ico',
+  escrever(gerar('plasma:', 64, 64), MagickFormat.Ico),
+  'ICO de um tamanho, 64 px',
+)
+
 // ------------------------------------------------------------------ manifesto
 
 await writeFile(

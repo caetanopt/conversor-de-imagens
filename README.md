@@ -4,8 +4,9 @@ Plataforma web de otimização e conversão de imagens. Todo o processamento
 acontece no dispositivo do utilizador, através de WebAssembly num Web Worker.
 Nenhuma imagem é enviada para um servidor.
 
-Estado: primeira versão completa em âmbito. Suporta JPG, PNG, WebP, AVIF, GIF e
-BMP, em conversão e em otimização no mesmo formato, com redimensionamento,
+Estado: primeira versão completa em âmbito. Suporta JPG, PNG, WebP, AVIF, GIF,
+BMP, TIFF e ICO, em conversão e em otimização no mesmo formato, com
+redimensionamento,
 controlo de metadados, processamento em lote com concorrência controlada e
 descarregamento de vários resultados num ZIP criado no browser.
 

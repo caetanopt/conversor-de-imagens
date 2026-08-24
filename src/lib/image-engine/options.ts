@@ -92,9 +92,41 @@ export function resolveEncodeDirectives(options: ConversionOptions): EncodeDirec
     defines,
     autoOrient: options.autoOrient,
     metadata: resolveMetadataDirective(options.metadata),
-    resize: resolveResize(options),
+    resize: limitarDimensao(resolveResize(options), formato.maxOutputDimension),
     // Progressivo so faz sentido em JPEG e reduz o tamanho percebido no carregamento.
     interlace: formato.id === 'jpeg' && !options.lossless,
+  }
+}
+
+/**
+ * Impoe o limite de dimensao do formato de destino, quando existe.
+ *
+ * Hoje so o ICO tem um: acima de 256 px o ficheiro declara 256 no
+ * ICONDIRENTRY e mente sobre as suas dimensoes. E preferivel reduzir e dizer
+ * ao utilizador do que entregar um ficheiro que os leitores da norma leem mal.
+ *
+ * Sem redimensionamento pedido, o limite entra como caixa delimitadora que so
+ * reduz, portanto um icone de 64 px fica em 64. Com redimensionamento pedido,
+ * os valores do utilizador sao respeitados mas nunca passam do limite.
+ */
+export function limitarDimensao(
+  resize: ResizeDirective | null,
+  limite: number | null,
+): ResizeDirective | null {
+  if (limite === null) return resize
+
+  if (!resize) {
+    return { width: limite, height: limite, ignoreAspectRatio: false, onlyShrink: true }
+  }
+
+  // 0 significa "calcula a partir da outra dimensao", e nesse caso o limite e
+  // que passa a ser a fronteira daquele lado.
+  return {
+    width: resize.width === 0 ? limite : Math.min(resize.width, limite),
+    height: resize.height === 0 ? limite : Math.min(resize.height, limite),
+    ignoreAspectRatio: resize.ignoreAspectRatio,
+    // O utilizador pediu dimensoes: nao lhe impomos "so reduzir" por cima.
+    onlyShrink: resize.onlyShrink,
   }
 }
 

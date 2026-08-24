@@ -78,11 +78,45 @@ describe('formatos ativos escrevem realmente o formato certo', () => {
 
   it('todos os formatos ativos voltam a ser lidos pelo motor', () => {
     for (const formato of formatosDeSaida()) {
+      // O ICO nao passa de 256 px, e a fonte tem 240x160, portanto cabe.
       const saida = ImageMagick.read(fonte, (img) =>
         img.write(formato.magickFormat as MagickFormat, (d) => new Uint8Array(d)),
       )
-      const dimensoes = ImageMagick.read(saida, (img) => ({ w: img.width, h: img.height }))
+
+      // Alguns formatos nao se identificam pelos proprios bytes. O registry diz
+      // quais, e a aplicacao passa o formato nesses casos.
+      const settings = formato.requiresFormatHint
+        ? new MagickReadSettings({ format: formato.magickFormat as MagickFormat })
+        : undefined
+
+      const dimensoes = settings
+        ? ImageMagick.read(saida, settings, (img) => ({ w: img.width, h: img.height }))
+        : ImageMagick.read(saida, (img) => ({ w: img.width, h: img.height }))
+
       expect(dimensoes, formato.id).toEqual({ w: 240, h: 160 })
+    }
+  })
+
+  it('so o ICO precisa de formato explicito para ser lido', () => {
+    // Se um formato novo passar a precisar de hint, ou o ICO deixar de precisar,
+    // este teste falha e o registry tem de ser corrigido.
+    for (const formato of FORMATOS) {
+      const saida = formato.canEncode
+        ? ImageMagick.read(fonte, (img) =>
+            formato.id === 'heic'
+              ? new Uint8Array()
+              : img.write(formato.magickFormat as MagickFormat, (d) => new Uint8Array(d)),
+          )
+        : new Uint8Array()
+      if (saida.length === 0) continue
+
+      let leSemHint = true
+      try {
+        ImageMagick.read(saida, (img) => img.width)
+      } catch {
+        leSemHint = false
+      }
+      expect(leSemHint, `${formato.id} sem hint`).toBe(!formato.requiresFormatHint)
     }
   })
 })

@@ -56,7 +56,21 @@ const APIS_DE_PERSISTENCIA = [
 ]
 
 export default tseslint.config(
-  { ignores: ['.next/**', 'out/**', 'node_modules/**', 'coverage/**', 'next-env.d.ts', '*-temp.mjs'] },
+  // Artefactos de build e de teste. `test-results` guarda tracos do Playwright
+  // com JavaScript minificado de terceiros: uma corrida interrompida deixa
+  // ficheiros la e o lint do projeto passava a analisa-los.
+  {
+    ignores: [
+      '.next/**',
+      'out/**',
+      'node_modules/**',
+      'coverage/**',
+      'test-results/**',
+      'playwright-report/**',
+      'next-env.d.ts',
+      '*-temp.mjs',
+    ],
+  },
 
   js.configs.recommended,
   ...tseslint.configs.recommended,

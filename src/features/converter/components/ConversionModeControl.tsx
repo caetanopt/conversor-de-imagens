@@ -22,14 +22,25 @@ type Props = {
 }
 
 /**
- * Formatos em que otimizar no mesmo formato nao produz ganho mensuravel com
- * este motor.
+ * Onde otimizar no mesmo formato nao recomprime nada.
  *
- * Medido: o encoder de PNG do ImageMagick nao e um otimizador. Os niveis de
- * compressao 6 e 9 dao bytes identicos, e nivel 0 apenas aumenta 71 %. Nao ha
- * margem. Fingir que "Otimizar" faz algo a um PNG seria enganar o utilizador.
+ * A regra sai do registry em vez de uma lista a manter a mao: so ha margem para
+ * reduzir onde existe qualidade com perda para baixar. Nos formatos sem perda
+ * este motor nao e um otimizador, ele apenas volta a escrever com as mesmas
+ * definicoes.
+ *
+ * Medido sobre as fixtures, saida byte a byte igual a entrada em todos:
+ *
+ *   PNG    520 829 -> 520 829     BMP    360 138 -> 360 138
+ *   TIFF 2 880 288 -> 2 880 288   ICO     16 958 -> 16 958
+ *   GIF    153 630 -> 153 630 (animado, 6 fotogramas)
+ *
+ * O encoder de PNG confirmou-o de outra forma: os niveis de compressao 6 e 9
+ * dao bytes identicos e o nivel 0 apenas aumenta 71 %.
  */
-const SEM_GANHO_NO_MESMO_FORMATO: readonly FormatId[] = ['png']
+function recomprimeNoMesmoFormato(formato: FormatId): boolean {
+  return formatoPorId(formato).supportsQuality
+}
 
 export function ConversionModeControl({
   modo,
@@ -40,10 +51,10 @@ export function ConversionModeControl({
 }: Props) {
   const podeOtimizar = formatoDeOtimizacao !== null
   const etiquetaOrigem = sourceFormat ? formatoPorId(sourceFormat).label : null
-  const semGanho =
+  const semRecompressao =
     modo === 'otimizar' &&
     formatoDeOtimizacao !== null &&
-    SEM_GANHO_NO_MESMO_FORMATO.includes(formatoDeOtimizacao)
+    !recomprimeNoMesmoFormato(formatoDeOtimizacao)
 
   return (
     <div className={styles.envolvente}>
@@ -61,15 +72,19 @@ export function ConversionModeControl({
       <p className={styles.explicacao}>
         {!podeOtimizar
           ? `Não é possível otimizar mantendo ${etiquetaOrigem ?? 'este formato'}. Escolha um formato de destino.`
-          : modo === 'otimizar'
-            ? `Mantém ${etiquetaOrigem} e reduz o tamanho do ficheiro.`
-            : 'Permite escolher outro formato de destino.'}
+          : modo === 'converter'
+            ? 'Permite escolher outro formato de destino.'
+            : semRecompressao
+              ? // Prometer reducao de tamanho num formato sem perda seria falso.
+                `Mantém ${etiquetaOrigem} e aplica as definições escolhidas.`
+              : `Mantém ${etiquetaOrigem} e reduz o tamanho do ficheiro.`}
       </p>
 
-      {semGanho ? (
+      {semRecompressao ? (
         <p className={styles.aviso}>
-          Otimizar {etiquetaOrigem} para {etiquetaOrigem} não reduz o tamanho nesta versão. Para
-          ficheiros mais pequenos, converta para WebP.
+          {etiquetaOrigem} não tem compressão com perda, por isso otimizar sem mudar de formato
+          não recomprime a imagem. O único ganho possível vem da remoção de metadados. Para
+          ficheiros bastante mais pequenos, converta para WebP.
         </p>
       ) : null}
     </div>

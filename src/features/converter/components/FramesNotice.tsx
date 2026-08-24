@@ -7,10 +7,10 @@
  * decide o resultado. Depois da conversao seria uma desculpa, nao um aviso.
  * CLAUDE.md, seccao 5.8.
  */
+import type { FormatId } from '@/config/formats'
 import { avaliarFrames, etiquetasDasAlternativas } from '../state/frames'
 import type { ImageInspection } from '../types'
-import type { FormatId } from '@/config/formats'
-import styles from './FramesNotice.module.css'
+import { Notice, NoticeDetail, NoticeMessage } from './Notice'
 
 type Props = {
   readonly inspection: ImageInspection | null
@@ -24,13 +24,13 @@ export function FramesNotice({ inspection, outputFormat }: Props) {
   const alternativas = etiquetasDasAlternativas(noticia)
 
   return (
-    <div className={noticia.tipo === 'reduzidos' ? styles.perda : styles.mantido}>
-      <p className={styles.mensagem}>{noticia.mensagem}</p>
+    <Notice tipo={noticia.tipo === 'reduzidos' ? 'perda' : 'informacao'}>
+      <NoticeMessage>{noticia.mensagem}</NoticeMessage>
       {noticia.tipo === 'reduzidos' && alternativas ? (
-        <p className={styles.alternativa}>
+        <NoticeDetail>
           Para manter tudo, escolha {alternativas} como formato de destino.
-        </p>
+        </NoticeDetail>
       ) : null}
-    </div>
+    </Notice>
   )
 }

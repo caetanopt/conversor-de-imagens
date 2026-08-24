@@ -18,6 +18,13 @@ export type WorkerRequest =
       readonly magickFormatHint: string | null
     }
   | {
+      readonly kind: 'miniatura'
+      readonly requestId: string
+      readonly bytes: ArrayBuffer
+      readonly magickFormatHint: string | null
+      readonly larguraMaxima: number
+    }
+  | {
       readonly kind: 'converter'
       readonly requestId: string
       readonly bytes: ArrayBuffer
@@ -37,6 +44,15 @@ export type WorkerResponse =
       readonly kind: 'inspecionado'
       readonly requestId: string
       readonly inspection: ImageInspection
+    }
+  | {
+      readonly kind: 'miniatura'
+      readonly requestId: string
+      readonly bytes: ArrayBuffer
+      readonly width: number
+      readonly height: number
+      readonly formatId: FormatId
+      readonly durationMs: number
     }
   | {
       readonly kind: 'convertido'

@@ -45,6 +45,21 @@ export type EngineConversion = {
   readonly outputFrameCount: number
 }
 
+/**
+ * Miniatura produzida pelo motor.
+ *
+ * Existe para os formatos que o browser nao descodifica, hoje TIFF. Sem isto,
+ * carregar um TIFF dava uma area de pre-visualizacao vazia sem explicacao.
+ */
+export type EngineThumbnail = {
+  readonly bytes: Uint8Array
+  readonly width: number
+  readonly height: number
+  /** Formato da miniatura, para a main thread construir o Blob certo. */
+  readonly formatId: FormatId
+  readonly durationMs: number
+}
+
 /** Pista de formato para entradas com magic bytes fracos, como ICO ou TGA. */
 export type FormatHint = { readonly magickFormat: string | null }
 
@@ -56,5 +71,6 @@ export interface ImageEngine {
     options: ConversionOptions,
     hint?: FormatHint,
   ): Promise<EngineConversion>
+  thumbnail(input: ArrayBuffer, hint: FormatHint, larguraMaxima: number): Promise<EngineThumbnail>
   dispose(): void
 }

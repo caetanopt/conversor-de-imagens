@@ -23,7 +23,7 @@ import { descarregarBlob } from '@/lib/download/saveBlob'
 import { trocarExtensao } from '@/lib/download/fileNames'
 import { criarZip, nomeDoZip } from '@/lib/download/zipResults'
 import { revogarObjectUrl, revogarTodosOsObjectUrls } from '@/lib/files/objectUrls'
-import { criarPreview } from '@/lib/files/preview'
+import { criarPreview, previewDeBlob } from '@/lib/files/preview'
 import { lerCabecalho } from '@/lib/files/readFile'
 import { validarFicheiro, validarInspecao } from '@/lib/validation/validateFile'
 import {
@@ -36,9 +36,11 @@ import {
 import { convertiveis, jobSelecionado, resumirLote } from '../state/selectors'
 import type {
   ConversionMode,
+  ImageInspection,
   ImageJob,
   JobError,
   MetadataPolicy,
+  PreviewRef,
   ResizeOptions,
 } from '../types'
 
@@ -105,7 +107,10 @@ export function useConverter() {
       if (!job.sourceFormat) return
 
       try {
-        const inspecao = await cliente().inspect(job.file, { chave: job.id })
+        const inspecao = await cliente().inspect(job.file, {
+          chave: job.id,
+          magickFormatHint: hintDoFormato(job.sourceFormat),
+        })
         if (!montadoRef.current) return
 
         const validacao = validarInspecao(inspecao)
@@ -119,7 +124,8 @@ export function useConverter() {
           dispatch({ type: 'avisos', id: job.id, warnings: validacao.warnings })
         }
 
-        const preview = await criarPreview(job.file, job.sourceFormat, inspecao)
+        const preview = await previsualizar(cliente(), job, inspecao)
+
         if (!montadoRef.current) {
           revogarObjectUrl(preview?.url)
           return
@@ -221,10 +227,7 @@ export function useConverter() {
       const contexto: ContextoDaTarefa = {
         chave: job.id,
         ...(pixels === null ? {} : { pixels }),
-        // Um ICO nao se identifica pelos proprios bytes de forma fiavel, e o
-        // motor recusa-o sem formato explicito. O formato ja foi determinado
-        // pela assinatura na entrada, portanto passa-se adiante.
-        magickFormatHint: job.sourceFormat ? formatoPorId(job.sourceFormat).magickFormat : null,
+        magickFormatHint: hintDoFormato(job.sourceFormat),
         // O estado passa a 'processing' quando a tarefa arranca de facto, nao
         // quando entra na fila. Com concorrencia 2 e trinta ficheiros, a
         // alternativa era mostrar trinta conversoes a decorrer.
@@ -433,6 +436,58 @@ export function useConverter() {
     definirResize,
     definirModo,
   }
+}
+
+/**
+ * Pre-visualizacao, por dois caminhos e sem nunca fazer falhar o trabalho.
+ *
+ * Primeiro o browser, que e mais rapido e nao ocupa o motor. Depois o motor,
+ * para os formatos que o browser nao descodifica.
+ *
+ * Nenhuma falha aqui e um erro do trabalho. Sem miniatura a conversao continua
+ * a funcionar, e tratar isto como erro impediria o utilizador de converter um
+ * ficheiro que o motor le perfeitamente. Isto tambem torna `browserDecodable`
+ * uma pista de desempenho e nao uma afirmacao de correcao: se um browser que
+ * nao testamos recusar um formato que marcamos como descodificavel, a miniatura
+ * passa a vir do motor em vez de o ficheiro ser recusado.
+ */
+async function previsualizar(
+  cliente: EngineClient,
+  job: ImageJob,
+  inspecao: ImageInspection,
+): Promise<PreviewRef | null> {
+  if (!job.sourceFormat) return null
+
+  try {
+    const doBrowser = await criarPreview(job.file, job.sourceFormat, inspecao)
+    if (doBrowser) return doBrowser
+  } catch {
+    // O browser disse que sabia e nao sabia. Segue para o motor.
+  }
+
+  try {
+    const m = await cliente.miniatura(job.file, {
+      chave: job.id,
+      magickFormatHint: hintDoFormato(job.sourceFormat),
+    })
+    return previewDeBlob(m.blob, m.width, m.height)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Formato a declarar ao motor, ou null quando ele o descobre sozinho.
+ *
+ * So se forca onde e preciso. Um ICO nao se identifica pelos proprios bytes de
+ * forma fiavel e o motor recusa-o sem formato explicito; nos restantes, deixar
+ * o motor decidir mantem a divergencia entre a nossa deteccao e a dele
+ * visivel, o que e informacao e nao um problema.
+ */
+function hintDoFormato(sourceFormat: FormatId | null): string | null {
+  if (!sourceFormat) return null
+  const formato = formatoPorId(sourceFormat)
+  return formato.requiresFormatHint ? formato.magickFormat : null
 }
 
 const ERRO_MOTOR_INDISPONIVEL: JobError = {

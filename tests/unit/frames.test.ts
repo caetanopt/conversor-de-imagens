@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { avaliarLimiteDeDimensao } from '@/features/converter/state/dimensoes'
 import { avaliarFrames, etiquetasDasAlternativas } from '@/features/converter/state/frames'
 import type { ImageInspection } from '@/features/converter/types'
 
@@ -106,5 +107,58 @@ describe('tamanhos e paginas', () => {
     )
     expect(noticia?.alternativas).not.toContain('gif')
     expect(noticia?.alternativas).not.toContain('webp')
+  })
+})
+
+describe('limite de dimensao do destino', () => {
+  it('avisa que um ICO vai reduzir uma imagem grande', () => {
+    const limite = avaliarLimiteDeDimensao(
+      { formatId: 'jpeg', magickFormat: 'JPEG', width: 1200, height: 800, frameCount: 1, hasAlpha: false },
+      'ico',
+      null,
+    )
+    expect(limite?.limite).toBe(256)
+    expect(limite?.width).toBe(256)
+    expect(limite?.height).toBe(171)
+  })
+
+  it('nao avisa quando a imagem ja cabe no limite', () => {
+    const limite = avaliarLimiteDeDimensao(
+      { formatId: 'png', magickFormat: 'PNG', width: 64, height: 64, frameCount: 1, hasAlpha: true },
+      'ico',
+      null,
+    )
+    expect(limite).toBeNull()
+  })
+
+  it('nao avisa quando o utilizador ja pediu dimensoes dentro do limite', () => {
+    // Redimensionar para 128 px torna o limite do ICO irrelevante, e um aviso
+    // sobre algo que nao vai acontecer e ruido.
+    const limite = avaliarLimiteDeDimensao(
+      { formatId: 'jpeg', magickFormat: 'JPEG', width: 1200, height: 800, frameCount: 1, hasAlpha: false },
+      'ico',
+      { width: 128, height: null, preserveAspectRatio: true, allowUpscale: false },
+    )
+    expect(limite).toBeNull()
+  })
+
+  it('avisa quando o utilizador pede dimensoes acima do limite', () => {
+    const limite = avaliarLimiteDeDimensao(
+      { formatId: 'jpeg', magickFormat: 'JPEG', width: 1200, height: 800, frameCount: 1, hasAlpha: false },
+      'ico',
+      { width: 600, height: null, preserveAspectRatio: true, allowUpscale: false },
+    )
+    expect(limite?.width).toBe(256)
+  })
+
+  it('os formatos sem limite nao dizem nada', () => {
+    for (const destino of ['jpeg', 'png', 'webp', 'avif', 'gif', 'bmp', 'tiff'] as const) {
+      const limite = avaliarLimiteDeDimensao(
+        { formatId: 'jpeg', magickFormat: 'JPEG', width: 6000, height: 4000, frameCount: 1, hasAlpha: false },
+        destino,
+        null,
+      )
+      expect(limite, destino).toBeNull()
+    }
   })
 })

@@ -70,6 +70,28 @@ self.addEventListener('message', async (evento: MessageEvent<WorkerRequest>) => 
         return
       }
 
+      case 'miniatura': {
+        const m = await motor.thumbnail(
+          pedido.bytes,
+          { magickFormat: pedido.magickFormatHint },
+          pedido.larguraMaxima,
+        )
+        const buffer = m.bytes.buffer as ArrayBuffer
+        responder(
+          {
+            kind: 'miniatura',
+            requestId: pedido.requestId,
+            bytes: buffer,
+            width: m.width,
+            height: m.height,
+            formatId: m.formatId,
+            durationMs: m.durationMs,
+          },
+          [buffer],
+        )
+        return
+      }
+
       case 'converter': {
         const r = await motor.convert(pedido.bytes, pedido.options, {
           magickFormat: pedido.magickFormatHint,

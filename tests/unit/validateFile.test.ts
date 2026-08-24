@@ -13,6 +13,10 @@ CABECALHO_PNG.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 const CABECALHO_TIFF = new Uint8Array(32)
 CABECALHO_TIFF.set([0x49, 0x49, 0x2a, 0x00])
 
+/** JPEG XL: reconhecido pela assinatura, ainda nao ativo na interface. */
+const CABECALHO_JXL = new Uint8Array(32)
+CABECALHO_JXL.set([0xff, 0x0a])
+
 function ficheiroFalso(tamanho: number, nome = 'foto.jpg', tipo = 'image/jpeg'): File {
   const file = new File([], nome, { type: tipo })
   // Evita alocar 100 MB reais so para testar o limite de tamanho.
@@ -64,12 +68,21 @@ describe('validarFicheiro', () => {
   })
 
   it('rejeita um formato reconhecido mas ainda nao ativo', () => {
-    const r = validarFicheiro(ficheiroFalso(2048, 'scan.tif', 'image/tiff'), CABECALHO_TIFF)
+    // JPEG XL: o motor escreve e le, mas quase nenhum browser descodifica,
+    // portanto continua escondido. A mensagem nomeia o formato em vez de dizer
+    // apenas "nao suportado".
+    const r = validarFicheiro(ficheiroFalso(2048, 'foto.jxl', 'image/jxl'), CABECALHO_JXL)
     expect(r.ok).toBe(false)
     if (!r.ok) {
       expect(r.error.kind).toBe('formato-nao-suportado')
-      expect(r.error.message).toContain('TIFF')
+      expect(r.error.message).toContain('JPEG XL')
     }
+  })
+
+  it('aceita TIFF, agora que esta ativo', () => {
+    const r = validarFicheiro(ficheiroFalso(2048, 'scan.tif', 'image/tiff'), CABECALHO_TIFF)
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.formatId).toBe('tiff')
   })
 
   it('avisa quando o MIME declarado nao corresponde ao conteudo', () => {

@@ -17,9 +17,20 @@ import { criarObjectUrl } from './objectUrls'
 export type DimensoesOrigem = { readonly width: number; readonly height: number }
 
 /**
+ * Constroi a referencia de pre-visualizacao a partir de bytes ja prontos.
+ *
+ * Existe para a miniatura vinda do motor entrar pelo mesmo sitio: a criacao de
+ * object URLs esta confinada a lib/files/objectUrls, por regra de lint, para
+ * cada URL criado ter um revoke correspondente.
+ */
+export function previewDeBlob(blob: Blob, width: number, height: number): PreviewRef {
+  return { url: criarObjectUrl(blob), width, height }
+}
+
+/**
  * Devolve null quando o browser nao sabe descodificar o formato, por exemplo
- * TIFF ou HEIC. Nesse caso a miniatura tera de vir do motor, o que fica para
- * a etapa em que esses formatos sao ativados.
+ * TIFF, ou quando `createImageBitmap` nao existe. Nesse caso a miniatura vem
+ * do motor, atraves de `previewDeBlob`.
  */
 export async function criarPreview(
   file: File,

@@ -175,6 +175,29 @@ A interface passou a dizer isto de forma explícita quando o utilizador escolhe
 otimizar um PNG, e a sugerir WebP. É o caso previsto no CLAUDE.md, secção 6,
 para avaliar um codec dedicado numa etapa posterior.
 
+### E o mesmo vale para todos os formatos sem perda
+
+Medido sobre as fixtures, com remoção de metadados aplicada, saída comparada
+com a entrada:
+
+| Formato | Original | Depois | Variação |
+|---|---|---|---|
+| BMP para BMP | 360 138 | 360 138 | 0,0 % |
+| TIFF para TIFF | 2 880 288 | 2 880 288 | 0,0 % |
+| ICO para ICO | 16 958 | 16 958 | 0,0 % |
+| GIF para GIF, estático | 520 829 | 520 829 | 0,0 % |
+| GIF para GIF, 6 fotogramas | 153 630 | 153 630 | 0,0 % |
+
+Byte a byte igual em todos. Isto transformou o aviso do PNG numa regra derivada
+do registry em vez de uma lista escrita à mão: só existe margem para reduzir
+onde o formato tem qualidade com perda para baixar, ou seja onde
+`supportsQuality` é verdadeiro. Nos restantes, o motor apenas volta a escrever
+com as mesmas definições.
+
+O texto do modo "Otimizar" mudou em consequência. Dizia "Mantém TIFF e reduz o
+tamanho do ficheiro", o que era falso. Agora diz que o formato não tem
+compressão com perda e que o único ganho possível vem da remoção de metadados.
+
 ### O JPEG para JPEG é uma perda irreversível
 
 Reencodificar a qualidade 82 um JPEG originalmente gravado a 88:
@@ -380,8 +403,12 @@ Duas conclusões que a interface usa:
 O ganho de 87 % no primeiro caso não é um resultado geral: são fotogramas
 byte a byte iguais, reduzidos a um fotograma mais deltas vazios. Com conteúdo
 que muda de facto, o ganho é nulo. Custa 36 ms a 115 ms e nunca aumentou o
-ficheiro, por isso é aplicado sempre na saída para GIF, sem ser anunciado como
-uma otimização que sempre ganha.
+ficheiro, por isso é aplicado na saída para GIF, sem ser anunciado como uma
+otimização que sempre ganha.
+
+Só para GIF. Medido no WebP animado, 34 104 bytes com e sem `optimize`: o WebP
+já faz predição entre fotogramas por dentro, portanto aplicá-la ali seria um
+passo especulativo sobre um formato que não é o dela.
 
 ### WebP animado com fotogramas iguais
 

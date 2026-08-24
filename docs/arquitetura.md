@@ -175,6 +175,16 @@ com 16, 48 e 256 px devolvia 16x16 pela API de imagem única.
 O `EngineConversion` devolve `frameCount` e `outputFrameCount`. Diferentes
 significa perda, e a interface não a esconde.
 
+## Miniaturas de formatos que o browser não lê
+
+`criarPreview` usa `createImageBitmap`, que falha nos formatos que o browser
+não descodifica. Nesse caso devolve null e a miniatura vem do motor, pela
+operação `thumbnail`. É a única forma de um TIFF ter pré-visualização.
+
+A decisão é do registry e não de uma lista de casos especiais:
+`browserDecodable` diz quem precisa do motor. O caminho do browser continua a
+ser o preferido, porque é mais rápido e não ocupa o motor.
+
 ## O aviso tem de vir antes, não depois
 
 O que acontece aos fotogramas depende do par (origem, destino), e o destino
@@ -183,6 +193,14 @@ perde-a em PNG. Por isso não é um aviso guardado na validação: é
 `avaliarFrames(inspection, outputFormat)`, uma função pura recalculada a cada
 render e mostrada junto ao seletor de destino, com os formatos que resolveriam
 o problema. Depois da conversão seria uma desculpa.
+
+O mesmo raciocínio vale para o limite de dimensão do ICO:
+`avaliarLimiteDeDimensao` diz, antes de converter, com que tamanho o ficheiro
+vai sair. Reduzir a imagem em silêncio seria o mesmo erro de destruir animação
+em silêncio.
+
+Os dois avisos partilham um componente `Notice`, porque um bloco com o mesmo
+aspeto em dois sítios não deve ter dois estilos.
 
 ## Otimizar e converter são o mesmo pipeline
 
@@ -328,6 +346,7 @@ com a degradação, ao contrário do que o nome sugere.
 | Quero | Mexo em |
 |---|---|
 | Ativar um formato | `config/formats.ts`, campo `release` |
+| Limitar as dimensões de saída de um formato | `config/formats.ts`, `maxOutputDimension` |
 | Mudar limites de tamanho ou memória | `config/limits.ts` |
 | Mudar valores dos presets | `config/presets.ts` |
 | Acrescentar uma opção de encoder | `lib/image-engine/options.ts` e o painel de definições |

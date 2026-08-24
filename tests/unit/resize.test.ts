@@ -20,7 +20,7 @@ import {
   MagickReadSettings,
 } from '@imagemagick/magick-wasm'
 
-import { calcularSaida } from '@/features/converter/components/ResizeControls'
+import { calcularSaida } from '@/features/converter/state/resize'
 import { opcoesPorDefeito } from '@/features/converter/state/jobsReducer'
 import type { ResizeOptions } from '@/features/converter/types'
 import { resolveEncodeDirectives } from '@/lib/image-engine/options'

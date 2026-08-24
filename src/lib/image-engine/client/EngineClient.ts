@@ -53,6 +53,16 @@ export class EngineClient {
   #arranque: Promise<EngineCapabilities> | null = null
   #capacidades: EngineCapabilities | null = null
 
+  /**
+   * A fabrica de workers e injetavel apenas para testes.
+   *
+   * Existe por causa de um defeito real: o hint de formato estava ligado em
+   * `convert` e `miniatura` e ficou esquecido em `inspect`, o que impedia
+   * qualquer ICO de ser lido. O typecheck nao apanha isso, porque o campo
+   * aceita null. Um teste com um worker falso apanha.
+   */
+  constructor(private readonly criarWorkerParaTestes?: () => Worker) {}
+
   /** Garante que o motor esta pronto. Chamadas concorrentes partilham o arranque. */
   async prepare(): Promise<EngineCapabilities> {
     this.#arranque ??= this.#arrancar()
@@ -80,7 +90,12 @@ export class EngineClient {
     const bytes = await lerComoBuffer(file)
 
     const resposta = await this.#garantirPool().pedir(
-      { kind: 'inspecionar', requestId: novoId(), bytes, magickFormatHint: null },
+      {
+        kind: 'inspecionar',
+        requestId: novoId(),
+        bytes,
+        magickFormatHint: contexto.magickFormatHint ?? null,
+      },
       {
         chave: contexto.chave ?? novoId(),
         timeoutMs: LIMITES.timeoutConversaoMs,
@@ -91,6 +106,46 @@ export class EngineClient {
 
     if (resposta.kind !== 'inspecionado') throw inesperado(resposta)
     return resposta.inspection
+  }
+
+  /**
+   * Miniatura produzida pelo motor.
+   *
+   * Usada apenas quando o browser nao descodifica o formato, hoje TIFF. Para
+   * os outros a miniatura sai do proprio browser, que e mais rapido e nao
+   * ocupa o motor.
+   */
+  async miniatura(
+    file: File,
+    contexto: ContextoDaTarefa = {},
+  ): Promise<{ readonly blob: Blob; readonly width: number; readonly height: number }> {
+    await this.prepare()
+    const bytes = await lerComoBuffer(file)
+
+    const resposta = await this.#garantirPool().pedir(
+      {
+        kind: 'miniatura',
+        requestId: novoId(),
+        bytes,
+        magickFormatHint: contexto.magickFormatHint ?? null,
+        larguraMaxima: LIMITES.larguraPreview,
+      },
+      {
+        chave: contexto.chave ?? novoId(),
+        ...(contexto.pixels === undefined ? {} : { pixels: contexto.pixels }),
+        timeoutMs: LIMITES.timeoutConversaoMs,
+        transfer: [bytes],
+      },
+    )
+
+    if (resposta.kind !== 'miniatura') throw inesperado(resposta)
+
+    const formato = formatoPorId(resposta.formatId)
+    return {
+      blob: new Blob([resposta.bytes], { type: formato.mimeTypes[0] }),
+      width: resposta.width,
+      height: resposta.height,
+    }
   }
 
   async convert(
@@ -173,11 +228,12 @@ export class EngineClient {
 
   #garantirPool(): WorkerPool {
     this.#pool ??= new WorkerPool(
-      () =>
-        new Worker(new URL('../../../workers/image.worker.ts', import.meta.url), {
-          type: 'module',
-          name: 'motor-de-imagem',
-        }),
+      this.criarWorkerParaTestes ??
+        (() =>
+          new Worker(new URL('../../../workers/image.worker.ts', import.meta.url), {
+            type: 'module',
+            name: 'motor-de-imagem',
+          })),
       MAGICK_WASM_URL,
       concorrenciaSugerida(),
     )

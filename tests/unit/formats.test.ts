@@ -35,7 +35,7 @@ describe('registry de formatos', () => {
     }
   })
 
-  it('a saida ativa e JPG, PNG, WebP, AVIF, GIF e BMP', () => {
+  it('a saida ativa e JPG, PNG, WebP, AVIF, GIF, BMP, TIFF e ICO', () => {
     // Ordem do registry, nao alfabetica. Mudar isto e uma decisao de produto e
     // nao um detalhe: cada formato aqui exige fixture e validacao.
     expect(formatosDeSaida().map((f) => f.id)).toEqual([
@@ -45,7 +45,25 @@ describe('registry de formatos', () => {
       'avif',
       'gif',
       'bmp',
+      'tiff',
+      'ico',
     ])
+  })
+
+  it('so o ICO tem limite de dimensao de saida', () => {
+    // Medido: acima de 256 px o ICONDIRENTRY declara 256 e o ficheiro mente
+    // sobre as proprias dimensoes.
+    expect(formatoPorId('ico').maxOutputDimension).toBe(256)
+    for (const formato of FORMATOS) {
+      if (formato.id !== 'ico') expect(formato.maxOutputDimension, formato.id).toBeNull()
+    }
+  })
+
+  it('so o ICO precisa de formato explicito para ser lido', () => {
+    expect(formatoPorId('ico').requiresFormatHint).toBe(true)
+    for (const formato of FORMATOS) {
+      if (formato.id !== 'ico') expect(formato.requiresFormatHint, formato.id).toBe(false)
+    }
   })
 
   it('supportsAnimation e multiFrame nao podem divergir', () => {
@@ -145,8 +163,9 @@ describe('registry de formatos', () => {
     expect(accept).toContain('image/jpeg')
     expect(accept).toContain('.webp')
     expect(accept).toContain('image/avif')
+    expect(accept).toContain('image/tiff')
     // Um formato inativo nao deve aparecer no seletor de ficheiros.
-    expect(accept).not.toContain('image/tiff')
     expect(accept).not.toContain('image/heic')
+    expect(accept).not.toContain('image/jxl')
   })
 })

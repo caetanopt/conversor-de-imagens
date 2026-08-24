@@ -29,8 +29,8 @@ está documentado em vez de escondido.
 | AVIF | sim | sim | ativo | exige o define `heic:speed`, presets calibrados por SSIM |
 | GIF | sim | sim | **ativo** | animação preservada, e declarada antes de se perder |
 | BMP | sim | sim | **ativo** | sem compressão, existe sobretudo como entrada |
-| TIFF, TIF | sim | sim | em avaliação | o browser não descodifica, miniatura tem de vir do motor |
-| ICO | sim | sim | em avaliação | magic bytes fracos, e acima de 256 px o ficheiro mente sobre as próprias dimensões |
+| TIFF, TIF | sim | sim | **ativo** | o browser não descodifica, a miniatura vem do motor |
+| ICO | sim | sim | **ativo** | exige formato explícito na leitura, saída limitada a 256 px |
 | JPEG XL | sim | sim | em avaliação | encode funciona, quase nenhum browser descodifica |
 | HEIC, HEIF | sim | **não** | em avaliação | o motor não tem encoder |
 
@@ -259,6 +259,35 @@ de ASCII. Verificado com acentos do portugues, cirilico, CJK e emoji. O teste
 end to end constroi o ficheiro dentro da pagina com `DataTransfer` para
 contornar essa limitacao da ferramenta.
 
+### O motor tem de produzir a miniatura do TIFF
+
+Nenhum browser descodifica TIFF, portanto `createImageBitmap` falha e a área de
+pré-visualização ficaria vazia sem explicação. A operação `thumbnail` do motor
+resolve isso: lê o ficheiro, escolhe o fotograma que a conversão vai usar,
+remove metadados, reduz para a largura da miniatura e escreve WebP a qualidade
+80. Medido: 31 ms para um TIFF de 320x200.
+
+Não é uma conversão com outro nome. Não há política de metadados a respeitar nem
+qualidade a escolher, porque o ficheiro nunca chega ao utilizador. É o único
+sítio onde o produto descarta o perfil de cor sem perguntar, e pode fazê-lo
+porque o objeto tem 720 px de largura e existe só para ser visto no ecrã.
+
+A miniatura só é pedida ao motor quando o browser não sabe descodificar o
+formato. Para os restantes continua a vir do próprio browser, que é mais rápido
+e não ocupa o motor.
+
+### O ICO não se lê sem lhe dizer que é um ICO
+
+Os magic bytes de um ICO são `00 00 01 00`, demasiado fracos para o detetor do
+ImageMagick. Medido: `read` e `ping` sem formato explícito lançam
+`NoDecodeDelegateForThisImageFormat`; com `MagickReadSettings({format: Ico})`
+funcionam.
+
+O campo `requiresFormatHint` no registry marca isto, e um teste verifica que
+nenhum outro formato ativo precisa do mesmo. Nos restantes não forçamos o
+formato de propósito: quando o motor discorda da nossa deteção por assinatura,
+essa divergência é informação e não um problema a esconder.
+
 ### Fixtures dos formatos da fase 5
 
 | Fixture | Testa |
@@ -267,6 +296,10 @@ contornar essa limitacao da ferramenta.
 | `gif-estatico.gif` | um fotograma, que não pode ganhar aviso de animação |
 | `webp-animado.webp` | WebP animado como entrada, 4 fotogramas |
 | `bmp-rgb.bmp` | BMP sem compressão |
+| `tiff-normal.tif` | TIFF de uma página, para a miniatura vinda do motor |
+| `tiff-multipagina.tiff` | 3 páginas, preservadas em TIFF e reduzidas nos outros destinos |
+| `ico-multi.ico` | ICO com 16, 48 e 256 px, para provar que a conversão usa o maior |
+| `ico-simples.ico` | ICO de 64 px, que não deve ser aumentado até ao limite |
 
 Os fotogramas do GIF animado usam sementes diferentes de propósito. Com
 fotogramas idênticos, `optimize()` reduzi-los-ia a um mais deltas vazios e o
