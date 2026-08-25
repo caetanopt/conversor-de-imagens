@@ -6,7 +6,7 @@
   height: 100%;
   padding: var(--space-5);
   background: var(--surface-sunken);
-  border: 1px dashed var(--line-strong);
+  border: 1px dashed var(--line-control);
   border-radius: var(--radius-md);
   transition:
     background-color var(--duration-fast) var(--ease-out),

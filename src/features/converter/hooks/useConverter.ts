@@ -398,6 +398,10 @@ export function useConverter() {
     dispatch({ type: 'preset', id, preset })
   }, [])
 
+  const definirSemPerda = useCallback((id: string, lossless: boolean) => {
+    dispatch({ type: 'sem-perda', id, lossless })
+  }, [])
+
   const definirMetadados = useCallback((id: string, metadata: MetadataPolicy) => {
     dispatch({ type: 'metadados', id, metadata })
   }, [])
@@ -432,6 +436,7 @@ export function useConverter() {
     definirFormatoDeSaida,
     definirQualidade,
     definirPreset,
+    definirSemPerda,
     definirMetadados,
     definirResize,
     definirModo,

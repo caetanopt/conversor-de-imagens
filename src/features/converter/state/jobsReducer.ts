@@ -7,6 +7,7 @@
  */
 import { formatoPorId, type FormatId } from '@/config/formats'
 import { PRESET_POR_DEFEITO, qualidadeDoPreset, type PresetId } from '@/config/presets'
+import { permiteEscolherSemPerda } from '@/lib/image-engine/options'
 import type {
   ConversionMode,
   ConversionOptions,
@@ -47,6 +48,7 @@ export type ConverterAction =
   | { readonly type: 'formato-de-saida'; readonly id: string; readonly outputFormat: FormatId }
   | { readonly type: 'qualidade'; readonly id: string; readonly quality: number }
   | { readonly type: 'preset'; readonly id: string; readonly preset: PresetId }
+  | { readonly type: 'sem-perda'; readonly id: string; readonly lossless: boolean }
   | { readonly type: 'metadados'; readonly id: string; readonly metadata: MetadataPolicy }
   | { readonly type: 'resize'; readonly id: string; readonly resize: ResizeOptions | null }
   | { readonly type: 'modo'; readonly mode: ConversionMode }
@@ -186,6 +188,22 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
         },
       }))
 
+    case 'sem-perda':
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        // Muda os bytes de saida, logo o resultado anterior deixa de
+        // corresponder ao que esta selecionado.
+        status: job.status === 'done' ? 'ready' : job.status,
+        result: null,
+        options: {
+          ...job.options,
+          lossless: acao.lossless,
+          // Sem perda impoe a qualidade, portanto o preset deixa de descrever
+          // o que vai acontecer.
+          preset: acao.lossless ? null : (job.options.preset ?? PRESET_POR_DEFEITO),
+        },
+      }))
+
     case 'metadados':
       return atualizar(estado, acao.id, (job) => ({
         ...job,
@@ -276,7 +294,9 @@ export function opcoesParaFormato(
     outputFormat,
     quality: qualidadeDoPreset(preset, formato),
     preset,
-    lossless: formato.supportsLossless ? anteriores.lossless : false,
+    // Sem perda so se transporta para um formato onde seja uma escolha. Num
+    // PNG a opcao nao existe, porque o formato ja e sem perda.
+    lossless: permiteEscolherSemPerda(formato) ? anteriores.lossless : false,
   }
 }
 

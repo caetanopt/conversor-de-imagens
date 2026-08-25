@@ -42,7 +42,7 @@
 .secundario {
   background: var(--surface-raised);
   color: var(--text-strong);
-  border-color: var(--line-strong);
+  border-color: var(--line-control);
 }
 
 .secundario:hover:not(:disabled) {

@@ -22,7 +22,6 @@
 
 .limpar {
   margin-left: auto;
-  margin-right: calc(var(--space-2) * -1);
 }
 
 .lista {

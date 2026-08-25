@@ -14,6 +14,10 @@ A animação de um GIF ou de um WebP é preservada quando o formato de destino a
 suporta. Quando não suporta, a interface diz o que se vai perder antes de
 converter, e sugere um formato que a mantenha.
 
+Em WebP existe também compressão sem perda, que preserva os pixéis exatamente à
+custa de um ficheiro bastante maior. Os formatos que já são sem perda por
+natureza não mostram a opção, porque não haveria nada a escolher.
+
 Validado em Chromium. **Firefox, Safari, iPhone e iPad continuam por validar**,
 por o ambiente de desenvolvimento não permitir instalar esses browsers. Ver
 `docs/browser-support.md`.
@@ -35,7 +39,7 @@ O binário é servido da nossa própria origem e nunca de um CDN externo.
 ## Verificações
 
 ```bash
-npm run verify        # typecheck + lint + testes unitários
+npm run verify        # typecheck + lint + testes unitários, incluindo contraste
 npm run build         # build e exportação estática para out/
 npm run verify:bundle # confirma que o motor não entra no bundle da main thread
 npm run verify:all    # tudo o que está acima, em sequência
@@ -43,6 +47,9 @@ npm run verify:all    # tudo o que está acima, em sequência
 npm run fixtures      # gera as 24 imagens de teste, de forma reprodutível
 npm run test:e2e      # testes end to end, exige build e fixtures
 ```
+
+O `verify` inclui o teste de contraste dos tokens de cor, e o `test:e2e` inclui
+a verificação das seis larguras da secção 21 do CLAUDE.md.
 
 As fixtures são geradas e não versionadas. Incluem JPEG progressivo, JPEG com
 EXIF e GPS, JPEG com perfil ICC AdobeRGB, JPEG CMYK, PNG com transparência,

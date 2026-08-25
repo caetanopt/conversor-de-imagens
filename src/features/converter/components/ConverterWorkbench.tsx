@@ -182,8 +182,10 @@ export function ConverterWorkbench() {
               outputFormat={job.options.outputFormat}
               quality={job.options.quality}
               preset={job.options.preset}
+              lossless={job.options.lossless}
               onQualidade={(valor) => conversor.definirQualidade(job.id, valor)}
               onPreset={(preset) => conversor.definirPreset(job.id, preset)}
+              onSemPerda={(valor) => conversor.definirSemPerda(job.id, valor)}
               disabled={definicoesBloqueadas}
             />
 

@@ -24,8 +24,11 @@ describe('resolveEncodeDirectives', () => {
   })
 
   it('limita a qualidade ao intervalo valido', () => {
-    expect(resolveEncodeDirectives(opcoes({ quality: 0 })).quality).toBe(1)
-    expect(resolveEncodeDirectives(opcoes({ quality: 500 })).quality).toBe(100)
+    // O teto e por formato desde que o AVIF se mostrou incapaz de gravar a 100,
+    // por isso cada caso nomeia o formato.
+    expect(resolveEncodeDirectives(opcoes({ outputFormat: 'jpeg', quality: 0 })).quality).toBe(1)
+    expect(resolveEncodeDirectives(opcoes({ outputFormat: 'jpeg', quality: -5 })).quality).toBe(1)
+    expect(resolveEncodeDirectives(opcoes({ outputFormat: 'jpeg', quality: 500 })).quality).toBe(100)
     expect(resolveEncodeDirectives(opcoes({ quality: 82.6 })).quality).toBe(83)
     expect(resolveEncodeDirectives(opcoes({ quality: Number.NaN })).quality).toBeNull()
   })
@@ -42,14 +45,52 @@ describe('resolveEncodeDirectives', () => {
     expect(resolveEncodeDirectives(opcoes({ outputFormat: 'webp' })).defines).toEqual([])
   })
 
-  it('aplica lossless de WebP so quando pedido', () => {
-    expect(resolveEncodeDirectives(opcoes({ outputFormat: 'webp', lossless: true })).defines).toEqual(
-      [{ format: 'WEBP', name: 'lossless', value: 'true' }],
-    )
-    expect(
-      resolveEncodeDirectives(opcoes({ outputFormat: 'webp', lossless: false })).defines,
-    ).toEqual([])
+  /*
+   * O define `webp:lossless` foi removido depois de medido. Prometia sem perda
+   * e nao cumpria abaixo da qualidade 100:
+   *
+   *   q100                    1 065 458 bytes   SSIM 0
+   *   define lossless + q100  1 065 458 bytes   SSIM 0        (bytes iguais)
+   *   define lossless + q80     745 502 bytes   SSIM 0,0024   (nao e sem perda)
+   *
+   * Sem perda passou a resolver-se para qualidade 100, o caminho que funciona.
+   */
+  it('sem perda em WebP resolve-se para qualidade 100 e nao para um define', () => {
+    const d = resolveEncodeDirectives(opcoes({ outputFormat: 'webp', lossless: true }))
+    expect(d.quality).toBe(100)
+    expect(d.defines).toEqual([])
   })
+
+  it('sem perda desligado deixa a qualidade escolhida intacta', () => {
+    const d = resolveEncodeDirectives(
+      opcoes({ outputFormat: 'webp', lossless: false, quality: 80 }),
+    )
+    expect(d.quality).toBe(80)
+  })
+
+  it('sem perda e ignorado num formato onde nao e uma escolha', () => {
+    // Num PNG nao ha nada a escolher, e num AVIF a qualidade 100 lanca erro do
+    // encoder. Nos dois casos a opcao nao pode alterar a qualidade.
+    expect(resolveEncodeDirectives(opcoes({ outputFormat: 'png', lossless: true })).quality).toBeNull()
+    expect(
+      resolveEncodeDirectives(opcoes({ outputFormat: 'avif', lossless: true, quality: 65 })).quality,
+    ).toBe(65)
+  })
+
+  it('trava a qualidade no teto do formato, e nao em 100', () => {
+    // Defesa em profundidade: um valor guardado antes de o formato mudar
+    // chegaria intacto ao motor, e em AVIF q100 lanca erro.
+    expect(
+      resolveEncodeDirectives(opcoes({ outputFormat: 'avif', quality: 100 })).quality,
+    ).toBe(99)
+    expect(
+      resolveEncodeDirectives(opcoes({ outputFormat: 'webp', quality: 100 })).quality,
+    ).toBe(99)
+    expect(
+      resolveEncodeDirectives(opcoes({ outputFormat: 'jpeg', quality: 100 })).quality,
+    ).toBe(100)
+  })
+
 
   it('ativa progressivo apenas em JPEG', () => {
     expect(resolveEncodeDirectives(opcoes({ outputFormat: 'jpeg' })).interlace).toBe(true)

@@ -26,13 +26,26 @@
   --text-strong: oklch(21% 0.006 60);
   --text-default: oklch(32% 0.005 60);
   --text-muted: oklch(52% 0.005 60);
-  --text-faint: oklch(64% 0.004 60);
+  /* 55 %, e nao 64 %, porque a 64 % o contraste sobre a pagina era 3,21:1 e a
+     WCAG 2.2 AA pede 4,5:1 para texto. Este token e usado em texto real, como
+     as dimensoes da imagem, nao em decoracao. Ver tests/unit/contraste.test.ts. */
+  --text-faint: oklch(55% 0.004 60);
   --text-on-accent: oklch(99% 0 0);
 
   /* --- Linhas -------------------------------------------------------- */
   --line-strong: oklch(78% 0.004 60);
   --line-default: oklch(88% 0.004 60);
   --line-subtle: oklch(92.5% 0.003 60);
+  /*
+   * Fronteira de um controlo, e nao separacao entre zonas.
+   *
+   * A WCAG 2.2, criterio 1.4.11, pede 3:1 para o que e necessario identificar
+   * um componente de interface. Um campo numerico ou um botao secundario sao
+   * reconhecidos pela propria moldura, portanto essa moldura tem de cumprir o
+   * limiar. Os tokens de linha acima servem para separar regioes, onde o
+   * criterio nao se aplica, e por isso podem continuar discretos.
+   */
+  --line-control: oklch(65% 0.004 60);
 
   /* --- Acento (neutro de proposito) ---------------------------------- */
   --accent: oklch(24% 0.008 60);
@@ -42,7 +55,8 @@
   /* --- Estados semanticos -------------------------------------------- */
   --state-positive: oklch(48% 0.11 155);
   --state-positive-quiet: oklch(95.5% 0.03 155);
-  --state-caution: oklch(56% 0.12 68);
+  /* 54 % para dar 4,5:1 sobre o proprio fundo discreto, onde a 56 % dava 4,24:1. */
+  --state-caution: oklch(54% 0.12 68);
   --state-caution-quiet: oklch(96% 0.04 80);
   --state-danger: oklch(52% 0.16 25);
   --state-danger-quiet: oklch(96% 0.03 25);
@@ -95,12 +109,14 @@
     --text-strong: oklch(96% 0.003 60);
     --text-default: oklch(88% 0.003 60);
     --text-muted: oklch(68% 0.004 60);
-    --text-faint: oklch(56% 0.004 60);
+    /* 61 %, e nao 56 %: a 56 % dava 3,76:1 sobre um cartao. */
+    --text-faint: oklch(61% 0.004 60);
     --text-on-accent: oklch(18% 0.005 60);
 
     --line-strong: oklch(42% 0.005 60);
     --line-default: oklch(32% 0.005 60);
     --line-subtle: oklch(26% 0.004 60);
+    --line-control: oklch(51% 0.005 60);
 
     --accent: oklch(93% 0.004 60);
     --accent-hover: oklch(84% 0.004 60);

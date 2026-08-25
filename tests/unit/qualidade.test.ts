@@ -31,6 +31,7 @@ import { formatoPorId, type FormatId } from '@/config/formats'
 import { PRESETS, qualidadeDoPreset } from '@/config/presets'
 import { opcoesPorDefeito } from '@/features/converter/state/jobsReducer'
 import { resolveEncodeDirectives } from '@/lib/image-engine/options'
+import { MagickImageEngine } from '@/lib/image-engine/magick/MagickImageEngine'
 
 // Cada medicao faz um encode e duas descodificacoes para o SSIM. Sao dezenas de
 // operacoes, portanto o limite por defeito de 5 s nao chega.
@@ -38,10 +39,20 @@ vi.setConfig({ testTimeout: 60_000 })
 
 let fonte: Uint8Array
 
+/** Fonte como ArrayBuffer, que e o que o adaptador recebe. */
+function fonteComoBuffer(): ArrayBuffer {
+  return fonte.slice().buffer as ArrayBuffer
+}
+
+const motor = new MagickImageEngine()
+const SEM_HINT = { magickFormat: null }
+
 beforeAll(async () => {
-  await initializeImageMagick(
-    new Uint8Array(readFileSync(resolve(process.cwd(), 'public/magick/magick.wasm'))),
-  )
+  const wasm = new Uint8Array(readFileSync(resolve(process.cwd(), 'public/magick/magick.wasm')))
+  await initializeImageMagick(wasm)
+  // O adaptador tambem, para os testes que exercitam ConversionOptions em vez
+  // de chamadas soltas a biblioteca.
+  await motor.initialize(wasm)
 
   // Semente fixa: `plasma` nao e deterministico sem ela, e este ficheiro
   // compara tamanhos com margens de poucos por cento. Sem semente, o teste
@@ -196,5 +207,71 @@ describe('coerencia dos presets entre formatos', () => {
     for (const preset of PRESETS) {
       expect(qualidadeDoPreset(preset.id, formatoPorId('webp'))).toBeLessThan(100)
     }
+  })
+})
+
+describe('sem perda e teto de qualidade', () => {
+  /** SSIM: 0 significa identico. Ver a nota do topo do ficheiro. */
+  function distorcaoEntre(original: Uint8Array, saida: Uint8Array): number {
+    return ImageMagick.read(original, (a) =>
+      ImageMagick.read(saida, (b) => a.compare(b, ErrorMetric.StructuralSimilarity)),
+    )
+  }
+
+  it('WebP sem perda produz pixeis identicos ao original', async () => {
+    // E a afirmacao que o controlo "Sem perda" faz ao utilizador. Se o motor
+    // deixar de a cumprir, o produto passa a mentir e este teste falha.
+    const r = await motor.convert(
+      fonteComoBuffer(),
+      { ...opcoesPorDefeito('webp'), lossless: true },
+      SEM_HINT,
+    )
+    expect(distorcaoEntre(fonte, r.bytes)).toBe(0)
+  })
+
+  it('WebP com perda no topo da escala ainda perde alguma coisa', () => {
+    // Contraprova: sem isto, o teste acima passaria mesmo que sem perda nao
+    // estivesse ligado a nada.
+    const saida = ImageMagick.read(fonte, (img) => {
+      img.quality = formatoPorId('webp').maxQuality
+      return img.write(MagickFormat.WebP, (d) => new Uint8Array(d))
+    })
+    expect(distorcaoEntre(fonte, saida)).toBeGreaterThan(0)
+  })
+
+  it('sem perda custa um ficheiro bastante maior, como a interface avisa', async () => {
+    const comPerda = await motor.convert(fonteComoBuffer(), opcoesPorDefeito('webp'), SEM_HINT)
+    const semPerda = await motor.convert(
+      fonteComoBuffer(),
+      { ...opcoesPorDefeito('webp'), lossless: true },
+      SEM_HINT,
+    )
+    expect(semPerda.bytes.length).toBeGreaterThan(comPerda.bytes.length * 3)
+  })
+
+  it('o teto de qualidade do AVIF existe porque 100 lanca erro', () => {
+    const escrever = (q: number) =>
+      ImageMagick.read(fonte, (img) => {
+        img.quality = q
+        img.settings.setDefine(MagickFormat.Heic, 'speed', '9')
+        return img.write(MagickFormat.Avif, (d) => new Uint8Array(d))
+      })
+
+    // O teto do registry tem de gravar.
+    expect(escrever(formatoPorId('avif').maxQuality).length).toBeGreaterThan(0)
+    // E o degrau seguinte tem de falhar, senao o teto e arbitrario.
+    expect(() => escrever(100)).toThrow()
+  })
+
+  it('a aplicacao nunca chega a pedir 100 ao AVIF', async () => {
+    // Defesa em profundidade: mesmo com 100 guardado nas opcoes, o que sai da
+    // camada de diretivas e 99, portanto a conversao conclui.
+    const r = await motor.convert(
+      fonteComoBuffer(),
+      { ...opcoesPorDefeito('avif'), quality: 100 },
+      SEM_HINT,
+    )
+    expect(r.formatId).toBe('avif')
+    expect(r.bytes.length).toBeGreaterThan(0)
   })
 })

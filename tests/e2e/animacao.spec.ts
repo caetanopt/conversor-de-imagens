@@ -112,3 +112,82 @@ test.describe('conversao dos formatos novos', () => {
     expect(bytes.subarray(0, 4).toString('latin1')).toBe('GIF8')
   })
 })
+
+test.describe('sem perda', () => {
+  test('o controlo aparece em WebP, produz um ficheiro maior, e desaparece em PNG', async ({
+    page,
+  }) => {
+    await carregar(page, resolve(FIXTURES, 'jpeg-normal.jpg'))
+
+    // WebP tem os dois modos, portanto a escolha existe.
+    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+    const semPerda = page.getByRole('checkbox', { name: 'Sem perda' })
+    await expect(semPerda).toBeVisible()
+    await expect(semPerda).not.toBeChecked()
+
+    // Com perda, para ter a referencia.
+    await page.getByRole('button', { name: /^Converter para WebP/ }).click()
+    await expect(page.getByText('Tamanho final')).toBeVisible(ESPERA_LONGA)
+    const [comPerda] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: /^Descarregar WebP/ }).click(),
+    ])
+    const bytesComPerda = readFileSync(await comPerda.path()).length
+
+    // Ligar sem perda invalida o resultado e esconde a qualidade, que passa a
+    // estar imposta.
+    await semPerda.check()
+    await expect(page.getByLabel('Qualidade')).toHaveCount(0)
+    await expect(page.getByText('Tamanho final')).toHaveCount(0)
+
+    await page.getByRole('button', { name: /^Converter para WebP/ }).click()
+    await expect(page.getByText('Tamanho final')).toBeVisible(ESPERA_LONGA)
+    const [semPerdaFicheiro] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: /^Descarregar WebP/ }).click(),
+    ])
+    const bytesSemPerda = readFileSync(await semPerdaFicheiro.path()).length
+
+    // Medido: 78 KB contra 1 065 KB na mesma imagem. A margem do teste e ampla
+    // de proposito, porque o que importa e a ordem de grandeza.
+    expect(bytesSemPerda).toBeGreaterThan(bytesComPerda * 3)
+
+    // Num PNG a opcao nao existe: o formato ja e sem perda.
+    await page.getByRole('radio', { name: 'PNG' }).click()
+    await expect(page.getByRole('checkbox', { name: 'Sem perda' })).toHaveCount(0)
+  })
+
+  test('o deslizador de qualidade nao chega a 100 onde 100 nao serve', async ({ page }) => {
+    await carregar(page, resolve(FIXTURES, 'jpeg-normal.jpg'))
+
+    // JPEG vai ate 100.
+    await page.getByRole('radio', { name: 'JPG' }).click()
+    await expect(page.getByRole('slider', { name: /Qualidade/ })).toHaveAttribute('max', '100')
+
+    // AVIF para em 99, porque 100 lanca erro do encoder.
+    await page.getByRole('radio', { name: 'AVIF' }).click()
+    await expect(page.getByRole('slider', { name: /Qualidade/ })).toHaveAttribute('max', '99')
+
+    // WebP para em 99, porque 100 e o modo sem perda e esse tem controlo proprio.
+    await page.getByRole('radio', { name: 'WebP' }).click()
+    await expect(page.getByRole('slider', { name: /Qualidade/ })).toHaveAttribute('max', '99')
+  })
+
+  test('AVIF no topo da qualidade continua a converter', async ({ page }) => {
+    await carregar(page, resolve(FIXTURES, 'jpeg-normal.jpg'))
+    await page.getByRole('radio', { name: 'AVIF' }).click()
+
+    const slider = page.getByRole('slider', { name: /Qualidade/ })
+    await slider.fill('99')
+    await page.getByRole('button', { name: /^Converter para AVIF/ }).click()
+
+    // Antes do teto por formato, arrastar ate ao fim dava erro do encoder.
+    await expect(page.getByText('Tamanho final')).toBeVisible(ESPERA_LONGA)
+
+    // A ausencia de erro verifica-se no estado do ficheiro, e nao por
+    // `getByRole('alert')`: sem escopo, isso tambem apanha a regiao viva.
+    const linha = page.getByRole('listitem').filter({ hasText: 'jpeg-normal.jpg' })
+    await expect(linha).toContainText('Concluído')
+    await expect(linha).not.toContainText('Erro')
+  })
+})

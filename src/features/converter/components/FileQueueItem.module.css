@@ -134,8 +134,12 @@
   position: relative;
   z-index: 1;
   flex: none;
-  /* Alinha o texto do botao com a margem direita do cartao. */
-  margin-right: calc(var(--space-2) * -1);
+  /*
+   * Sem margem negativa de proposito. Alinhava o texto do botao com a margem
+   * do cartao, mas punha a area de clique por cima da propria moldura e fazia
+   * a linha transbordar a sua caixa em todas as larguras testadas. O ganho
+   * tipografico nao paga isso.
+   */
 }
 
 .acoes {

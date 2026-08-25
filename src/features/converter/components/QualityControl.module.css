@@ -23,3 +23,28 @@
   border-left: 3px solid var(--state-caution);
   border-radius: var(--radius-xs);
 }
+
+.semPerda {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Mesmo padrao do controlo de redimensionamento, para os dois interruptores
+   do painel se lerem da mesma forma. */
+.ligar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.nota {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+  line-height: var(--leading-relaxed);
+}

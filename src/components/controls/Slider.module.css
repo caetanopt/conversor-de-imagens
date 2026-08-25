@@ -24,7 +24,8 @@
   text-align: right;
   background: var(--surface-raised);
   color: var(--text-strong);
-  border: 1px solid var(--line-default);
+  /* Fronteira de um campo de texto: e o que o identifica como campo. */
+  border: 1px solid var(--line-control);
   border-radius: var(--radius-xs);
   font-size: var(--text-data);
 }

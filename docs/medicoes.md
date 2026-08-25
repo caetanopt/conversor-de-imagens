@@ -434,6 +434,90 @@ O limite do motor é 512, mas o limite utilizável é 256: acima disso o byte de
 largura do `ICONDIRENTRY` passa a 0, que na norma significa 256. Ver
 `docs/formatos.md`.
 
+## Sem perda, e o teto de qualidade
+
+### O caminho para sem perda em WebP é a qualidade 100, não o define
+
+Medido com SSIM, onde 0 significa idêntico ao original:
+
+| Variante | Tamanho | SSIM |
+|---|---|---|
+| q80 com perda | 78 206 | 0,053831 |
+| q100 com perda | 1 065 458 | **0** |
+| `webp:lossless` + q100 | 1 065 458 | **0** |
+| `webp:lossless` + q80 | 745 502 | 0,002399 |
+
+Duas conclusões, e a segunda apagou código:
+
+1. **A qualidade 100 já é sem perda.** O define não acrescenta nada a 100: os
+   ficheiros são byte a byte iguais.
+2. **O define abaixo de 100 não é sem perda.** SSIM 0,0024 num ficheiro que
+   ocupava 745 KB. Prometia preservar os pixéis e devolvia uma imagem alterada,
+   o pior tipo de opção possível. Foi removido.
+
+O controlo "Sem perda" da interface resolve-se para qualidade 100, que é o
+caminho que funciona de facto. E o deslizador de qualidade do WebP passou a ir
+até 99, para haver uma única forma de pedir sem perda em vez de duas.
+
+Custo, na mesma imagem: 78 KB com perda contra 1 065 KB sem perda, ou seja
+13,6 vezes. Num PNG com transparência a diferença é menor, 30 KB contra 53 KB.
+A interface diz que o ficheiro fica bastante maior porque fica.
+
+### O AVIF deste motor não grava à qualidade 100
+
+Verificado degrau a degrau, com e sem o define de velocidade:
+
+| Qualidade | Resultado |
+|---|---|
+| 95 | 280 256 bytes |
+| 98 | 311 674 bytes |
+| 99 | 335 990 bytes |
+| 100 | `AOM encoder error: Invalid parameter` |
+
+Não é uma degradação, é um erro do encoder. O deslizador ia até 100 em todos os
+formatos, portanto arrastá-lo até ao fim num AVIF era um estado alcançável que
+falhava sempre. O teto passou a vir do registry, e a camada de diretivas
+também o impõe: um valor guardado antes de o formato mudar chegaria intacto ao
+motor.
+
+Isto também confirma que o AVIF deste motor não tem modo sem perda, e que
+`supportsLossless: false` na tabela estava certo.
+
+## Contraste de cor
+
+Nunca tinha sido medido. A secção 20.8 do CLAUDE.md exige contraste suficiente
+e a WCAG 2.2 AA fixa os limiares em 4,5:1 para texto normal e 3:1 para o que é
+necessário identificar um componente.
+
+Nove pares falhavam, cinco no tema claro e quatro no escuro:
+
+| Par | Onde | Antes | Limiar |
+|---|---|---|---|
+| `--text-faint` sobre `--surface-page` | dimensões da imagem | 3,21:1 | 4,5:1 |
+| `--text-faint` sobre `--surface-raised` | notas do painel | 3,37:1 | 4,5:1 |
+| `--state-caution` sobre o seu fundo | aviso de fotogramas | 4,24:1 | 4,5:1 |
+| `--line-strong` sobre `--surface-page` | moldura de controlo | 1,91:1 | 3:1 |
+| `--line-strong` sobre `--surface-raised` | moldura de controlo | 2,00:1 | 3:1 |
+
+E no tema escuro, `--text-faint` a 4,07:1 e 3,76:1, e `--line-strong` a 2,24:1
+e 2,07:1.
+
+As correções não foram escolhidas a olho: um solver procurou a luminosidade
+mínima que atinge o limiar contra cada fundo, e o valor aplicado é o mais
+exigente dos dois com uma pequena margem.
+
+A das molduras teve uma consequência de desenho. `--line-strong` e
+`--line-default` servem dois papéis diferentes, separar regiões e delimitar
+controlos, e só o segundo está sujeito ao critério 1.4.11. Forçar 3:1 num token
+usado em todas as molduras de cartão tornaria a interface pesada, portanto o
+papel foi separado: `--line-control` para a moldura de um campo numérico, de um
+botão secundário e da zona de largar, que é o que identifica esses controlos.
+
+Está tudo em `tests/unit/contraste.test.ts`, com a lista de pares escrita à mão
+de propósito: um teste que combinasse todas as cores com todas as superfícies
+falharia em pares que nunca aparecem juntos e ensinaria a ignorar o resultado.
+Quando o manual da marca chegar, este teste diz logo o que deixou de passar.
+
 ## Capacidades do browser
 
 Chromium 141: **17 de 17** capacidades suportadas.

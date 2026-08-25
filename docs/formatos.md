@@ -173,6 +173,23 @@ repetição entre fotogramas: com 8 fotogramas iguais, 523 089 bytes passaram a
 66 290; com fotogramas genuinamente diferentes, 819 174 bytes ficaram em
 819 174. Nunca aumentou, por isso é sempre aplicado na saída para GIF.
 
+### O AVIF não grava à qualidade 100
+
+Verificado degrau a degrau: 99 grava, 100 lança `AOM encoder error: Invalid
+parameter`, com e sem o define de velocidade. O campo `maxQuality` no registry
+existe por isto, e o deslizador da interface lê-o em vez de assumir 100.
+
+O WebP tem o mesmo teto por outra razão: a qualidade 100 é o modo sem perda, e
+esse valor pertence ao controlo de sem perda para não haver duas formas de
+pedir a mesma coisa.
+
+### O define `webp:lossless` mentia abaixo da qualidade 100
+
+Medido com SSIM, onde 0 é idêntico ao original: `lossless` + q100 dá bytes
+iguais a q100 sozinho, e `lossless` + q80 dá SSIM 0,0024, ou seja não é sem
+perda. O define foi removido e a opção de domínio resolve-se para qualidade
+100. Ver `docs/medicoes.md`.
+
 ### Um ICO acima de 256 px declara dimensões erradas
 
 O motor aceita escrever ICO até 512x512 e recusa a partir de 640 com

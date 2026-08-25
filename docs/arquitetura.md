@@ -233,6 +233,34 @@ delimitadora, `greater` significa só reduzir, e `ignoreAspectRatio` dá dimens�
 exatas. Os valores por defeito que queremos, preservar proporção e não aumentar,
 são o comportamento que não custa nada.
 
+## Acessibilidade verificada, não assumida
+
+Duas coisas que a secção 20 do CLAUDE.md exige e que não se verificam a olho
+passaram a ser testes.
+
+**Contraste.** `tests/unit/contraste.test.ts` lê `src/styles/tokens.css`, faz a
+conversão de oklch para sRGB e mede a razão de contraste de cada par que o
+produto mostra, nos dois temas, contra os limiares da WCAG 2.2 AA. Lê o CSS em
+vez de duplicar os valores, para o teste falhar quando alguém editar as cores.
+Encontrou nove pares abaixo do limiar, e é a rede que apanha o mesmo problema
+quando o manual da marca substituir os valores.
+
+Isto obrigou a separar um papel de token. `--line-strong` e `--line-default`
+servem para separar regiões, e o critério 1.4.11 não se aplica a isso; a
+moldura de um campo numérico ou de um botão secundário é o que identifica esses
+controlos, e essa tem de cumprir 3:1. Passou a haver `--line-control` para o
+segundo caso, em vez de escurecer todas as molduras da interface.
+
+**Larguras.** `tests/e2e/responsive.spec.ts` corre as seis larguras da secção
+21 e verifica três coisas concretas: a página não ganha deslocamento
+horizontal, nenhum elemento transborda a própria caixa, e todas as oito opções
+de formato ficam dentro do ecrã. Não repete a suite inteira em seis perfis:
+verifica o que muda com a largura.
+
+O alvo de toque de 44 px só é exigido onde `pointer: coarse`. Os botões reduzem
+para 36 px sob `pointer: fine` de propósito, e confundir estreito com tátil
+faria o teste exigir alvos de dedo a quem usa rato.
+
 ## Página de diagnóstico
 
 `/diagnostico` é uma ferramenta interna, fora do índice e sem ligações a partir

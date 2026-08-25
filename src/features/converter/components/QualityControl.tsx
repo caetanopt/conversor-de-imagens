@@ -11,36 +11,29 @@ import { Slider } from '@/components/controls/Slider'
 import { SegmentedControl } from '@/components/controls/SegmentedControl'
 import { formatoPorId, type FormatId } from '@/config/formats'
 import { PRESETS, type PresetId } from '@/config/presets'
+import { permiteEscolherSemPerda } from '@/lib/image-engine/options'
 import styles from './QualityControl.module.css'
 
 type Props = {
   readonly outputFormat: FormatId
   readonly quality: number | null
   readonly preset: PresetId | null
+  readonly lossless: boolean
   readonly onQualidade: (valor: number) => void
   readonly onPreset: (preset: PresetId) => void
+  readonly onSemPerda: (lossless: boolean) => void
   readonly disabled?: boolean
 }
 
-/**
- * Em WebP, a qualidade 100 nao e um degrau acima de 99: o libwebp muda para
- * modo sem perda. Medido numa imagem de 1200x800: q99 da 486 KB, q100 da
- * 1664 KB com os pixels identicos ao original, o mesmo resultado que o define
- * lossless. Sao 3,4 vezes o tamanho, e o utilizador tem de saber porque.
- */
-function avisoDeQualidade(formato: FormatId, qualidade: number): string | null {
-  if (formato === 'webp' && qualidade >= 100) {
-    return 'A qualidade 100 em WebP ativa o modo sem perda. O ficheiro fica bastante maior do que a 99.'
-  }
-  return null
-}
 
 export function QualityControl({
   outputFormat,
   quality,
   preset,
+  lossless,
   onQualidade,
   onPreset,
+  onSemPerda,
   disabled = false,
 }: Props) {
   const formato = formatoPorId(outputFormat)
@@ -54,35 +47,64 @@ export function QualityControl({
     )
   }
 
-  const aviso = avisoDeQualidade(outputFormat, quality)
+  const podeSemPerda = permiteEscolherSemPerda(formato)
+  const semPerda = podeSemPerda && lossless
 
   return (
     <div className={styles.envolvente}>
-      <SegmentedControl
-        legenda="Preset"
-        opcoes={PRESETS.map((p) => ({ value: p.id, label: p.label }))}
-        valor={preset ?? 'equilibrado'}
-        onChange={onPreset}
-        disabled={disabled}
-        orientacao="vertical"
-      />
+      {/*
+        Com sem perda ligado, o preset e o deslizador nao descrevem nada: a
+        qualidade esta imposta. Mostra-los seria mostrar controlos sem efeito,
+        que e o que o CLAUDE.md proibe na seccao 11.
+      */}
+      {semPerda ? null : (
+        <>
+          <SegmentedControl
+            legenda="Preset"
+            opcoes={PRESETS.map((p) => ({ value: p.id, label: p.label }))}
+            valor={preset ?? 'equilibrado'}
+            onChange={onPreset}
+            disabled={disabled}
+            orientacao="vertical"
+          />
 
-      <Slider
-        label="Qualidade"
-        valor={quality}
-        min={1}
-        max={100}
-        sufixo="%"
-        descricao={
-          preset === null
-            ? 'Valor manual. Escolher um preset substitui este número.'
-            : 'Ajustar manualmente desliga o preset.'
-        }
-        onChange={onQualidade}
-        disabled={disabled}
-      />
+          <Slider
+            label="Qualidade"
+            valor={Math.min(quality, formato.maxQuality)}
+            min={1}
+            // O teto vem do formato. Em AVIF a qualidade 100 lanca erro do
+            // encoder, e em WebP pertence ao controlo de sem perda.
+            max={formato.maxQuality}
+            sufixo="%"
+            descricao={
+              preset === null
+                ? 'Valor manual. Escolher um preset substitui este número.'
+                : 'Ajustar manualmente desliga o preset.'
+            }
+            onChange={onQualidade}
+            disabled={disabled}
+          />
+        </>
+      )}
 
-      {aviso ? <p className={styles.aviso}>{aviso}</p> : null}
+      {podeSemPerda ? (
+        <div className={styles.semPerda}>
+          <label className={styles.ligar}>
+            <input
+              type="checkbox"
+              checked={semPerda}
+              disabled={disabled}
+              onChange={(evento) => onSemPerda(evento.target.checked)}
+            />
+            <span>Sem perda</span>
+          </label>
+          <p className={styles.nota}>
+            {semPerda
+              ? `Os pixéis ficam idênticos ao original. Em ${formato.label} isto costuma dar um ficheiro várias vezes maior do que a qualidade mais alta com perda.`
+              : `Preserva os pixéis exatamente, à custa de um ficheiro bastante maior.`}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

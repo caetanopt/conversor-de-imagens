@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
 
-import { MagickImageCollection, MagickFormat, MagickReadSettings } from '@imagemagick/magick-wasm'
+import { MagickFormat, MagickImageCollection, MagickReadSettings } from '@imagemagick/magick-wasm'
 
 import { formatoPorId } from '@/config/formats'
 import { opcoesPorDefeito } from '@/features/converter/state/jobsReducer'

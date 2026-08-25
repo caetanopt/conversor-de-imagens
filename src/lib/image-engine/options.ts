@@ -17,6 +17,17 @@
  *  3. A politica de metadados nao e um booleano. `strip()` apaga tambem o
  *     perfil ICC, e sem perfil o browser assume sRGB, o que muda as cores de
  *     forma visivel numa imagem AdobeRGB ou Display P3. Ver docs/medicoes.md.
+ *
+ *  4. Sem perda em WebP obtem-se com qualidade 100, e nao com o define
+ *     `webp:lossless`. Medido com SSIM, onde 0 significa identico ao original:
+ *
+ *       q100                    1 065 458 bytes   SSIM 0
+ *       define lossless + q100  1 065 458 bytes   SSIM 0        (bytes iguais)
+ *       define lossless + q80     745 502 bytes   SSIM 0,0024   (NAO e sem perda)
+ *
+ *     O define e redundante a 100 e enganador abaixo de 100: prometia sem
+ *     perda e devolvia uma imagem alterada. Foi removido, e a opcao de dominio
+ *     resolve-se para qualidade 100, que e o caminho que funciona de facto.
  */
 import { formatoPorId } from '@/config/formats'
 import type { ConversionOptions, MetadataPolicy } from '@/features/converter/types'
@@ -75,15 +86,16 @@ export function resolveEncodeDirectives(options: ConversionOptions): EncodeDirec
   const formato = formatoPorId(options.outputFormat)
   const defines: MagickDefine[] = []
 
-  const quality = formato.supportsQuality ? clampQuality(options.quality) : null
+  const semPerda = permiteEscolherSemPerda(formato) && options.lossless
+  const quality = formato.supportsQuality
+    ? semPerda
+      ? QUALIDADE_SEM_PERDA
+      : clampQuality(options.quality, formato.maxQuality)
+    : null
 
   if (formato.id === 'avif') {
     // Sem isto o AVIF e inutilizavel. Ver docs/medicoes.md.
     defines.push({ format: 'HEIC', name: 'speed', value: AVIF_SPEED_POR_DEFEITO })
-  }
-
-  if (formato.supportsLossless && options.lossless) {
-    if (formato.id === 'webp') defines.push({ format: 'WEBP', name: 'lossless', value: 'true' })
   }
 
   return {
@@ -130,10 +142,36 @@ export function limitarDimensao(
   }
 }
 
-function clampQuality(quality: number | null): number | null {
+/**
+ * Qualidade que produz saida sem perda.
+ *
+ * E 100, medido. Nao e um numero escolhido: e o unico ponto da escala do WebP
+ * em que o SSIM contra o original e exatamente zero.
+ */
+export const QUALIDADE_SEM_PERDA = 100
+
+/**
+ * Onde "sem perda" e uma escolha do utilizador e nao uma propriedade do formato.
+ *
+ * Um PNG e sempre sem perda, portanto oferecer a opcao seria um controlo sem
+ * efeito. Um WebP pode ser as duas coisas, e ai a escolha existe. O AVIF deste
+ * motor nao tem modo sem perda: a qualidade 100 lanca erro do encoder.
+ */
+export function permiteEscolherSemPerda(formato: {
+  readonly supportsQuality: boolean
+  readonly supportsLossless: boolean
+}): boolean {
+  return formato.supportsQuality && formato.supportsLossless
+}
+
+/**
+ * O teto vem do formato e nao e sempre 100. Existe aqui, e nao so na interface,
+ * porque um valor guardado antes de o formato mudar chegaria intacto ao motor.
+ */
+function clampQuality(quality: number | null, maximo: number): number | null {
   if (quality === null) return null
   if (!Number.isFinite(quality)) return null
-  return Math.min(100, Math.max(1, Math.round(quality)))
+  return Math.min(maximo, Math.max(1, Math.round(quality)))
 }
 
 function resolveResize(options: ConversionOptions): ResizeDirective | null {

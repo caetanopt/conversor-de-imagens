@@ -10,6 +10,8 @@ import {
   formatosDeEntrada,
   formatosDeSaida,
 } from '@/config/formats'
+import { PRESETS, qualidadeDoPreset } from '@/config/presets'
+import { permiteEscolherSemPerda } from '@/lib/image-engine/options'
 
 describe('registry de formatos', () => {
   it('nao tem ids repetidos', () => {
@@ -136,7 +138,40 @@ describe('registry de formatos', () => {
       }
     })
 
-    it('PNG nao tem qualidade com perda', () => {
+      it('o teto de qualidade tem uma razao medida em cada formato', () => {
+      // AVIF: q100 lanca erro do encoder. WebP: q100 e o modo sem perda, que
+      // pertence ao controlo proprio. Os restantes vao ate 100.
+      expect(formatoPorId('avif').maxQuality).toBe(99)
+      expect(formatoPorId('webp').maxQuality).toBe(99)
+      expect(formatoPorId('jpeg').maxQuality).toBe(100)
+    })
+
+    it('nenhum preset pede uma qualidade acima do teto do formato', () => {
+      // Sem isto, mudar um preset podia produzir um valor que o encoder recusa.
+      for (const formato of FORMATOS) {
+        if (!formato.supportsQuality) continue
+        for (const preset of PRESETS) {
+          const q = qualidadeDoPreset(preset.id, formato)
+          expect(q, `${preset.id} em ${formato.id}`).not.toBeNull()
+          expect(q!, `${preset.id} em ${formato.id}`).toBeLessThanOrEqual(formato.maxQuality)
+          expect(q!, `${preset.id} em ${formato.id}`).toBeGreaterThanOrEqual(1)
+        }
+      }
+    })
+
+    it('sem perda so e uma escolha onde o formato tambem tem modo com perda', () => {
+      // Num PNG a opcao nao existe: o formato ja e sem perda e o controlo nao
+      // teria efeito.
+      expect(permiteEscolherSemPerda(formatoPorId('webp'))).toBe(true)
+      expect(permiteEscolherSemPerda(formatoPorId('png'))).toBe(false)
+      expect(permiteEscolherSemPerda(formatoPorId('gif'))).toBe(false)
+      expect(permiteEscolherSemPerda(formatoPorId('bmp'))).toBe(false)
+      // O AVIF deste motor nao tem modo sem perda: q100 lanca erro.
+      expect(permiteEscolherSemPerda(formatoPorId('avif'))).toBe(false)
+      expect(permiteEscolherSemPerda(formatoPorId('jpeg'))).toBe(false)
+    })
+
+  it('PNG nao tem qualidade com perda', () => {
       expect(formatoPorId('png').supportsQuality).toBe(false)
       expect(formatoPorId('png').supportsLossless).toBe(true)
     })

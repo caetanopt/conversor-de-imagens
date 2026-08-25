@@ -37,6 +37,23 @@ export type ImageFormatCapability = {
   readonly supportsLossless: boolean
   /** Qualidade com perda, escala 1 a 100. PNG e BMP nao tem, tem nivel de compressao. */
   readonly supportsQuality: boolean
+
+  /**
+   * Qualidade mais alta que o encoder com perda aceita.
+   *
+   * Nao e sempre 100, e as razoes sao diferentes em cada formato:
+   *
+   *  - AVIF: a qualidade 100 lanca "AOM encoder error: Invalid parameter",
+   *    com e sem o define de velocidade. Verificado degrau a degrau: 99 grava,
+   *    100 falha. Deixar o deslizador chegar a 100 era um estado alcançavel que
+   *    falhava sempre.
+   *  - WebP: a qualidade 100 nao e um degrau acima de 99, e o modo sem perda.
+   *    Medido, q99 da 326 636 bytes com SSIM 0,008 e q100 da 1 065 458 bytes
+   *    com SSIM 0. Esse valor pertence ao controlo de sem perda, para haver
+   *    uma unica forma de o pedir.
+   *  - JPEG: 100 e o topo normal da escala com perda.
+   */
+  readonly maxQuality: number
   readonly supportsResize: boolean
 
   /**
@@ -112,6 +129,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: false,
     supportsQuality: true,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'JPEG',
     multiFrame: 'nenhum',
@@ -135,6 +153,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'PNG',
     multiFrame: 'nenhum',
@@ -158,6 +177,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: true,
     supportsLossless: true,
     supportsQuality: true,
+    maxQuality: 99,
     supportsResize: true,
     magickFormat: 'WEBP',
     multiFrame: 'animacao',
@@ -180,6 +200,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: false,
     supportsQuality: true,
+    maxQuality: 99,
     supportsResize: true,
     magickFormat: 'AVIF',
     multiFrame: 'nenhum',
@@ -205,6 +226,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: true,
     supportsLossless: true,
     supportsQuality: false,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'GIF',
     multiFrame: 'animacao',
@@ -231,6 +253,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'BMP',
     multiFrame: 'nenhum',
@@ -257,6 +280,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'TIFF',
     multiFrame: 'paginas',
@@ -282,6 +306,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'ICO',
     multiFrame: 'tamanhos',
@@ -308,6 +333,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: true,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'JXL',
     multiFrame: 'nenhum',
@@ -331,6 +357,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: false,
     supportsQuality: false,
+    maxQuality: 100,
     supportsResize: true,
     magickFormat: 'HEIC',
     multiFrame: 'nenhum',

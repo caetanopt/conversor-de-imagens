@@ -314,9 +314,13 @@ describe('opcoesParaFormato', () => {
     expect(opcoesParaFormato(base, 'jpeg').lossless).toBe(false)
   })
 
-  it('mantem lossless num formato que o suporta', () => {
+  it('nao transporta sem perda para um formato onde nao e uma escolha', () => {
+    // PNG e sempre sem perda, portanto a opcao nao tem nada que decidir la.
+    // Deixa-la ligada seria guardar estado que nao descreve nada.
     const base = { ...opcoesPorDefeito('webp'), lossless: true }
-    expect(opcoesParaFormato(base, 'png').lossless).toBe(true)
+    expect(opcoesParaFormato(base, 'png').lossless).toBe(false)
+    expect(opcoesParaFormato(base, 'avif').lossless).toBe(false)
+    expect(opcoesParaFormato(base, 'webp').lossless).toBe(true)
   })
 })
 
@@ -442,5 +446,59 @@ describe('aplicar a todos', () => {
     const antes = estado.jobs[1]
     const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: jobs[0]!.id })
     expect(aplicado.jobs[1]).toBe(antes)
+  })
+})
+
+describe('sem perda', () => {
+  it('liga e desliga a opcao', () => {
+    const { job, estado } = comJob()
+    const ligado = jobsReducer(estado, { type: 'sem-perda', id: job.id, lossless: true })
+    expect(ligado.jobs[0]?.options.lossless).toBe(true)
+
+    const desligado = jobsReducer(ligado, { type: 'sem-perda', id: job.id, lossless: false })
+    expect(desligado.jobs[0]?.options.lossless).toBe(false)
+  })
+
+  it('desliga o preset, porque a qualidade passa a estar imposta', () => {
+    const { job, estado } = comJob()
+    const ligado = jobsReducer(estado, { type: 'sem-perda', id: job.id, lossless: true })
+    expect(ligado.jobs[0]?.options.preset).toBeNull()
+  })
+
+  it('devolve o preset por defeito ao desligar', () => {
+    const { job, estado } = comJob()
+    let seguinte = jobsReducer(estado, { type: 'sem-perda', id: job.id, lossless: true })
+    seguinte = jobsReducer(seguinte, { type: 'sem-perda', id: job.id, lossless: false })
+    expect(seguinte.jobs[0]?.options.preset).not.toBeNull()
+  })
+
+  it('invalida o resultado anterior', () => {
+    const { job, estado } = comJob()
+    const concluido = jobsReducer(estado, { type: 'resultado', id: job.id, result: resultado })
+    const ligado = jobsReducer(concluido, { type: 'sem-perda', id: job.id, lossless: true })
+    expect(ligado.jobs[0]?.result).toBeNull()
+    expect(ligado.jobs[0]?.status).toBe('ready')
+  })
+
+  it('nao sobrevive a um formato onde sem perda nao e uma escolha', () => {
+    // Num PNG a opcao nao existe: o formato ja e sem perda.
+    const { job, estado } = comJob()
+    const ligado = jobsReducer(estado, { type: 'sem-perda', id: job.id, lossless: true })
+    const paraPng = jobsReducer(ligado, {
+      type: 'formato-de-saida',
+      id: job.id,
+      outputFormat: 'png',
+    })
+    expect(paraPng.jobs[0]?.options.lossless).toBe(false)
+  })
+
+  it('sobrevive entre formatos onde continua a ser uma escolha', () => {
+    const jpg = criarJob(ficheiro('a.jpg'), 'jpeg', 'webp')
+    let estado = jobsReducer(estadoInicial, { type: 'adicionar', jobs: [jpg] })
+    estado = jobsReducer(estado, { type: 'sem-perda', id: jpg.id, lossless: true })
+    // De WebP para WebP a opcao mantem-se. A troca para um formato sem escolha
+    // esta coberta no teste anterior.
+    const igual = jobsReducer(estado, { type: 'formato-de-saida', id: jpg.id, outputFormat: 'webp' })
+    expect(igual.jobs[0]?.options.lossless).toBe(true)
   })
 })
