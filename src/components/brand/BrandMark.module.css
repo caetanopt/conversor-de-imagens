@@ -1,7 +1,13 @@
+/*
+ * `flex: none` porque o lettering e um desenho, nao texto: encolher deforma-o e
+ * cortar esconde parte da marca. Se faltar largura, quem cede e o lado das
+ * acoes, que e texto e pode encurtar.
+ */
 .marca {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
+  flex: none;
   min-width: 0;
 }
 

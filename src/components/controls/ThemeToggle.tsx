@@ -22,6 +22,7 @@ import {
   lerTemaGuardado,
   proximoTema,
   ROTULOS,
+  ROTULOS_CURTOS,
   TEMA_POR_DEFEITO,
   type Tema,
 } from '@/lib/tema/tema'
@@ -53,7 +54,13 @@ export function ThemeToggle() {
       aria-label={`Tema: ${ROTULOS[tema].toLowerCase()}. Mudar para ${ROTULOS[proximo].toLowerCase()}.`}
     >
       <span className={styles.etiqueta}>Tema</span>
+      {/*
+        Os dois rotulos existem no DOM e o CSS mostra um de cada vez, conforme a
+        largura. O `aria-label` do botao substitui o conteudo no nome
+        acessivel, portanto nenhum leitor de ecra le os dois.
+      */}
       <span className={styles.valor}>{ROTULOS[tema]}</span>
+      <span className={styles.valorCurto}>{ROTULOS_CURTOS[tema]}</span>
     </button>
   )
 }

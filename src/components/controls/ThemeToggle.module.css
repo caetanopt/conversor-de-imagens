@@ -33,16 +33,27 @@
   color: var(--text-faint);
 }
 
-.valor {
+.valor,
+.valorCurto {
   font-size: var(--text-ui-small);
   font-weight: var(--weight-medium);
   color: var(--text-strong);
 }
 
-/* A 520 px o cabecalho tem tres elementos a competir. A etiqueta sai e fica o
-   valor, que e a informacao. */
+.valorCurto {
+  display: none;
+}
+
+/* A 520 px o cabecalho tem tres elementos a competir. A etiqueta sai, e o
+   valor passa a forma curta: a 360 px 'Automático' nao cabe ao lado da marca e
+   do indicador de privacidade. */
 @media (max-width: 520px) {
-  .etiqueta {
+  .etiqueta,
+  .valor {
     display: none;
+  }
+
+  .valorCurto {
+    display: inline;
   }
 }

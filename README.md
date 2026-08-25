@@ -111,8 +111,19 @@ O ZIP é o passo que mais parece exigir um servidor e não exige: é montado em
 memória pelo `fflate` e entregue como um `Blob` local.
 
 O que deve aparecer no painel: pedidos GET para ficheiros da própria origem,
-incluindo `magick/magick.wasm`. Nada mais. Nenhum POST, nenhum corpo de
-pedido, nenhum destino externo.
+incluindo `magick/magick.wasm` e o `.woff2` da Montserrat. Nada mais. Nenhum
+POST, nenhum corpo de pedido, nenhum destino externo. Em particular, nenhum
+pedido a `fonts.googleapis.com` nem a `fonts.gstatic.com`: a tipografia da
+marca está no repositório precisamente para não haver.
+
+Verificar também o armazenamento, no painel Application:
+
+9. Abrir Application e ver Local Storage, Session Storage, IndexedDB e Cache
+   Storage.
+10. Depois de converter, tudo tem de estar vazio.
+11. Carregar no botão de tema e confirmar que aparece no máximo uma chave,
+    `conversor:tema`, com o valor `claro` ou `escuro`. Voltar a **Automático**
+    apaga-a. Não pode existir mais nada.
 
 Se este procedimento falhar, a afirmação de processamento local deixa de ser
 verdadeira e tem de ser removida da interface.

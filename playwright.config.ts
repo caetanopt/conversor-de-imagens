@@ -60,6 +60,11 @@ export default defineConfig({
     },
     // Os tres perfis seguintes nao correm no ambiente de desenvolvimento.
     // Nao usam o executavel local: exigem os binarios proprios do Playwright.
+    //
+    // ATENCAO ao ler o resultado de uma corrida: nunca canalizar a saida por
+    // `tail` ou `head` sem `set -o pipefail`. O codigo de saida passa a ser o
+    // do `tail`, sempre zero, e uma corrida com falhas parece verde. Usar
+    // `npm run test:e2e:chromium` e ler o codigo de saida real.
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
     { name: 'iphone', use: { ...devices['iPhone 15'] } },

@@ -46,6 +46,22 @@ export const ROTULOS: Record<Tema, string> = {
 }
 
 /**
+ * A mesma escolha, em forma curta, para o cabecalho estreito.
+ *
+ * A 360 px o cabecalho tem a marca, este botao e o indicador de privacidade a
+ * competir por 336 px uteis, e 'Automático' nao cabe: empurrava a pagina para
+ * fora do ecra. Apenas esse valor encurta; os outros dois ja sao curtos.
+ *
+ * O nome acessivel do botao usa sempre a forma longa, portanto quem ouve o
+ * botao ouve a palavra inteira em qualquer largura.
+ */
+export const ROTULOS_CURTOS: Record<Tema, string> = {
+  sistema: 'Auto',
+  claro: 'Claro',
+  escuro: 'Escuro',
+}
+
+/**
  * Le a preferencia guardada.
  *
  * Qualquer falha devolve o valor por defeito: um browser em modo privado pode
