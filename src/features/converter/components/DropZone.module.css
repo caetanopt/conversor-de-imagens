@@ -80,6 +80,19 @@
   padding: var(--space-5);
   background: var(--field-painel);
   border-radius: var(--radius-md);
+  /*
+   * O desfoque e o que torna o painel translucido seguro: sem ele, uma linha
+   * de brilho nitida da fotografia atravessava o azul a 68% praticamente sem
+   * suavizar. Com o desfoque, qualquer ponto claro espalha-se pelos vizinhos
+   * antes de chegar ao painel, e o que sobra e sempre mais escuro do que o
+   * pior caso usado para derivar os tokens de texto em tokens.css.
+   *
+   * Sem `backdrop-filter` (Firefox antigo, por exemplo), o browser ignora a
+   * propriedade e mostra so o fundo a 68%, que continua a cumprir a mesma
+   * garantia matematica, so sem o polimento do vidro fosco.
+   */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 @media (min-width: 768px) {

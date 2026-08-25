@@ -74,21 +74,34 @@ o suficiente para garantir contraste (testado a 70 %) apagava o próprio
 lettering e os rastos numa mancha achatada — o oposto do que a fotografia foi
 escolhida para mostrar.
 
-Por isso o texto já não assenta na fotografia. Assenta num painel sólido,
-`--field-painel`, que é o azul profundo da marca (`DropZone.module.css`,
-classe `.painel`, envolvendo o título, o botão e a faixa inferior). O painel
-garante o mesmo contraste em qualquer recorte, posição ou fotografia futura,
-porque não depende de nenhum pixel da imagem: os pares `--field-*` vivem em
-`tests/unit/contraste.test.ts` como qualquer outra superfície da aplicação,
-medidos contra uma cor fixa e conhecida, não contra o pior pixel de um
-ficheiro. A fotografia fica livre para mostrar o lettering e os rastos de luz
-sem véu nenhum.
+Por isso o texto já não assenta na fotografia. Assenta num painel,
+`--field-painel`, envolvendo o título, o botão e a faixa inferior
+(`DropZone.module.css`, classe `.painel`).
+
+**O painel é translúcido, com desfoque por baixo, a pedido explícito.** A
+primeira versão era opaca. A secção 13 do CLAUDE.md pede para evitar
+glassmorphism como estilo por defeito, e aqui não é por defeito: é a escolha
+do responsável do projeto para esta zona, para a fotografia se ver através em
+vez de ficar tapada.
+
+A garantia de contraste continua a não depender de nenhum pixel da imagem,
+mesmo translúcida. `--field-painel` é 68 % de opacidade do azul profundo da
+marca; `--field-painel-pior-caso`, usado só para derivar e testar, é essa
+mesma mistura composta sobre o fundo mais claro concebível, branco puro.
+Nenhum pixel real pode produzir um resultado mais claro do que isso por baixo
+do painel, com ou sem desfoque. Os tokens de texto (`--field-text-*`,
+`--field-line`) são resolvidos contra esse pior caso, e os pares vivem em
+`tests/unit/contraste.test.ts` como qualquer outra superfície da aplicação. O
+desfoque (`backdrop-filter: blur(24px)`) é só polimento visual, suaviza um
+raio de luz nítido antes de chegar ao painel; a garantia matemática já vale
+sem ele. 68 % é o mínimo matemático (63,9 %) mais uma margem pequena: descer
+mais perderia a garantia com texto branco puro sobre um pixel branco puro.
 
 A moldura tracejada exterior da zona (`--field-line`, ou branca sólida a
-arrastar um ficheiro) continua sobre a fotografia diretamente, e essa não tem
-a mesma garantia: 3:1 contra qualquer pixel exigiria o mesmo véu que a decisão
-do painel evitou. Aceita-se aqui um risco residual, coberto por três sinais
-redundantes que não dependem da fotografia — o painel sólido, o botão
+arrastar um ficheiro) continua sobre a fotografia diretamente, sem véu nem
+painel por baixo, e essa não tem a mesma garantia: 3:1 contra qualquer pixel
+exigiria véu de novo. Aceita-se aqui um risco residual, coberto por três
+sinais redundantes que não dependem da fotografia — o painel, o botão
 "Selecionar ficheiros" e o enquadramento da página. `tests/unit/
 contraste.test.ts` documenta esta exceção explicitamente em vez de fingir
 uma garantia que não existe.

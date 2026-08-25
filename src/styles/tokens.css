@@ -132,26 +132,38 @@
    * A zona de largar tem como fundo a fotografia da marca, gerada por
    * scripts/gerar-fundo-marca.mjs a partir de docs/brand/caetano.webp.
    *
-   * Uma primeira versao resolvia estes tokens contra o pixel mais claro do
-   * ficheiro, para aguentar qualquer recorte. Contra uma fotografia real, com
-   * um lettering branco e rastos de luz muito claros, isso exigia um veu tao
-   * forte que apagava a propria imagem. Por isso o texto ja nao assenta na
-   * fotografia: assenta num painel solido, --field-painel, que e o azul
-   * profundo da marca. Estes tokens sao resolvidos contra ESSE painel, uma
-   * cor fixa e conhecida, exatamente como qualquer outro par de
-   * tests/unit/contraste.test.ts. A fotografia fica livre para mostrar o
-   * lettering e os rastos de luz sem veu nenhum.
+   * O texto assenta num painel, --field-painel, envolvendo o titulo, o botao
+   * e a faixa inferior. O painel comecou solido e opaco. A pedido explicito,
+   * passou a translucido com desfoque por baixo (DropZone.module.css,
+   * `backdrop-filter: blur(...)`), para a fotografia se ver atraves em vez de
+   * ficar tapada. Isto e um vidro fosco, e a seccao 13 do CLAUDE.md pede para
+   * evitar glassmorphism como estilo por defeito; aqui nao e por defeito, e a
+   * escolha explicita do responsavel do projeto para esta zona especifica.
+   *
+   * A garantia de contraste continua a nao depender de nenhum pixel da
+   * fotografia, mesmo translucida. --field-painel-pior-caso e 68% de
+   * --marca-azul-profundo composto sobre o pior fundo concebivel, branco
+   * puro: nenhum pixel real pode ficar mais claro do que isso por baixo do
+   * painel. Os tokens de texto abaixo sao resolvidos contra ESSE pior caso, e
+   * nao contra o painel translucido em si, que nenhuma ferramenta consegue
+   * medir de forma estatica. tests/unit/contraste.test.ts mede-os como
+   * qualquer outra superficie da aplicacao. 68% e o minimo matematico
+   * (63,9%) mais uma margem pequena; descer mais perderia a garantia com
+   * texto branco puro sobre um pixel branco puro.
    *
    * Nao mudam com o tema: o painel e o mesmo nos dois, e por isso o texto por
    * cima tambem. Sao aplicados em DropZone.module.css, no painel, que os
    * mapeia sobre os nomes semanticos locais, e por isso os componentes
    * filhos (titulo, botao, faixa) nao sabem que estao sobre uma fotografia.
    */
-  --field-painel: var(--marca-azul-profundo);
-  --field-text-strong: var(--marca-ultra-branco); /* 13,56:1 sobre o painel */
-  --field-text-muted: oklch(68.4% 0.02 234.4); /* 4,80:1 sobre o painel */
-  --field-text-faint: oklch(67.6% 0.02 234.4); /* 4,65:1 sobre o painel */
-  --field-line: oklch(58.8% 0.03 234.4); /* 3,30:1, criterio 1.4.11 */
+  --field-painel: #002e5dad; /* --marca-azul-profundo a 68% de opacidade (0xad = 173/255) */
+  /* So para derivar e testar os tokens abaixo. Nao e aplicado a nenhum
+     elemento: 68% de --marca-azul-profundo composto sobre branco puro. */
+  --field-painel-pior-caso: oklch(53.71% 0.0621 249.6);
+  --field-text-strong: var(--marca-ultra-branco); /* 5,10:1 sobre o pior caso */
+  --field-text-muted: oklch(97.1% 0.014 234.4); /* 4,70:1 sobre o pior caso */
+  --field-text-faint: oklch(97.1% 0.014 234.4); /* 4,70:1 sobre o pior caso */
+  --field-line: oklch(84.6% 0.02 234.4); /* 3,20:1, criterio 1.4.11 */
   /* Botao primario sobre o painel: branco com o azul da marca por cima,
      13,56:1. O azul profundo como fundo de botao desaparecia, porque o
      painel e azul profundo. */

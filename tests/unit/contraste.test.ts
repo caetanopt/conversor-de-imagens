@@ -90,16 +90,20 @@ const PARES: readonly {
   /*
    * O painel da zona de largar, sobre a fotografia da marca.
    *
-   * --field-painel e uma cor fixa e conhecida, e nao um pixel de imagem, por
-   * isso estes pares vivem aqui como qualquer outra superficie da aplicacao.
-   * Ver o comentario junto destes tokens em tokens.css.
+   * O painel e translucido (--field-painel, 68% de opacidade com desfoque por
+   * baixo), por isso nao ha uma cor renderizada fixa para medir de forma
+   * estatica. Os pares abaixo medem contra --field-painel-pior-caso: 68% de
+   * --marca-azul-profundo composto sobre o pior fundo concebivel, branco
+   * puro. Nenhum pixel real da fotografia, desfocado ou nao, pode produzir um
+   * resultado mais claro do que esse por baixo do painel. Ver o comentario
+   * junto destes tokens em tokens.css.
    */
-  { frente: '--field-text-strong', fundo: '--field-painel', tipo: 'texto', onde: 'titulo sobre o painel da zona de largar' },
-  { frente: '--field-text-muted', fundo: '--field-painel', tipo: 'texto', onde: 'subtexto sobre o painel' },
-  { frente: '--field-text-faint', fundo: '--field-painel', tipo: 'texto', onde: '"ou arraste para aqui" sobre o painel' },
+  { frente: '--field-text-strong', fundo: '--field-painel-pior-caso', tipo: 'texto', onde: 'titulo sobre o painel da zona de largar' },
+  { frente: '--field-text-muted', fundo: '--field-painel-pior-caso', tipo: 'texto', onde: 'subtexto sobre o painel' },
+  { frente: '--field-text-faint', fundo: '--field-painel-pior-caso', tipo: 'texto', onde: '"ou arraste para aqui" sobre o painel' },
   { frente: '--field-on-accent', fundo: '--field-accent', tipo: 'texto', onde: 'botao sobre o painel' },
   { frente: '--field-on-accent', fundo: '--field-accent-hover', tipo: 'texto', onde: 'botao sobre o painel, em hover' },
-  { frente: '--field-line', fundo: '--field-painel', tipo: 'componente', onde: 'linha da faixa, dentro do painel' },
+  { frente: '--field-line', fundo: '--field-painel-pior-caso', tipo: 'componente', onde: 'linha da faixa, dentro do painel' },
   /*
    * A moldura exterior da zona de largar (--field-line ou, a arrastar,
    * --field-text-strong) NAO esta nesta lista de proposito: essa moldura
@@ -107,7 +111,7 @@ const PARES: readonly {
    * tracado varia com o recorte. Garantir 3:1 contra qualquer pixel exigiria
    * o mesmo veu pesado que a decisao do painel evitou. Aceita-se um risco
    * residual ali, coberto por tres sinais redundantes que nao dependem da
-   * fotografia: o painel solido, o botao "Selecionar ficheiros" e o proprio
+   * fotografia: o painel, o botao "Selecionar ficheiros" e o proprio
    * enquadramento da pagina. Ver DropZone.module.css.
    */
 ]
