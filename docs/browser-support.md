@@ -108,6 +108,17 @@ Sao hipoteses fundamentadas nas APIs que usamos, nao resultados.
 
 ### Safari, macOS e iOS
 
+0. **Contexto seguro.** `crypto.randomUUID` só existe em contexto seguro, ou
+   seja HTTPS ou `localhost`. Numa página servida por HTTP simples, que é o
+   caso de abrir a aplicação num telefone pelo IP da rede local, a função é
+   `undefined`. Isto fazia `criarJob` lançar, o erro subia como rejeição não
+   tratada, e selecionar um ficheiro não fazia nada: sem mensagem e sem estado
+   de erro. Existe agora uma alternativa em `src/lib/ids.ts` que usa
+   `crypto.getRandomValues`, que não tem essa restrição.
+
+   Fica registado porque é a armadilha exata do caminho recomendado para
+   validar em Safari e iOS.
+
 0. **Decode de BMP, GIF e ICO em `createImageBitmap`.** Marcamos os tres como
    descodificaveis pelo browser, o que foi confirmado apenas em Chromium. O
    caso menos certo e o ICO, que os browsers mostram em `<img>` mas podem

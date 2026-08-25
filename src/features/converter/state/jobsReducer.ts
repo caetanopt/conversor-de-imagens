@@ -7,6 +7,7 @@
  */
 import { formatoPorId, type FormatId } from '@/config/formats'
 import { PRESET_POR_DEFEITO, qualidadeDoPreset, type PresetId } from '@/config/presets'
+import { novoId } from '@/lib/ids'
 import { permiteEscolherSemPerda } from '@/lib/image-engine/options'
 import type {
   ConversionMode,
@@ -328,7 +329,7 @@ export function criarJob(
 ): ImageJob {
   return {
     // ID gerado, nunca o nome do ficheiro. CLAUDE.md, seccao 10.
-    id: crypto.randomUUID(),
+    id: novoId(),
     file,
     sourceName: file.name,
     sourceSize: file.size,

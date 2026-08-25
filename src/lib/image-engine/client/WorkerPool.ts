@@ -26,8 +26,11 @@
  * outros que estao a correr.
  */
 import { LIMITES } from '@/config/limits'
+import { novoId } from '@/lib/ids'
 import type { JobError } from '@/features/converter/types'
 import type { WorkerRequest, WorkerResponse } from '../protocol'
+
+export { novoId } from '@/lib/ids'
 
 export class ErroDoMotor extends Error {
   constructor(readonly detalhe: JobError) {
@@ -341,9 +344,7 @@ function ehExclusiva(opcoes: OpcoesDaTarefa): boolean {
   return (opcoes.pixels ?? 0) > LIMITES.exclusivoAcimaDePixels
 }
 
-export function novoId(): string {
-  return crypto.randomUUID()
-}
+
 
 export function inesperado(resposta: WorkerResponse): Error {
   return new Error(`Resposta inesperada do worker: ${resposta.kind}`)
