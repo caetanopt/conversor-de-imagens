@@ -30,6 +30,11 @@
 }
 
 /*
+ * 60x36: a altura iguala --control-height, a mesma altura visivel do
+ * indicador de privacidade ao lado (PrivacyIndicator.module.css usa o mesmo
+ * token). Antes o trilho tinha 26px e ficava visualmente pequeno junto de um
+ * controlo de 36px, mesmo com a zona de toque do botao correta por baixo.
+ *
  * O preenchimento e --surface-page, e nao --surface-sunken: --line-control foi
  * resolvido para 3:1 (criterio 1.4.11) contra --surface-page e
  * --surface-raised especificamente (ver tokens.css), e contra sunken no tema
@@ -42,9 +47,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 46px;
-  height: 26px;
-  padding: 0 6px;
+  width: 60px;
+  height: var(--control-height);
+  padding: 0 var(--space-2);
   background: var(--surface-page);
   border: 1px solid var(--line-control);
   border-radius: 999px;
@@ -66,10 +71,10 @@
 
 .polegar {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
+  top: 4px;
+  left: 4px;
+  width: 28px;
+  height: 28px;
   background: var(--accent);
   border-radius: 50%;
   transition: transform var(--duration-fast) var(--ease-out);
@@ -82,7 +87,7 @@
 
 /* Escuro (aria-checked="true"): o polegar desliza para a lua. */
 .interruptor[aria-checked='true'] .polegar {
-  transform: translateX(20px);
+  transform: translateX(24px);
 }
 
 .interruptor[aria-checked='true'] .iconeLua {

@@ -83,8 +83,8 @@ export function ThemeToggle() {
       title={descricao}
     >
       <span className={styles.trilho}>
-        <IconeSol className={styles.iconeSol} tamanho={13} />
-        <IconeLua className={styles.iconeLua} tamanho={13} />
+        <IconeSol className={styles.iconeSol} tamanho={16} />
+        <IconeLua className={styles.iconeLua} tamanho={16} />
         <span className={styles.polegar} aria-hidden="true" />
       </span>
     </button>
