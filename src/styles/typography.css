@@ -1,18 +1,23 @@
 /*
- * Tipografia PROVISORIA.
+ * Tipografia.
  *
- * A escala e nomeada por funcao e nao por tamanho (--text-ui, nao
- * --text-14), para que o manual de marca possa mudar a escala inteira sem
- * obrigar a rever nenhum componente.
+ * A escala e nomeada por funcao e nao por tamanho (--text-ui, nao --text-14),
+ * para que uma mudanca de escala nao obrigue a rever nenhum componente.
  *
- * As familias sao stacks de sistema. Nao foi escolhida nenhuma tipografia
- * de marca. O token --font-data existe porque numeros de tamanho, dimensao
- * e percentagem precisam de largura fixa para alinhar em coluna, e isso e
- * um requisito funcional, nao uma decisao estetica.
+ * A familia e a Montserrat do manual de identidade, pagina 16, carregada de
+ * ficheiro local em src/styles/fontes/montserrat.ts. `--font-montserrat` e
+ * definido por next/font no elemento <html>; a stack de sistema fica atras
+ * para o caso de a fonte nao carregar.
+ *
+ * O token --font-data continua a ser uma stack de largura fixa: numeros de
+ * tamanho, dimensao e percentagem precisam de alinhar em coluna, e isso e um
+ * requisito funcional, nao uma decisao estetica. O manual nao define
+ * tipografia monoespacada.
  */
 :root {
   --font-ui:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    var(--font-montserrat), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
   --font-data:
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
@@ -29,9 +34,12 @@
   --leading-normal: 1.45;
   --leading-relaxed: 1.6;
 
+  /* Os tres pesos do manual: Light nao e usado em interface, onde texto
+     pequeno em Light perde legibilidade. Medium serve o claim e os rotulos;
+     Bold e o peso forte da marca. */
   --weight-regular: 400;
   --weight-medium: 500;
-  --weight-strong: 600;
+  --weight-strong: 700;
 
   --tracking-label: 0.06em;
   --tracking-tight: -0.01em;

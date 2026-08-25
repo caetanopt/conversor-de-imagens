@@ -96,6 +96,19 @@ export default tseslint.config(
     rules: { 'no-restricted-syntax': ['error', ...REGRA_OBJECT_URL] },
   },
 
+  /*
+   * Unica excecao a proibicao de persistencia, e deliberadamente estreita.
+   *
+   * `src/lib/tema/tema.ts` guarda uma palavra de entre tres valores, escolhida
+   * pelo utilizador num botao. Nao e uma imagem nem metadado de uma imagem. Sem
+   * isto, o tema escolhido perdia-se a cada recarregamento e o controlo era
+   * inutil. Um teste end to end verifica que essa e a unica chave guardada.
+   */
+  {
+    files: ['src/lib/tema/tema.ts'],
+    rules: { 'no-restricted-syntax': ['error', ...REGRA_OBJECT_URL] },
+  },
+
   // Camadas que tocam nos bytes do utilizador: sem rede, sem persistencia.
   //
   // IMPORTANTE: no flat config, o mesmo nome de regra num bloco posterior

@@ -70,13 +70,22 @@ própria origem, nenhum com corpo.
 | `/` | primeiro carregamento | o documento HTML |
 | `/_next/static/chunks/*.css` | primeiro carregamento | folhas de estilo |
 | `/_next/static/chunks/*.js` | primeiro carregamento | código da aplicação, sem o motor |
+| `/_next/static/media/montserrat_latin_variable-*.woff2` | primeiro carregamento | a Montserrat da marca, servida da nossa origem |
 | `/favicon.ico` | primeiro carregamento | pedido automático do browser |
+| `/icon.svg?<versão>` | primeiro carregamento | o ícone da marca |
 | `/_next/static/chunks/turbopack-worker-*.js` | ao escolher a primeira imagem | arranque do worker |
 | `/_next/static/chunks/*.js` (chunk do motor) | ao escolher a primeira imagem | o adaptador do ImageMagick, dentro do worker |
 | `/magick/magick.wasm?v=<versão>` | ao escolher a primeira imagem | o binário do motor, 5,1 MB comprimidos |
 
 Depois disto **não há mais nenhum pedido de rede**. A inspeção, a conversão, a
 pré-visualização e o descarregamento acontecem sem tocar na rede.
+
+A tipografia da marca merece uma nota, porque é o sítio óbvio onde um pedido a
+terceiros entraria sem ninguém reparar. O ficheiro `.woff2` da Montserrat está
+no repositório, em `src/styles/fontes/`, e é servido da nossa origem. Não há
+pedido a `fonts.googleapis.com` nem a `fonts.gstatic.com`, nem em execução nem
+durante o build. Um pedido a qualquer um deles revelaria ao Google que este
+endereço foi visitado, e não há razão para isso quando o ficheiro tem 37 kB.
 
 Dois esquemas locais aparecem no painel de rede do browser e podem ser
 confundidos com pedidos:
@@ -138,7 +147,8 @@ deliberadas em vez de as ler:
 | Nenhum pedido leva bytes | `tests/e2e/privacidade.spec.ts` | nenhum pedido com corpo, não GET, multipart, ou fora da origem |
 | Nenhuma representação dos bytes | idem | três janelas de 24 bytes do ficheiro, em latin1, base64 e hexadecimal, procuradas em todos os URLs e corpos |
 | O inventário está correto | idem | falha se aparecer um pedido fora da tabela acima |
-| Nada é guardado | idem | `localStorage`, `sessionStorage`, `indexedDB`, Cache Storage e service workers vazios depois de converter |
+| Nada é guardado ao converter | idem | `localStorage`, `sessionStorage`, `indexedDB`, Cache Storage e service workers vazios depois de converter |
+| A preferência de tema é o único valor guardado | idem | ao carregar no botão de tema, no máximo uma chave, `conversor:tema`, com valor `claro` ou `escuro` |
 | Metadados privados removidos | idem | procura GPS, número de série, autor e localidade no ficheiro **descarregado** |
 | Motor fora da main thread | `scripts/verificar-bundle.mjs` | `initializeImageMagick` não aparece em nenhum chunk carregado pela página |
 | Object URLs emparelhados | `tests/unit/objectUrls.test.ts` | nenhum URL fica pendente no fim de um fluxo |
@@ -298,3 +308,31 @@ endereços hexadecimais, ou as palavras "wasm", "magick" ou "ImageMagick".
 Continua no README, e deve ser repetido à mão sempre que o fluxo de conversão
 mudar, mesmo com o teste automático a passar. O teste verifica o que sabemos
 verificar; a inspeção manual pode notar o que não pensámos em testar.
+
+---
+
+## O que fica guardado no dispositivo
+
+Uma coisa, e só uma: a preferência de tema.
+
+| Chave | Valores possíveis | Quando é escrita |
+|---|---|---|
+| `conversor:tema` | `claro`, `escuro` | apenas quando o utilizador carrega no botão de tema |
+
+Notas:
+
+- Escolher **Automático** apaga a chave em vez de a guardar, porque a ausência
+  de escolha é a ausência de valor. Depois disso o `localStorage` volta a ficar
+  vazio.
+- `src/lib/tema/tema.ts` é o **único** ficheiro da aplicação autorizado a tocar
+  em `localStorage`. A regra de lint proíbe-o em todos os outros e a exceção
+  está declarada explicitamente em `eslint.config.mjs`, ao lado da exceção dos
+  object URLs.
+- O valor guardado é uma palavra de entre duas. Não é uma imagem, não é
+  metadado de uma imagem, e não permite inferir nada sobre os ficheiros que
+  passaram pela aplicação.
+- Um teste end to end limita exatamente isto: carrega três vezes no botão e
+  falha se aparecer mais do que uma chave ou um valor diferente dos dois
+  esperados. Contar zero chaves seria impossível, porque a escolha tem de
+  sobreviver ao recarregamento para o controlo servir de algo; contar o que
+  pode existir é uma garantia mais precisa.

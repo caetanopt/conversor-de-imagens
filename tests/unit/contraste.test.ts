@@ -23,10 +23,12 @@ import {
   LIMIARES,
   luminancia,
   oklchParaRgb,
+  parseCor,
+  parseHex,
   parseOklch,
   type TipoDeContraste,
 } from '@/lib/color/contraste'
-import { lerTemas, type TemaDeCores } from '@/lib/color/tokens'
+import { lerBloco, lerTemas, type TemaDeCores } from '@/lib/color/tokens'
 
 const css = readFileSync(resolve(process.cwd(), 'src/styles/tokens.css'), 'utf8')
 const temas = lerTemas(css)
@@ -53,6 +55,9 @@ const PARES: readonly {
   { frente: '--text-muted', fundo: '--surface-page', tipo: 'texto', onde: 'texto secundario' },
   { frente: '--text-muted', fundo: '--surface-raised', tipo: 'texto', onde: 'notas em cartao' },
   { frente: '--text-muted', fundo: '--surface-inset', tipo: 'texto', onde: 'opcao nao escolhida' },
+  // A zona de largar troca de fundo enquanto se arrasta um ficheiro por cima.
+  { frente: '--text-strong', fundo: '--accent-quiet', tipo: 'texto', onde: 'zona de largar ativa' },
+  { frente: '--text-muted', fundo: '--accent-quiet', tipo: 'texto', onde: 'apoio na zona ativa' },
 
   // Texto de apoio, pequeno mas ainda texto: o limiar nao baixa por ser discreto.
   { frente: '--text-faint', fundo: '--surface-page', tipo: 'texto', onde: 'dimensoes da imagem' },
@@ -137,25 +142,147 @@ describe('matematica de cor', () => {
     // Com alfa tambem tem de ser lido: as sombras usam essa forma.
     expect(parseOklch('oklch(0% 0 0 / 0.4)')).not.toBeNull()
   })
+
+  it('le hexadecimal, que e a notacao da paleta da marca', () => {
+    expect(parseHex('#ffffff')).toEqual({ r: 1, g: 1, b: 1 })
+    expect(parseHex('#000000')).toEqual({ r: 0, g: 0, b: 0 })
+    // A forma curta tem de dar o mesmo que a longa.
+    expect(parseHex('#fff')).toEqual(parseHex('#ffffff'))
+    expect(parseHex('oklch(50% 0.1 200)')).toBeNull()
+    expect(parseHex('#12345')).toBeNull()
+  })
+
+  it('o azul profundo do manual da o contraste que o manual permite supor', () => {
+    // #002e5d com branco por cima: e a combinacao do logotipo.
+    const razao = contrasteEntreTokens('#002e5d', '#ffffff')
+    expect(razao).not.toBeNull()
+    expect(razao!).toBeGreaterThan(13)
+  })
+
+  it('parseCor aceita as duas notacoes e recusa o resto', () => {
+    expect(parseCor('#002e5d')).not.toBeNull()
+    expect(parseCor('oklch(50% 0.1 200)')).not.toBeNull()
+    expect(parseCor('4px')).toBeNull()
+    expect(parseCor('var(--marca-cyan)')).toBeNull()
+  })
 })
 
 describe('leitura dos tokens', () => {
-  it('encontra os dois temas', () => {
+  it('encontra os tres blocos', () => {
     expect(Object.keys(temas.claro).length).toBeGreaterThan(20)
-    expect(Object.keys(temas.escuro).length).toBeGreaterThan(20)
+    expect(Object.keys(temas.escuroPorPreferencia).length).toBeGreaterThan(20)
+    expect(Object.keys(temas.escuroPorEscolha).length).toBeGreaterThan(20)
   })
 
   it('o tema escuro herda o claro e redefine as cores', () => {
     // Os raios nao mudam no escuro, portanto vem do claro.
-    expect(temas.escuro['--radius-sm']).toBe(temas.claro['--radius-sm'])
+    expect(temas.escuroPorEscolha['--radius-sm']).toBe(temas.claro['--radius-sm'])
     // A superficie muda.
-    expect(temas.escuro['--surface-page']).not.toBe(temas.claro['--surface-page'])
+    expect(temas.escuroPorEscolha['--surface-page']).not.toBe(temas.claro['--surface-page'])
+  })
+
+  it('resolve as referencias var() para cores', () => {
+    // --surface-raised e `var(--marca-branco)` no ficheiro.
+    expect(temas.claro['--surface-raised']).toBe('#ffffff')
+    expect(temas.claro['--accent']).toBe('#002e5d')
+  })
+
+  it('nenhum token de cor fica com var() sem resolver', () => {
+    for (const [nome, tema] of Object.entries(temas)) {
+      for (const [token, valor] of Object.entries(tema)) {
+        expect(valor, `${nome} ${token} ficou por resolver`).not.toContain('var(')
+      }
+    }
+  })
+})
+
+/*
+ * Os dois blocos de tema escuro sao duplicados de proposito, para nao apoiar a
+ * paleta inteira em `light-dark()`. A duplicacao precisa de guarda: sem este
+ * teste, editar um bloco e esquecer o outro daria temas diferentes conforme o
+ * escuro viesse do sistema ou de uma escolha do utilizador.
+ */
+describe('os dois blocos de tema escuro', () => {
+  const porPreferencia = lerBloco(css, 'escuroPorPreferencia')
+  const porEscolha = lerBloco(css, 'escuroPorEscolha')
+
+  it('declaram exatamente os mesmos tokens', () => {
+    expect(Object.keys(porEscolha).sort()).toEqual(Object.keys(porPreferencia).sort())
+  })
+
+  it('declaram exatamente os mesmos valores', () => {
+    expect(porEscolha).toEqual(porPreferencia)
+  })
+
+  it('nao estao vazios', () => {
+    expect(Object.keys(porPreferencia).length).toBeGreaterThan(20)
+  })
+})
+
+/*
+ * A paleta e a unica parte do ficheiro que copia o manual. Se um destes valores
+ * mudar, deixou de ser a cor da marca, e nenhum outro teste daria por isso: um
+ * azul errado passa o contraste tao bem como o certo.
+ *
+ * Manual_Identidade_Caetano_042026.pdf, paginas 12 a 14.
+ */
+describe('paleta da marca', () => {
+  const DO_MANUAL: Readonly<Record<string, string>> = {
+    '--marca-azul-profundo': '#002e5d',
+    '--marca-antracite': '#2e3a46',
+    '--marca-cinza-medio': '#9caeb8',
+    '--marca-cyan': '#00aeef',
+    '--marca-verde': '#49b489',
+    '--marca-laranja': '#ffa931',
+    '--marca-amarelo': '#ffd23f',
+    '--marca-ultra-branco': '#ffffff',
+    '--marca-azul-ceu': '#99dff9',
+    '--marca-verde-pastel': '#a8d5ba',
+    '--marca-azul-profundo-t1': '#33587d',
+    '--marca-azul-profundo-t4': '#ccd5df',
+    '--marca-antracite-t1': '#58616b',
+    '--marca-cinza-medio-t2': '#c4ced4',
+    '--marca-cinza-medio-t3': '#d7dfe3',
+    '--marca-cinza-medio-t4': '#ebeff1',
+    '--marca-cyan-t1': '#33bef2',
+    '--marca-verde-t1': '#6dc3a1',
+    '--marca-verde-t4': '#dbf0e7',
+    '--marca-laranja-t1': '#ffba5a',
+    '--marca-laranja-t4': '#ffeed6',
+    '--marca-amarelo-t1': '#ffdb65',
+    '--marca-amarelo-t4': '#fff6d9',
+  }
+
+  for (const [token, valor] of Object.entries(DO_MANUAL)) {
+    it(`${token} e ${valor}`, () => {
+      expect(temas.claro[token]).toBe(valor)
+    })
+  }
+
+  it('o azul ceu coincide com o terceiro tint do cyan', () => {
+    // Nao e engano nem duplicacao: a pagina 11 nomeia-o como cor secundaria e a
+    // 12 mostra o mesmo valor como tint. Se um dos dois mudar, este teste diz.
+    expect(temas.claro['--marca-azul-ceu']).toBe(temas.claro['--marca-cyan-t3'])
+  })
+
+  it('o verde pastel nao pertence a escala de tints do verde', () => {
+    // Confirma que e uma cor propria, e nao uma copia de um degrau existente.
+    const tints = ['t1', 't2', 't3', 't4'].map((t) => temas.claro[`--marca-verde-${t}`])
+    expect(tints).not.toContain(temas.claro['--marca-verde-pastel'])
+  })
+
+  it('o tema escuro nao redefine a paleta', () => {
+    // A paleta e a marca. Um tema pode escolher outra cor da paleta para um
+    // papel, mas nao pode mudar o que a cor da marca e.
+    for (const token of Object.keys(DO_MANUAL)) {
+      expect(lerBloco(css, 'escuroPorEscolha')[token]).toBeUndefined()
+    }
   })
 })
 
 for (const [nome, tema] of [
   ['tema claro', temas.claro],
-  ['tema escuro', temas.escuro],
+  ['tema escuro', temas.escuroPorEscolha],
 ] as const) {
   describe(`contraste, ${nome}`, () => {
     for (const par of PARES) {

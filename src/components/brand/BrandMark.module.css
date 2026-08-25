@@ -1,18 +1,63 @@
 .marca {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  min-width: 0;
 }
 
-.nome {
-  font-size: var(--text-subheading);
-  font-weight: var(--weight-strong);
+/*
+ * O lettering e a marca. A altura vem daqui e nao da prop do componente para
+ * poder responder a largura do ecra; 20 px e 16 px estao ambos acima do minimo
+ * de 14 px que o manual fixa para aplicacao digital (pagina 6).
+ *
+ * A cor segue --brand-lettering: azul profundo sobre fundo claro, branco sobre
+ * fundo escuro, como o manual determina (pagina 9).
+ */
+.lettering {
+  height: 20px;
+  width: auto;
+  flex: none;
+  color: var(--brand-lettering);
+}
+
+/*
+ * Separador vertical. Da a area de seguranca a volta do lettering (manual,
+ * pagina 6) e ao mesmo tempo diz que a Caetano e a marca e o conversor e o
+ * produto, sem precisar de mais texto.
+ */
+.separador {
+  width: 1px;
+  height: 20px;
+  flex: none;
+  background: var(--line-default);
+}
+
+.produto {
+  font-size: var(--text-ui);
+  font-weight: var(--weight-regular);
   letter-spacing: var(--tracking-tight);
-  color: var(--text-strong);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/*
+ * A 520 px o cabecalho tem a marca, o tema e o indicador de privacidade a
+ * competir pela largura. O nome do produto sai: o lettering identifica a marca
+ * e o titulo da pagina identifica a ferramenta. O lettering nunca sai.
+ */
 @media (max-width: 520px) {
-  .nome {
-    font-size: var(--text-ui);
+  .marca {
+    gap: 0;
+  }
+
+  .lettering {
+    height: 16px;
+  }
+
+  .separador,
+  .produto {
+    display: none;
   }
 }

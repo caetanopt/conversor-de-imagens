@@ -2,10 +2,13 @@
  * Contraste de cor, calculado a partir dos tokens.
  *
  * Existe porque a secção 20.8 do CLAUDE.md exige contraste suficiente e isso
- * nao se verifica a olho. Os tokens sao provisorios, mas um problema
- * estrutural de contraste sobrevive a troca de cores: se o texto sobre a
- * superficie for feito com uma diferenca de luminosidade pequena, a marca nova
- * herda o problema.
+ * nao se verifica a olho.
+ *
+ * Le duas notacoes. As cores da marca estao em hexadecimal, os mesmos valores
+ * que o manual publica, para poderem ser confrontados com o documento sem
+ * conversao pelo meio. Os degraus que o manual nao define, como as
+ * superficies intermedias da interface e o tema escuro, estao em oklch, onde
+ * ajustar luminosidade sem mexer no tom e possivel.
  *
  * Sem dependencias. A conversao de oklch para sRGB e matematica fechada e
  * publicada, e esta validada por testes contra valores conhecidos.
@@ -20,6 +23,29 @@ export function parseOklch(valor: string): { l: number; c: number; h: number } |
   const m = OKLCH.exec(valor.trim())
   if (!m) return null
   return { l: Number(m[1]) / 100, c: Number(m[2]), h: Number(m[3]) }
+}
+
+/** Cor em hexadecimal: `#002e5d` ou a forma curta `#fff`. */
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
+
+export function parseHex(valor: string): Rgb | null {
+  const m = HEX.exec(valor.trim())
+  if (!m) return null
+  const digitos = m[1]!
+  const largo = digitos.length === 3 ? digitos.replace(/./g, (d) => d + d) : digitos
+  return {
+    r: Number.parseInt(largo.slice(0, 2), 16) / 255,
+    g: Number.parseInt(largo.slice(2, 4), 16) / 255,
+    b: Number.parseInt(largo.slice(4, 6), 16) / 255,
+  }
+}
+
+/** Qualquer das duas notacoes usadas nos tokens, ou null se nao for uma cor. */
+export function parseCor(valor: string): Rgb | null {
+  const hex = parseHex(valor)
+  if (hex) return hex
+  const oklch = parseOklch(valor)
+  return oklch === null ? null : oklchParaRgb(oklch)
 }
 
 /**
@@ -69,12 +95,12 @@ export function contraste(a: Rgb, b: Rgb): number {
   return (claro + 0.05) / (escuro + 0.05)
 }
 
-/** Contraste entre dois valores de token, ou null se algum nao for oklch. */
+/** Contraste entre dois valores de token, ou null se algum nao for uma cor. */
 export function contrasteEntreTokens(a: string, b: string): number | null {
-  const ca = parseOklch(a)
-  const cb = parseOklch(b)
+  const ca = parseCor(a)
+  const cb = parseCor(b)
   if (!ca || !cb) return null
-  return contraste(oklchParaRgb(ca), oklchParaRgb(cb))
+  return contraste(ca, cb)
 }
 
 /**

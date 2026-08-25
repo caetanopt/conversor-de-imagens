@@ -1,69 +1,185 @@
 /*
- * Tokens de marca, PROVISORIOS.
+ * Tokens de cor, derivados do manual de identidade da Caetano.
  *
- * Nenhum valor aqui e uma decisao de identidade visual. O manual de marca
- * ainda nao existe (ver docs/brand/, vazio de proposito). Todos os
- * componentes leem exclusivamente estas variaveis, portanto aplicar a marca
- * e editar este ficheiro, nao os componentes.
+ * Fonte: docs/brand/Manual_Identidade_Caetano_042026.pdf, paginas 12 a 14.
  *
- * Escolhas deliberadas enquanto esperamos pelo manual:
- *  - acento neutro (tinta quase preta, nao uma cor), para nao haver cor
- *    de marca inventada que depois precise de ser desfeita;
- *  - raios pequenos, sem cantos muito arredondados;
- *  - separacao por linha fina em vez de sombra forte;
- *  - sem gradientes.
+ * O ficheiro tem duas camadas, e a distincao entre elas e deliberada:
+ *
+ *  1. A PALETA (--marca-*) sao os valores exatos que o manual publica, em
+ *     hexadecimal, iguais aos do documento. Estao aqui para poderem ser
+ *     confrontados com o manual sem conversao pelo meio. Nao alterar.
+ *
+ *  2. Os TOKENS SEMANTICOS sao o que os componentes leem. Apontam para a
+ *     paleta sempre que o valor do manual serve, e so nesse caso. Onde o
+ *     manual nao tem um degrau utilizavel, o token e derivado em oklch,
+ *     mantendo o tom da cor da marca e resolvendo apenas a luminosidade
+ *     necessaria para cumprir a WCAG 2.2 AA. Cada derivacao tem comentario.
+ *
+ * A razao para derivar: um manual de identidade define uma paleta para
+ * aplicacao grafica, nao um tema de interface. As cores de destaque do manual
+ * sao claras, entre 70 % e 88 % de luminosidade, e nenhuma delas atinge 4,5:1
+ * como texto sobre branco. Usa-las tal e qual em texto seria trocar
+ * legibilidade por fidelidade cromatica. O tom e o da marca; a luminosidade
+ * responde ao criterio de contraste. Ver tests/unit/contraste.test.ts, que
+ * mede todos os pares reais do produto e falha se algum descer do limiar.
+ *
+ * O tema escuro nao existe no manual. E derivado: os fundos ficam no tom do
+ * azul profundo com croma muito baixo, para o escuro ser o escuro da marca e
+ * nao um preto neutro, e as cores de estado usam os tints t1 do manual, que
+ * sao a versao clara publicada de cada cor.
  */
+
 :root {
   color-scheme: light dark;
 
-  /* --- Superficies --------------------------------------------------- */
-  --surface-page: oklch(98.4% 0.002 60);
-  --surface-raised: oklch(100% 0 0);
-  --surface-sunken: oklch(96.2% 0.003 60);
-  --surface-inset: oklch(93.4% 0.004 60);
+  /* ================================================================== */
+  /* PALETA DA MARCA. Valores exatos do manual. Nao alterar.            */
+  /* ================================================================== */
 
-  /* --- Tinta e texto ------------------------------------------------- */
-  --text-strong: oklch(21% 0.006 60);
-  --text-default: oklch(32% 0.005 60);
-  --text-muted: oklch(52% 0.005 60);
-  /* 55 %, e nao 64 %, porque a 64 % o contraste sobre a pagina era 3,21:1 e a
-     WCAG 2.2 AA pede 4,5:1 para texto. Este token e usado em texto real, como
-     as dimensoes da imagem, nao em decoracao. Ver tests/unit/contraste.test.ts. */
-  --text-faint: oklch(55% 0.004 60);
-  --text-on-accent: oklch(99% 0 0);
+  /* Cores principais (manual, pagina 12). */
+  --marca-azul-profundo: #002e5d; /* Pantone 540 C */
+  --marca-antracite: #2e3a46;
+  --marca-cinza-medio: #9caeb8;
 
-  /* --- Linhas -------------------------------------------------------- */
-  --line-strong: oklch(78% 0.004 60);
-  --line-default: oklch(88% 0.004 60);
-  --line-subtle: oklch(92.5% 0.003 60);
+  /* Cores neutras (manual, pagina 11). */
+  --marca-ultra-branco: #ffffff;
+
+  /*
+   * Cores secundarias (manual, paginas 11 e 12).
+   *
+   * A pagina 11 mostra dez amostras; a 12 publica o codigo de sete delas com
+   * os respetivos tints. As duas que faltavam foram lidas dos proprios
+   * quadrados da pagina 11: o azul ceu coincide com o terceiro tint do cyan, e
+   * o verde pastel e uma cor propria que nao esta em nenhuma escala de tints.
+   */
+  --marca-cyan: #00aeef;
+  --marca-verde: #49b489;
+  --marca-laranja: #ffa931;
+  --marca-amarelo: #ffd23f;
+  --marca-azul-ceu: #99dff9;
+  --marca-verde-pastel: #a8d5ba;
+
+  /* Tints, 80 % a 20 % de cada cor (manual, pagina 14). */
+  --marca-azul-profundo-t1: #33587d;
+  --marca-azul-profundo-t2: #66829e;
+  --marca-azul-profundo-t3: #99abbe;
+  --marca-azul-profundo-t4: #ccd5df;
+
+  --marca-antracite-t1: #58616b;
+  --marca-antracite-t2: #828990;
+  --marca-antracite-t3: #abb0b5;
+  --marca-antracite-t4: #d5d8da;
+
+  --marca-cinza-medio-t1: #b0bec6;
+  --marca-cinza-medio-t2: #c4ced4;
+  --marca-cinza-medio-t3: #d7dfe3;
+  --marca-cinza-medio-t4: #ebeff1;
+
+  --marca-cyan-t1: #33bef2;
+  --marca-cyan-t2: #66cef5;
+  --marca-cyan-t3: #99dff9;
+  --marca-cyan-t4: #cceffc;
+
+  --marca-verde-t1: #6dc3a1;
+  --marca-verde-t2: #92d2b8;
+  --marca-verde-t3: #b6e1d0;
+  --marca-verde-t4: #dbf0e7;
+
+  --marca-laranja-t1: #ffba5a;
+  --marca-laranja-t2: #ffcb83;
+  --marca-laranja-t3: #ffddad;
+  --marca-laranja-t4: #ffeed6;
+
+  --marca-amarelo-t1: #ffdb65;
+  --marca-amarelo-t2: #ffe48c;
+  --marca-amarelo-t3: #ffedb2;
+  --marca-amarelo-t4: #fff6d9;
+
+  /* ================================================================== */
+  /* TOKENS SEMANTICOS, TEMA CLARO                                      */
+  /* ================================================================== */
+
+  /* --- Superficies ---------------------------------------------------
+   * A escala e o branco do manual mais os tres tints mais claros do cinza
+   * medio. Quatro degraus, todos valores publicados, do mais claro para o
+   * mais fundo. O quadriculado que assinala transparencia na pre-visualizacao
+   * usa sunken com inset, e por isso precisam de ser distinguiveis. */
+  --surface-page: var(--marca-cinza-medio-t4);
+  --surface-raised: var(--marca-ultra-branco);
+  --surface-sunken: var(--marca-cinza-medio-t3);
+  --surface-inset: var(--marca-cinza-medio-t2);
+
+  /* --- Tinta e texto -------------------------------------------------
+   * O antracite e o seu primeiro tint chegam para os dois niveis mais fortes.
+   * Do t2 em diante o manual desce abaixo de 4,5:1 sobre branco (o t2 da
+   * 3,54:1), portanto os dois niveis discretos sao derivados no tom do
+   * antracite, 248,6 graus, com o croma do manual. */
+  --text-strong: var(--marca-antracite);
+  --text-default: var(--marca-antracite-t1);
+  /* 4,60:1 sobre a superficie mais funda onde aparece (--surface-inset). */
+  --text-muted: oklch(45.2% 0.0265 248.6);
+  /* 4,60:1 sobre --surface-page. Continua a ser texto, o limiar nao baixa. */
+  --text-faint: oklch(52.8% 0.0265 248.6);
+  --text-on-accent: var(--marca-ultra-branco);
+
+  /* --- Lettering da marca --------------------------------------------
+   * O manual, pagina 9, aplica o lettering em azul profundo sobre fundo claro
+   * e em branco sobre fundo escuro ou sobre o proprio azul. E por isso um
+   * token, e nao uma cor fixa no componente. */
+  --brand-lettering: var(--marca-azul-profundo);
+
+  /* --- Linhas --------------------------------------------------------
+   * Separacao entre zonas, tints do cinza medio. */
+  --line-strong: var(--marca-cinza-medio-t1);
+  --line-default: var(--marca-cinza-medio-t2);
+  --line-subtle: var(--marca-cinza-medio-t3);
   /*
    * Fronteira de um controlo, e nao separacao entre zonas.
    *
    * A WCAG 2.2, criterio 1.4.11, pede 3:1 para o que e necessario identificar
    * um componente de interface. Um campo numerico ou um botao secundario sao
    * reconhecidos pela propria moldura, portanto essa moldura tem de cumprir o
-   * limiar. Os tokens de linha acima servem para separar regioes, onde o
-   * criterio nao se aplica, e por isso podem continuar discretos.
+   * limiar. Os tokens de linha acima separam regioes, onde o criterio nao se
+   * aplica, e por isso podem continuar discretos.
+   *
+   * Derivado no tom do cinza medio, 232 graus: o proprio cinza medio da
+   * 1,98:1 sobre a pagina, muito abaixo do necessario.
    */
-  --line-control: oklch(65% 0.004 60);
+  --line-control: oklch(62.5% 0.0248 232);
 
-  /* --- Acento (neutro de proposito) ---------------------------------- */
-  --accent: oklch(24% 0.008 60);
-  --accent-hover: oklch(32% 0.008 60);
-  --accent-quiet: oklch(94% 0.004 60);
+  /* --- Acento --------------------------------------------------------
+   * O azul profundo e a cor principal da marca, e da 13,56:1 com branco por
+   * cima. O estado de hover sobe para o t1, mantendo 7,41:1. */
+  --accent: var(--marca-azul-profundo);
+  --accent-hover: var(--marca-azul-profundo-t1);
+  --accent-quiet: var(--marca-azul-profundo-t4);
 
-  /* --- Estados semanticos -------------------------------------------- */
-  --state-positive: oklch(48% 0.11 155);
-  --state-positive-quiet: oklch(95.5% 0.03 155);
-  /* 54 % para dar 4,5:1 sobre o proprio fundo discreto, onde a 56 % dava 4,24:1. */
-  --state-caution: oklch(54% 0.12 68);
-  --state-caution-quiet: oklch(96% 0.04 80);
-  --state-danger: oklch(52% 0.16 25);
-  --state-danger-quiet: oklch(96% 0.03 25);
-  --state-busy: oklch(52% 0.02 60);
+  /* --- Estados semanticos --------------------------------------------
+   * Os fundos discretos sao os tints t4 do manual. As cores de primeiro plano
+   * mantem o tom exato de cada cor de apoio e descem em luminosidade ate
+   * 4,5:1 sobre o respetivo fundo discreto, porque o valor publicado nao
+   * chega: o verde da 2,57:1 sobre branco, o laranja 1,91:1 e o amarelo
+   * 1,44:1.
+   *
+   * Nota sobre o erro: a paleta do manual nao tem vermelho. O laranja
+   * dinamico e a cor mais quente disponivel e e essa que serve o estado de
+   * erro; inventar um vermelho seria acrescentar uma cor a marca. Erro e
+   * aviso distinguem-se pelo tom, 69,5 contra 90,9 graus, e sempre por
+   * texto, nunca so pela cor. */
+  --state-positive: oklch(50.4% 0.1181 163.8);
+  --state-positive-quiet: var(--marca-verde-t4);
+  --state-caution: oklch(54.4% 0.1617 90.9);
+  --state-caution-quiet: var(--marca-amarelo-t4);
+  --state-danger: oklch(53.9% 0.1596 69.5);
+  --state-danger-quiet: var(--marca-laranja-t4);
+  /* Tom do cinza medio, luminosidade resolvida para 4,5:1. */
+  --state-busy: oklch(52.7% 0.0248 232);
 
-  /* --- Foco ---------------------------------------------------------- */
-  --focus-ring: oklch(52% 0.16 250);
+  /* --- Foco ----------------------------------------------------------
+   * Tom do cyan do manual com a luminosidade que cumpre 3:1 sobre as duas
+   * superficies claras. O cyan publicado da 2,19:1 sobre a pagina. O anel
+   * fica distinto do acento, que e o azul profundo. */
+  --focus-ring: oklch(61.6% 0.1489 234.4);
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
 
@@ -95,44 +211,136 @@
   --control-height-touch: 44px;
 
   /* --- Elevacao (usada com parcimonia) ------------------------------ */
-  --shadow-panel: 0 1px 2px oklch(21% 0.006 60 / 0.05);
-  --shadow-overlay: 0 8px 24px oklch(21% 0.006 60 / 0.12);
+  --shadow-panel: 0 1px 2px oklch(34.3% 0.0265 248.6 / 0.1);
+  --shadow-overlay: 0 8px 24px oklch(34.3% 0.0265 248.6 / 0.18);
 }
 
+/*
+ * Escuro por preferencia do sistema, excepto se o utilizador escolheu claro.
+ *
+ * As declaracoes estao repetidas nos dois seletores abaixo de proposito. A
+ * alternativa era `light-dark()`, que resolveria a duplicacao numa linha, mas
+ * apoiar a paleta inteira numa funcao que nao podemos testar em Firefox nem em
+ * Safari significa que um browser sem suporte perde TODAS as cores de uma vez.
+ * A duplicacao nao tem risco de suporte, e um teste garante que os dois blocos
+ * declaram exatamente os mesmos valores.
+ *
+ * O manual nao define tema escuro. Tudo aqui e derivado, com duas regras:
+ * os fundos ficam no tom do azul profundo, 253,9 graus, com croma muito baixo,
+ * para o escuro pertencer a marca; e as cores de estado passam a usar os
+ * tints t1 do manual, que sao a versao clara publicada de cada cor e por isso
+ * ficam confortavelmente acima do limiar sobre fundo escuro.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --surface-page: oklch(17.5% 0.004 60);
-    --surface-raised: oklch(21.5% 0.005 60);
-    --surface-sunken: oklch(14.5% 0.004 60);
-    --surface-inset: oklch(26% 0.005 60);
+  :root:not([data-tema='claro']) {
+    --surface-page: oklch(18% 0.012 253.9);
+    --surface-raised: oklch(22% 0.014 253.9);
+    --surface-sunken: oklch(14.5% 0.01 253.9);
+    --surface-inset: oklch(27% 0.016 253.9);
 
-    --text-strong: oklch(96% 0.003 60);
-    --text-default: oklch(88% 0.003 60);
-    --text-muted: oklch(68% 0.004 60);
-    /* 61 %, e nao 56 %: a 56 % dava 3,76:1 sobre um cartao. */
-    --text-faint: oklch(61% 0.004 60);
-    --text-on-accent: oklch(18% 0.005 60);
+    --text-strong: oklch(96% 0.004 253.9);
+    --text-default: oklch(88% 0.005 253.9);
+    /* 4,59:1 sobre --surface-inset. */
+    --text-muted: oklch(64.6% 0.012 248.6);
+    /* 4,59:1 sobre --surface-raised. */
+    --text-faint: oklch(61.1% 0.012 248.6);
+    /* Sobre o cyan, o azul profundo da 5,36:1. */
+    --text-on-accent: var(--marca-azul-profundo);
 
-    --line-strong: oklch(42% 0.005 60);
-    --line-default: oklch(32% 0.005 60);
-    --line-subtle: oklch(26% 0.004 60);
-    --line-control: oklch(51% 0.005 60);
+    --brand-lettering: var(--marca-ultra-branco);
 
-    --accent: oklch(93% 0.004 60);
-    --accent-hover: oklch(84% 0.004 60);
-    --accent-quiet: oklch(27% 0.006 60);
+    --line-strong: oklch(45% 0.014 253.9);
+    --line-default: oklch(34% 0.014 253.9);
+    --line-subtle: oklch(27% 0.014 253.9);
+    --line-control: oklch(60% 0.0248 232);
 
-    --state-positive: oklch(72% 0.14 155);
-    --state-positive-quiet: oklch(27% 0.05 155);
-    --state-caution: oklch(76% 0.13 75);
-    --state-caution-quiet: oklch(28% 0.05 75);
-    --state-danger: oklch(70% 0.15 25);
-    --state-danger-quiet: oklch(28% 0.06 25);
-    --state-busy: oklch(70% 0.02 60);
+    /*
+     * No escuro o acento e o cyan, e nao o azul profundo.
+     *
+     * O azul profundo tem 30,3 % de luminosidade e sobre um cartao a 22 %
+     * ficaria invisivel. O cyan e a cor clara da marca, da 6,84:1 sobre o
+     * cartao e leva o azul profundo como texto por cima. As duas cores sao
+     * valores exatos do manual, portanto a inversao mantem-se dentro da
+     * paleta.
+     */
+    --accent: var(--marca-cyan);
+    --accent-hover: var(--marca-cyan-t1);
+    --accent-quiet: oklch(27% 0.04 234.4);
 
-    --focus-ring: oklch(72% 0.15 250);
+    --state-positive: var(--marca-verde-t1);
+    --state-positive-quiet: oklch(26.5% 0.045 163.8);
+    --state-caution: var(--marca-amarelo-t1);
+    --state-caution-quiet: oklch(27.5% 0.05 90.9);
+    --state-danger: var(--marca-laranja-t1);
+    --state-danger-quiet: oklch(27% 0.05 69.5);
+    --state-busy: oklch(61% 0.0248 232);
+
+    --focus-ring: var(--marca-cyan);
 
     --shadow-panel: 0 1px 2px oklch(0% 0 0 / 0.4);
     --shadow-overlay: 0 8px 24px oklch(0% 0 0 / 0.55);
   }
+}
+
+/*
+ * Claro por escolha explicita do utilizador.
+ *
+ * Sem `color-scheme: light` aqui, quem escolhesse claro com o sistema em
+ * escuro continuaria a ver as barras de deslocamento e os controlos nativos
+ * em escuro sobre uma interface clara.
+ */
+:root[data-tema='claro'] {
+  color-scheme: light;
+}
+
+/* Escuro por escolha explicita do utilizador. */
+:root[data-tema='escuro'] {
+  color-scheme: dark;
+
+  --surface-page: oklch(18% 0.012 253.9);
+  --surface-raised: oklch(22% 0.014 253.9);
+  --surface-sunken: oklch(14.5% 0.01 253.9);
+  --surface-inset: oklch(27% 0.016 253.9);
+
+  --text-strong: oklch(96% 0.004 253.9);
+  --text-default: oklch(88% 0.005 253.9);
+  /* 4,59:1 sobre --surface-inset. */
+  --text-muted: oklch(64.6% 0.012 248.6);
+  /* 4,59:1 sobre --surface-raised. */
+  --text-faint: oklch(61.1% 0.012 248.6);
+  /* Sobre o cyan, o azul profundo da 5,36:1. */
+  --text-on-accent: var(--marca-azul-profundo);
+
+  --brand-lettering: var(--marca-ultra-branco);
+
+  --line-strong: oklch(45% 0.014 253.9);
+  --line-default: oklch(34% 0.014 253.9);
+  --line-subtle: oklch(27% 0.014 253.9);
+  --line-control: oklch(60% 0.0248 232);
+
+  /*
+   * No escuro o acento e o cyan, e nao o azul profundo.
+   *
+   * O azul profundo tem 30,3 % de luminosidade e sobre um cartao a 22 %
+   * ficaria invisivel. O cyan e a cor clara da marca, da 6,84:1 sobre o
+   * cartao e leva o azul profundo como texto por cima. As duas cores sao
+   * valores exatos do manual, portanto a inversao mantem-se dentro da
+   * paleta.
+   */
+  --accent: var(--marca-cyan);
+  --accent-hover: var(--marca-cyan-t1);
+  --accent-quiet: oklch(27% 0.04 234.4);
+
+  --state-positive: var(--marca-verde-t1);
+  --state-positive-quiet: oklch(26.5% 0.045 163.8);
+  --state-caution: var(--marca-amarelo-t1);
+  --state-caution-quiet: oklch(27.5% 0.05 90.9);
+  --state-danger: var(--marca-laranja-t1);
+  --state-danger-quiet: oklch(27% 0.05 69.5);
+  --state-busy: oklch(61% 0.0248 232);
+
+  --focus-ring: var(--marca-cyan);
+
+  --shadow-panel: 0 1px 2px oklch(0% 0 0 / 0.4);
+  --shadow-overlay: 0 8px 24px oklch(0% 0 0 / 0.55);
 }

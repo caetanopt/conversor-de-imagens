@@ -173,11 +173,60 @@ test.describe('processamento local', () => {
         : -1,
     }))
 
+    // O fluxo de conversao nao guarda nada, nem uma chave. A preferencia de
+    // tema so aparece se o utilizador carregar no botao, e o teste seguinte
+    // limita exatamente o que esse botao pode escrever.
     expect(armazenamento.localStorage).toBe(0)
     expect(armazenamento.sessionStorage).toBe(0)
     expect(armazenamento.indexedDB).toBeLessThanOrEqual(0)
     expect(armazenamento.caches).toBeLessThanOrEqual(0)
     expect(armazenamento.serviceWorkers).toBeLessThanOrEqual(0)
+  })
+
+  test('a preferencia de tema e a unica coisa que pode ficar guardada', async ({ page }) => {
+    /*
+     * O botao de tema e a unica escrita em localStorage em toda a aplicacao.
+     * Contar zero chaves aqui seria impossivel, porque a escolha tem de
+     * sobreviver ao recarregamento para o controlo servir de algo. Em vez
+     * disso este teste limita o que pode existir: uma chave, com nome
+     * conhecido, e um valor de entre dois. Uma escrita nova em localStorage
+     * falha aqui.
+     */
+    await page.goto('/')
+    await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+
+    const tema = page.getByRole('button', { name: /^Tema:/ })
+    // Esperar que o botao anuncie 'automatico' garante que o React ja hidratou.
+    // Sem isto, o primeiro clique podia cair antes disso e nao fazer nada.
+    await expect(tema).toHaveAccessibleName(/Tema: automático/i)
+
+    // Tres cliques passam pelos tres estados e voltam ao inicio.
+    for (let i = 0; i < 3; i += 1) {
+      await tema.click()
+      const guardado = await page.evaluate(() =>
+        Object.entries(localStorage).map(([chave, valor]) => `${chave}=${valor}`),
+      )
+      expect(guardado.length, `apos ${i + 1} cliques: ${guardado.join(', ')}`).toBeLessThanOrEqual(
+        1,
+      )
+      for (const entrada of guardado) {
+        expect(entrada).toMatch(/^conversor:tema=(claro|escuro)$/)
+      }
+    }
+
+    // De volta a 'sistema', que e a ausencia de escolha e nao deixa nada.
+    expect(await page.evaluate(() => Object.keys(localStorage).length)).toBe(0)
+
+    // E nada mudou nos outros mecanismos de persistencia.
+    const resto = await page.evaluate(async () => ({
+      sessionStorage: Object.keys(sessionStorage).length,
+      indexedDB:
+        typeof indexedDB.databases === 'function' ? (await indexedDB.databases()).length : -1,
+      caches: typeof caches !== 'undefined' ? (await caches.keys()).length : -1,
+    }))
+    expect(resto.sessionStorage).toBe(0)
+    expect(resto.indexedDB).toBeLessThanOrEqual(0)
+    expect(resto.caches).toBeLessThanOrEqual(0)
   })
 
   test('o inventario de pedidos e exatamente o documentado', async ({ page }) => {
@@ -197,6 +246,8 @@ test.describe('processamento local', () => {
       /^http:\/\/127\.0\.0\.1:4321\/_next\/static\//,
       /^http:\/\/127\.0\.0\.1:4321\/magick\/magick\.wasm(\?|$)/,
       /^http:\/\/127\.0\.0\.1:4321\/favicon\.ico$/,
+      // O icone da marca, gerado a partir de src/app/icon.svg.
+      /^http:\/\/127\.0\.0\.1:4321\/icon\.svg(\?|$)/,
       /^blob:http:\/\/127\.0\.0\.1:4321\//,
     ]
 
