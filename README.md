@@ -121,9 +121,9 @@ Verificar também o armazenamento, no painel Application:
 9. Abrir Application e ver Local Storage, Session Storage, IndexedDB e Cache
    Storage.
 10. Depois de converter, tudo tem de estar vazio.
-11. Carregar no botão de tema e confirmar que aparece no máximo uma chave,
-    `conversor:tema`, com o valor `claro` ou `escuro`. Voltar a **Automático**
-    apaga-a. Não pode existir mais nada.
+11. Alternar o interruptor de tema e confirmar que aparece exatamente uma
+    chave, `conversor:tema`, com o valor `claro` ou `escuro` conforme o lado
+    ligado. Não pode existir mais nada.
 
 Se este procedimento falhar, a afirmação de processamento local deixa de ser
 verdadeira e tem de ser removida da interface.

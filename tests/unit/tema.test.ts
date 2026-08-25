@@ -14,7 +14,6 @@ import {
   eTema,
   guardarTema,
   lerTemaGuardado,
-  proximoTema,
   ROTULOS,
   SCRIPT_ANTES_DO_PAINT,
   TEMA_POR_DEFEITO,
@@ -40,20 +39,6 @@ describe('eTema', () => {
   })
 })
 
-describe('proximoTema', () => {
-  it('cicla pelos tres e volta ao inicio', () => {
-    expect(proximoTema('sistema')).toBe('claro')
-    expect(proximoTema('claro')).toBe('escuro')
-    expect(proximoTema('escuro')).toBe('sistema')
-  })
-
-  it('tres cliques a partir de qualquer estado devolvem o mesmo estado', () => {
-    for (const inicio of TEMAS) {
-      expect(proximoTema(proximoTema(proximoTema(inicio)))).toBe(inicio)
-    }
-  })
-})
-
 describe('ROTULOS', () => {
   it('tem um rotulo em portugues para cada tema', () => {
     for (const t of TEMAS) {
@@ -64,7 +49,6 @@ describe('ROTULOS', () => {
     }
     expect(ROTULOS.sistema).toBe('Automático')
   })
-
 })
 
 describe('guardarTema e lerTemaGuardado', () => {

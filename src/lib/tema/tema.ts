@@ -7,9 +7,9 @@
  *
  * A regra de privacidade do CLAUDE.md, seccao 2.4, proibe guardar imagens em
  * localStorage. O que fica guardado aqui e uma palavra de entre tres valores
- * possiveis, escolhida pelo utilizador ao carregar num botao. Nao e uma imagem,
- * nao e metadado de uma imagem, e nao permite inferir nada sobre os ficheiros
- * que passaram pela aplicacao.
+ * possiveis, escolhida pelo utilizador ao mexer no interruptor de tema. Nao e
+ * uma imagem, nao e metadado de uma imagem, e nao permite inferir nada sobre os
+ * ficheiros que passaram pela aplicacao.
  *
  * A alternativa era nao guardar nada, e nesse caso o tema escolhido perdia-se a
  * cada recarregamento, o que torna o controlo inutil. Um teste end to end
@@ -31,12 +31,6 @@ export const TEMA_POR_DEFEITO: Tema = 'sistema'
 
 export function eTema(valor: unknown): valor is Tema {
   return typeof valor === 'string' && (TEMAS as readonly string[]).includes(valor)
-}
-
-/** Proximo tema no ciclo do botao. */
-export function proximoTema(atual: Tema): Tema {
-  const i = TEMAS.indexOf(atual)
-  return TEMAS[(i + 1) % TEMAS.length]!
 }
 
 export const ROTULOS: Record<Tema, string> = {

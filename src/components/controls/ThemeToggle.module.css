@@ -1,55 +1,90 @@
-.botao {
+/*
+ * Interruptor de tema. Pilula com dois icones fixos e um polegar que desliza
+ * entre eles. E a unica zona da interface com forma totalmente arredondada,
+ * porque e a forma que identifica um switch em qualquer sistema operativo; a
+ * seccao 26.7 do CLAUDE.md pede para evitar cantos arredondados em excesso no
+ * resto da interface, nao neste caso especifico.
+ */
+
+/* O botao e so a zona de toque; o desenho fica no filho .trilho, mais
+   pequeno. Dar o alvo de toque ao botao e nao ao trilho evita ter de aumentar
+   visualmente a pilula so para cumprir a dimensao minima em ecras tateis. */
+.interruptor {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  justify-content: center;
+  flex: none;
+  min-width: var(--control-height-touch);
   min-height: var(--control-height-touch);
-  padding: 0 var(--space-3);
+  padding: 0;
   background: none;
-  border: 1px solid var(--line-default);
-  border-radius: var(--radius-sm);
-  color: var(--text-muted);
+  border: none;
   cursor: pointer;
-  white-space: nowrap;
-  transition:
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
 }
 
 @media (pointer: fine) {
-  .botao {
+  .interruptor {
+    min-width: var(--control-height);
     min-height: var(--control-height);
   }
 }
 
-.botao:hover {
-  border-color: var(--line-control);
-  color: var(--text-strong);
-}
-
-/* O icone assume a cor do texto do botao, incluindo no hover. */
-.icone {
-  flex: none;
-  display: block;
-}
-
-.valor {
-  font-size: var(--text-ui-small);
-  font-weight: var(--weight-medium);
-  color: var(--text-strong);
-}
-
 /*
- * A 520 px o cabecalho tem a marca, este botao e o indicador de privacidade a
- * competir pela largura, e o nome do tema nao cabe. Fica o icone, que e
- * quadrado e ocupa o minimo. O nome acessivel do botao continua a dizer o
- * estado por palavras.
+ * O preenchimento e --surface-page, e nao --surface-sunken: --line-control foi
+ * resolvido para 3:1 (criterio 1.4.11) contra --surface-page e
+ * --surface-raised especificamente (ver tokens.css), e contra sunken no tema
+ * claro dava so 2,63:1. A pilula distingue-se do cabecalho sobretudo pela
+ * moldura, tal como a zona de largar; o preenchimento por si e quase igual ao
+ * fundo, e isso e esperado.
  */
-@media (max-width: 520px) {
-  .botao {
-    padding: 0 var(--space-2);
-  }
+.trilho {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 46px;
+  height: 26px;
+  padding: 0 6px;
+  background: var(--surface-page);
+  border: 1px solid var(--line-control);
+  border-radius: 999px;
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
 
-  .valor {
-    display: none;
-  }
+.interruptor:hover .trilho {
+  border-color: var(--text-muted);
+}
+
+.iconeSol,
+.iconeLua {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  color: var(--text-faint);
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.polegar {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  border-radius: 50%;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+/* Claro (aria-checked="false"): o polegar fica sobre o sol. */
+.interruptor[aria-checked='false'] .iconeSol {
+  color: var(--text-on-accent);
+}
+
+/* Escuro (aria-checked="true"): o polegar desliza para a lua. */
+.interruptor[aria-checked='true'] .polegar {
+  transform: translateX(20px);
+}
+
+.interruptor[aria-checked='true'] .iconeLua {
+  color: var(--text-on-accent);
 }

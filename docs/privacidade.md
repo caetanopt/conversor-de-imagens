@@ -149,7 +149,7 @@ deliberadas em vez de as ler:
 | Nenhuma representação dos bytes | idem | três janelas de 24 bytes do ficheiro, em latin1, base64 e hexadecimal, procuradas em todos os URLs e corpos |
 | O inventário está correto | idem | falha se aparecer um pedido fora da tabela acima |
 | Nada é guardado ao converter | idem | `localStorage`, `sessionStorage`, `indexedDB`, Cache Storage e service workers vazios depois de converter |
-| A preferência de tema é o único valor guardado | idem | ao carregar no botão de tema, no máximo uma chave, `conversor:tema`, com valor `claro` ou `escuro` |
+| A preferência de tema é o único valor guardado | idem | ao ligar o interruptor de tema, exatamente uma chave, `conversor:tema`, com valor `claro` ou `escuro` |
 | Metadados privados removidos | idem | procura GPS, número de série, autor e localidade no ficheiro **descarregado** |
 | Motor fora da main thread | `scripts/verificar-bundle.mjs` | `initializeImageMagick` não aparece em nenhum chunk carregado pela página |
 | Object URLs emparelhados | `tests/unit/objectUrls.test.ts` | nenhum URL fica pendente no fim de um fluxo |
@@ -318,13 +318,18 @@ Uma coisa, e só uma: a preferência de tema.
 
 | Chave | Valores possíveis | Quando é escrita |
 |---|---|---|
-| `conversor:tema` | `claro`, `escuro` | apenas quando o utilizador carrega no botão de tema |
+| `conversor:tema` | `claro`, `escuro` | apenas ao ligar ou desligar o interruptor de tema |
 
 Notas:
 
-- Escolher **Automático** apaga a chave em vez de a guardar, porque a ausência
-  de escolha é a ausência de valor. Depois disso o `localStorage` volta a ficar
-  vazio.
+- O interruptor é binário: liga para escuro, desliga para claro. Antes de
+  qualquer interação a aplicação segue a preferência do sistema
+  (`prefers-color-scheme`) e não guarda nada; o interruptor arranca do lado que
+  o sistema prefere nesse momento, sem escrever em `localStorage`. Só o
+  primeiro clique escreve uma chave.
+- Não existe forma de voltar a seguir o sistema através do interruptor depois
+  de uma escolha explícita, tal como a maioria dos interruptores de tema no
+  browser. A única forma é limpar o valor guardado.
 - `src/lib/tema/tema.ts` é o **único** ficheiro da aplicação autorizado a tocar
   em `localStorage`. A regra de lint proíbe-o em todos os outros e a exceção
   está declarada explicitamente em `eslint.config.mjs`, ao lado da exceção dos
@@ -332,8 +337,6 @@ Notas:
 - O valor guardado é uma palavra de entre duas. Não é uma imagem, não é
   metadado de uma imagem, e não permite inferir nada sobre os ficheiros que
   passaram pela aplicação.
-- Um teste end to end limita exatamente isto: carrega três vezes no botão e
+- Um teste end to end limita exatamente isto: liga e desliga o interruptor e
   falha se aparecer mais do que uma chave ou um valor diferente dos dois
-  esperados. Contar zero chaves seria impossível, porque a escolha tem de
-  sobreviver ao recarregamento para o controlo servir de algo; contar o que
-  pode existir é uma garantia mais precisa.
+  esperados em qualquer momento.

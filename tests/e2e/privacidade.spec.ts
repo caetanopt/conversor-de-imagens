@@ -185,37 +185,39 @@ test.describe('processamento local', () => {
 
   test('a preferencia de tema e a unica coisa que pode ficar guardada', async ({ page }) => {
     /*
-     * O botao de tema e a unica escrita em localStorage em toda a aplicacao.
-     * Contar zero chaves aqui seria impossivel, porque a escolha tem de
-     * sobreviver ao recarregamento para o controlo servir de algo. Em vez
-     * disso este teste limita o que pode existir: uma chave, com nome
+     * O interruptor de tema e a unica escrita em localStorage em toda a
+     * aplicacao. Contar zero chaves aqui seria impossivel, porque a escolha
+     * tem de sobreviver ao recarregamento para o controlo servir de algo. Em
+     * vez disso este teste limita o que pode existir: uma chave, com nome
      * conhecido, e um valor de entre dois. Uma escrita nova em localStorage
      * falha aqui.
      */
+    await page.emulateMedia({ colorScheme: 'light' })
     await page.goto('/')
     await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
 
-    const tema = page.getByRole('button', { name: /^Tema:/ })
-    // Esperar que o botao anuncie 'automatico' garante que o React ja hidratou.
-    // Sem isto, o primeiro clique podia cair antes disso e nao fazer nada.
-    await expect(tema).toHaveAccessibleName(/Tema: automático/i)
-
-    // Tres cliques passam pelos tres estados e voltam ao inicio.
-    for (let i = 0; i < 3; i += 1) {
-      await tema.click()
-      const guardado = await page.evaluate(() =>
-        Object.entries(localStorage).map(([chave, valor]) => `${chave}=${valor}`),
-      )
-      expect(guardado.length, `apos ${i + 1} cliques: ${guardado.join(', ')}`).toBeLessThanOrEqual(
-        1,
-      )
-      for (const entrada of guardado) {
-        expect(entrada).toMatch(/^conversor:tema=(claro|escuro)$/)
-      }
-    }
-
-    // De volta a 'sistema', que e a ausencia de escolha e nao deixa nada.
+    const tema = page.getByRole('switch')
+    // Sem escolha guardada e o sistema em claro, o interruptor comeca
+    // desligado. Esperar por isto garante que o React ja hidratou: sem isso o
+    // primeiro clique podia cair antes disso e nao fazer nada.
+    await expect(tema).toHaveAttribute('aria-checked', 'false')
     expect(await page.evaluate(() => Object.keys(localStorage).length)).toBe(0)
+
+    // Um clique liga o interruptor e guarda a escolha explicita.
+    await tema.click()
+    await expect(tema).toHaveAttribute('aria-checked', 'true')
+    let guardado = await page.evaluate(() =>
+      Object.entries(localStorage).map(([chave, valor]) => `${chave}=${valor}`),
+    )
+    expect(guardado).toEqual(['conversor:tema=escuro'])
+
+    // Um segundo clique desliga outra vez, sem deixar uma segunda chave.
+    await tema.click()
+    await expect(tema).toHaveAttribute('aria-checked', 'false')
+    guardado = await page.evaluate(() =>
+      Object.entries(localStorage).map(([chave, valor]) => `${chave}=${valor}`),
+    )
+    expect(guardado).toEqual(['conversor:tema=claro'])
 
     // E nada mudou nos outros mecanismos de persistencia.
     const resto = await page.evaluate(async () => ({
