@@ -16,7 +16,6 @@ import {
   lerTemaGuardado,
   proximoTema,
   ROTULOS,
-  ROTULOS_CURTOS,
   SCRIPT_ANTES_DO_PAINT,
   TEMA_POR_DEFEITO,
   TEMAS,
@@ -66,22 +65,6 @@ describe('ROTULOS', () => {
     expect(ROTULOS.sistema).toBe('Automático')
   })
 
-  it('tem uma forma curta para cada tema, nunca mais longa que a normal', () => {
-    // A 360 px o cabecalho mostra a forma curta. Se alguem acrescentar um tema
-    // e esquecer o rotulo curto, a pagina volta a transbordar.
-    for (const t of TEMAS) {
-      expect(ROTULOS_CURTOS[t]).toBeTruthy()
-      expect(ROTULOS_CURTOS[t].length).toBeLessThanOrEqual(ROTULOS[t].length)
-      // Seis caracteres e o que cabe a 360 px com a marca e o indicador.
-      expect(ROTULOS_CURTOS[t].length).toBeLessThanOrEqual(6)
-    }
-  })
-
-  it('so encurta o valor que precisava de ser encurtado', () => {
-    expect(ROTULOS_CURTOS.sistema).toBe('Auto')
-    expect(ROTULOS_CURTOS.claro).toBe(ROTULOS.claro)
-    expect(ROTULOS_CURTOS.escuro).toBe(ROTULOS.escuro)
-  })
 })
 
 describe('guardarTema e lerTemaGuardado', () => {

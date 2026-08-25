@@ -128,6 +128,31 @@
    * token, e nao uma cor fixa no componente. */
   --brand-lettering: var(--marca-azul-profundo);
 
+  /* --- Campo azul da marca -------------------------------------------
+   * A zona de largar tem como fundo o campo azul oficial do manual, pagina 38,
+   * seccao 09.4 "Fundo", gerado por scripts/gerar-fundo-marca.mjs.
+   *
+   * Uma imagem nao tem uma cor unica, portanto estes tokens sao resolvidos
+   * contra o PIXEL MAIS CLARO do ficheiro gravado, #265d88. E o pior caso, e
+   * por isso o texto cumpre o limiar em qualquer recorte ou posicao do fundo.
+   * tests/unit/fundo-da-marca.test.ts le o ficheiro, procura esse pixel e
+   * falha se algum destes tokens deixar de cumprir.
+   *
+   * Nao mudam com o tema: o campo e o mesmo nos dois, e por isso o texto por
+   * cima tambem. Sao aplicados em DropZone.module.css, que os mapeia sobre os
+   * nomes semanticos locais, e por isso os componentes filhos nao mudam.
+   */
+  --field-text-strong: var(--marca-ultra-branco); /* 6,99:1 */
+  --field-text-muted: oklch(90% 0.014 234.4); /* 5,20:1 */
+  --field-text-faint: oklch(87% 0.014 234.4); /* 4,73:1 */
+  --field-line: oklch(76% 0.02 234.4); /* 3,27:1, criterio 1.4.11 */
+  /* Botao primario sobre o campo: branco com o azul da marca por cima, 13,56:1.
+     O azul profundo como fundo de botao desaparecia, porque o campo e azul
+     profundo. */
+  --field-accent: var(--marca-ultra-branco);
+  --field-accent-hover: var(--marca-cyan-t4);
+  --field-on-accent: var(--marca-azul-profundo);
+
   /* --- Linhas --------------------------------------------------------
    * Separacao entre zonas, tints do cinza medio. */
   --line-strong: var(--marca-cinza-medio-t1);

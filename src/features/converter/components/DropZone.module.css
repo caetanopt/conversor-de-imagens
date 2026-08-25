@@ -1,21 +1,61 @@
 /* Superficie de trabalho, nao um hero centrado. O texto alinha a esquerda e a
    area ocupa o espaco disponivel, para a ferramenta ser o assunto da pagina. */
+
+/*
+ * O fundo e o campo azul oficial da marca, manual pagina 38, seccao 09.4
+ * "Fundo", gerado por scripts/gerar-fundo-marca.mjs.
+ *
+ * Sobre uma imagem, os tokens do tema deixam de servir: o texto escuro do tema
+ * claro ficaria ilegivel. Em vez de mudar os componentes filhos, este bloco
+ * redefine os nomes semanticos para os tokens do campo. O DropZone, o botao e a
+ * faixa continuam a ler --text-muted, --accent e o resto, e recebem os valores
+ * certos por heranca. Os tokens --field-* estao em tokens.css, resolvidos
+ * contra o pixel mais claro do ficheiro.
+ *
+ * O campo e igual nos dois temas, porque uma imagem nao muda com o tema. E por
+ * isso o texto por cima tambem nao muda.
+ */
 .zona {
+  --text-strong: var(--field-text-strong);
+  --text-default: var(--field-text-strong);
+  --text-muted: var(--field-text-muted);
+  --text-faint: var(--field-text-faint);
+  --line-control: var(--field-line);
+  --line-subtle: var(--field-line);
+  --accent: var(--field-accent);
+  --accent-hover: var(--field-accent-hover);
+  --text-on-accent: var(--field-on-accent);
+  --focus-ring: var(--field-text-strong);
+
   display: flex;
   min-height: 300px;
   height: 100%;
   padding: var(--space-5);
-  background: var(--surface-sunken);
+  /* A cor fica por baixo da imagem: se a imagem falhar, o campo continua a ser
+     azul da marca e o texto branco continua legivel. */
+  background-color: var(--marca-azul-profundo);
+  background-image: url('/marca/fundo-caetano.webp');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   border: 1px dashed var(--line-control);
   border-radius: var(--radius-md);
   transition:
-    background-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out);
 }
 
+/*
+ * Ficheiro arrastado por cima: escurece e fecha a moldura.
+ *
+ * Escurece, e nao clareia, por medicao. Um veu branco a apenas 8 % ja punha o
+ * texto secundario a 4,30:1, abaixo do limiar, porque o pixel mais claro do
+ * campo sobe com ele. Escurecer so aumenta o contraste, e a moldura solida
+ * branca e sinal suficiente de que a superficie esta a receber o ficheiro.
+ */
 .sobreposto {
-  background: var(--accent-quiet);
-  border-color: var(--accent);
+  box-shadow: inset 0 0 0 100vmax oklch(30.3% 0.0961 253.9 / 0.32);
+  border-color: var(--field-text-strong);
   border-style: solid;
 }
 

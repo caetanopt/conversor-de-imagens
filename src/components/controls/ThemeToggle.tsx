@@ -5,8 +5,13 @@
  *
  * Um botao que cicla, e nao tres botoes lado a lado. O cabecalho tem tres
  * elementos e a 360 px ja competem pela largura; um controlo segmentado de tres
- * opcoes empurrava algo para fora do ecra. O botao mostra sempre o tema em
- * vigor como texto, portanto o estado nao depende de um icone nem de cor.
+ * opcoes empurrava algo para fora do ecra.
+ *
+ * O icone mostra o estado em vigor: sol, lua, ou meio circulo para automatico.
+ * Acima de 520 px aparece tambem o nome em texto; abaixo fica so o icone,
+ * porque a essa largura o nome nao cabe ao lado da marca e do indicador de
+ * privacidade. O nome acessivel do botao diz sempre o estado por palavras e o
+ * que o clique faz, portanto a forma nunca e a unica informacao disponivel.
  * CLAUDE.md, seccoes 20.4 e 21.
  *
  * O primeiro render assume o tema por defeito e o `useEffect` corrige-o a
@@ -14,7 +19,7 @@
  * render do browser divergiam. A paleta em si nao pisca, porque e aplicada
  * antes do paint pelo script do layout.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 
 import {
   aplicarTema,
@@ -22,11 +27,18 @@ import {
   lerTemaGuardado,
   proximoTema,
   ROTULOS,
-  ROTULOS_CURTOS,
   TEMA_POR_DEFEITO,
   type Tema,
 } from '@/lib/tema/tema'
+import { IconeAutomatico, IconeLua, IconeSol } from './IconesDeTema'
 import styles from './ThemeToggle.module.css'
+
+/** Um icone por estado. Fora daqui nenhum componente sabe que icone e qual. */
+const ICONES: Record<Tema, (props: { readonly className?: string | undefined }) => ReactElement> = {
+  sistema: IconeAutomatico,
+  claro: IconeSol,
+  escuro: IconeLua,
+}
 
 export function ThemeToggle() {
   const [tema, setTema] = useState<Tema>(TEMA_POR_DEFEITO)
@@ -43,24 +55,21 @@ export function ThemeToggle() {
   }
 
   const proximo = proximoTema(tema)
+  const Icone = ICONES[tema]
+  // Uma frase, usada no nome acessivel e na dica do rato. Sem ela, um botao que
+  // cicla nao anuncia para onde vai.
+  const descricao = `Tema: ${ROTULOS[tema].toLowerCase()}. Mudar para ${ROTULOS[proximo].toLowerCase()}.`
 
   return (
     <button
       type="button"
       className={styles.botao}
       onClick={escolher}
-      // O nome acessivel diz o estado atual e o que o clique faz. Sem isto, um
-      // botao que cicla nao anuncia para onde vai.
-      aria-label={`Tema: ${ROTULOS[tema].toLowerCase()}. Mudar para ${ROTULOS[proximo].toLowerCase()}.`}
+      aria-label={descricao}
+      title={descricao}
     >
-      <span className={styles.etiqueta}>Tema</span>
-      {/*
-        Os dois rotulos existem no DOM e o CSS mostra um de cada vez, conforme a
-        largura. O `aria-label` do botao substitui o conteudo no nome
-        acessivel, portanto nenhum leitor de ecra le os dois.
-      */}
+      <Icone className={styles.icone} />
       <span className={styles.valor}>{ROTULOS[tema]}</span>
-      <span className={styles.valorCurto}>{ROTULOS_CURTOS[tema]}</span>
     </button>
   )
 }

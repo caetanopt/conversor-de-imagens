@@ -17,6 +17,7 @@ alteração explícita do responsável do projeto.
 | `src/styles/fontes/` | o ficheiro `.woff2` da Montserrat, servido da nossa origem |
 | `src/components/brand/CaetanoLettering.tsx` | o lettering horizontal, extraído em vetor da página 7 |
 | `src/app/icon.svg` | o ícone, com o tratamento quadrado que o manual usa para avatares na página 36 |
+| `public/marca/fundo-caetano.webp` | o campo azul da página 38, secção 09.4 "Fundo", como fundo da zona de largar |
 
 O `tokens.css` tem duas camadas, e a distinção é deliberada:
 
@@ -57,6 +58,37 @@ fica uma mancha; torna-se legível por volta dos 48 px. Recortar uma letra para
 fazer um símbolo seria inventar uma marca, o que o CLAUDE.md, secção 14.4,
 proíbe. Se existir um símbolo ou monograma fora deste documento, é o que deve
 entrar em `src/app/icon.svg`.
+
+## O fundo da zona de largar
+
+A imagem vem da página 38, secção 09.4 "Fundo": o campo azul oficial da marca.
+Não é uma imagem escolhida por gosto. É gerada por
+`scripts/gerar-fundo-marca.mjs`, que faz três coisas e cada uma tem razão:
+
+1. **Corta os 22 % de cima**, onde está o lettering. O cabeçalho já mostra a
+   marca e nenhum outro componente a desenha.
+2. **Espelha na vertical**, para o brilho claro ficar na zona vazia de cima e a
+   parte escura em baixo, onde assenta o texto.
+3. **Aplica um véu do azul profundo a 80 %.** Sem véu, o pixel mais claro do
+   brilho dá 1,01:1 com texto branco por cima, ou seja, texto invisível. A 72 %
+   dava 5,33:1 com branco puro, mas um branco esbatido para texto secundário já
+   caía abaixo de 4,5:1; a 80 % há margem para os dois níveis.
+
+Sobre uma imagem os tokens do tema deixam de servir, porque o texto escuro do
+tema claro ficaria ilegível. `DropZone.module.css` redefine os nomes semânticos
+para os tokens `--field-*`, e por isso os componentes filhos não mudam: o botão
+continua a ler `--accent` e recebe branco, com o azul da marca por cima.
+
+`tests/unit/fundo-da-marca.test.ts` descodifica o ficheiro gravado com o próprio
+motor da aplicação, procura o pixel mais claro de mais de um milhão, e mede cada
+token contra esse pixel. Se o pior caso passa, qualquer recorte e qualquer
+tamanho de ecrã passam. O teste foi verificado com duas violações deliberadas:
+escurecer um token de texto e gerar a imagem com o véu a 40 %.
+
+Um detalhe medido e não suposto: **ao arrastar um ficheiro por cima, o campo
+escurece em vez de clarear.** Um véu branco a apenas 8 % já punha o texto
+secundário a 4,30:1, abaixo do limiar, porque o pixel mais claro sobe com ele.
+A moldura sólida branca é sinal suficiente.
 
 ## Tema escuro
 

@@ -73,6 +73,7 @@ própria origem, nenhum com corpo.
 | `/_next/static/media/montserrat_latin_variable-*.woff2` | primeiro carregamento | a Montserrat da marca, servida da nossa origem |
 | `/favicon.ico` | primeiro carregamento | pedido automático do browser |
 | `/icon.svg?<versão>` | primeiro carregamento | o ícone da marca |
+| `/marca/fundo-caetano.webp` | primeiro carregamento | o campo azul do manual, fundo da zona de largar, 5 kB |
 | `/_next/static/chunks/turbopack-worker-*.js` | ao escolher a primeira imagem | arranque do worker |
 | `/_next/static/chunks/*.js` (chunk do motor) | ao escolher a primeira imagem | o adaptador do ImageMagick, dentro do worker |
 | `/magick/magick.wasm?v=<versão>` | ao escolher a primeira imagem | o binário do motor, 5,1 MB comprimidos |

@@ -1,6 +1,6 @@
 .botao {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-2);
   min-height: var(--control-height-touch);
   padding: 0 var(--space-3);
@@ -10,7 +10,8 @@
   color: var(--text-muted);
   cursor: pointer;
   white-space: nowrap;
-  transition: border-color var(--duration-fast) var(--ease-out),
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
 
@@ -25,35 +26,30 @@
   color: var(--text-strong);
 }
 
-.etiqueta {
-  font-size: var(--text-label);
-  font-weight: var(--weight-medium);
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--text-faint);
+/* O icone assume a cor do texto do botao, incluindo no hover. */
+.icone {
+  flex: none;
+  display: block;
 }
 
-.valor,
-.valorCurto {
+.valor {
   font-size: var(--text-ui-small);
   font-weight: var(--weight-medium);
   color: var(--text-strong);
 }
 
-.valorCurto {
-  display: none;
-}
-
-/* A 520 px o cabecalho tem tres elementos a competir. A etiqueta sai, e o
-   valor passa a forma curta: a 360 px 'Automático' nao cabe ao lado da marca e
-   do indicador de privacidade. */
+/*
+ * A 520 px o cabecalho tem a marca, este botao e o indicador de privacidade a
+ * competir pela largura, e o nome do tema nao cabe. Fica o icone, que e
+ * quadrado e ocupa o minimo. O nome acessivel do botao continua a dizer o
+ * estado por palavras.
+ */
 @media (max-width: 520px) {
-  .etiqueta,
-  .valor {
-    display: none;
+  .botao {
+    padding: 0 var(--space-2);
   }
 
-  .valorCurto {
-    display: inline;
+  .valor {
+    display: none;
   }
 }
