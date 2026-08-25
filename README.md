@@ -24,7 +24,8 @@ por o ambiente de desenvolvimento não permitir instalar esses browsers. Ver
 
 ## Requisitos
 
-- Node.js 22 ou superior
+- Node.js 22 ou superior, declarado em `engines` para o alojamento escolher a
+  versão certa no build
 
 ## Arrancar
 
@@ -55,6 +56,25 @@ As fixtures são geradas e não versionadas. Incluem JPEG progressivo, JPEG com
 EXIF e GPS, JPEG com perfil ICC AdobeRGB, JPEG CMYK, PNG com transparência,
 ficheiros corrompidos, truncados, vazios, com extensão errada, sem extensão, e
 com nome Unicode. Ver `docs/formatos.md`.
+
+## Publicar
+
+O `npm run build` produz `out/`, um site estático. Não é necessário nenhum
+runtime de servidor, nenhuma variável de ambiente e nenhum cabeçalho especial:
+o motor é single-threaded e não precisa de COOP/COEP.
+
+O binário do motor não está no repositório. É o `postinstall` que o copia de
+`node_modules` para `public/magick/`, portanto qualquer alojamento que corra
+`npm install` antes do build fica com ele. Verificado nessa ordem exata.
+
+Serve em qualquer alojamento estático. No Vercel funciona sem configuração:
+importar o repositório e publicar, sem `vercel.json` e sem alterar nada. Em
+alojamento num subcaminho, como GitHub Pages em `utilizador.github.io/repo`,
+seria necessário acrescentar `basePath` ao `next.config.ts`.
+
+A suite end to end é a prova de que não existe dependência de plataforma: serve
+o `out/` com `python3 -m http.server`, um servidor de ficheiros sem qualquer
+noção de Next.js.
 
 ## Diagnóstico em dispositivos reais
 
