@@ -248,9 +248,9 @@ test.describe('processamento local', () => {
       /^http:\/\/127\.0\.0\.1:4321\/_next\/static\//,
       /^http:\/\/127\.0\.0\.1:4321\/magick\/magick\.wasm(\?|$)/,
       /^http:\/\/127\.0\.0\.1:4321\/favicon\.ico$/,
-      // O icone da marca, gerado a partir de src/app/icon.svg.
-      /^http:\/\/127\.0\.0\.1:4321\/icon\.svg(\?|$)/,
-      // O campo azul do manual, fundo da zona de largar.
+      // O icone da marca, src/app/icon.png.
+      /^http:\/\/127\.0\.0\.1:4321\/icon\.png(\?|$)/,
+      // A fotografia da marca, fundo da zona de largar.
       /^http:\/\/127\.0\.0\.1:4321\/marca\/fundo-caetano\.webp(\?|$)/,
       /^blob:http:\/\/127\.0\.0\.1:4321\//,
     ]

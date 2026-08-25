@@ -2,59 +2,43 @@
    area ocupa o espaco disponivel, para a ferramenta ser o assunto da pagina. */
 
 /*
- * O fundo e o campo azul oficial da marca, manual pagina 38, seccao 09.4
- * "Fundo", gerado por scripts/gerar-fundo-marca.mjs.
+ * O fundo e a fotografia da marca fornecida para esta pagina, gerada por
+ * scripts/gerar-fundo-marca.mjs a partir de docs/brand/caetano.webp. Vai sem
+ * veu: e uma fotografia com uma composicao propria, com o lettering "caetano"
+ * no centro, e escurecer a imagem inteira para o texto ler por cima tornava o
+ * lettering e os rastos de luz numa mancha achatada. Foi assim que uma
+ * primeira tentativa com veu a 70% acabou, e foi revertida.
  *
- * Sobre uma imagem, os tokens do tema deixam de servir: o texto escuro do tema
- * claro ficaria ilegivel. Em vez de mudar os componentes filhos, este bloco
- * redefine os nomes semanticos para os tokens do campo. O DropZone, o botao e a
- * faixa continuam a ler --text-muted, --accent e o resto, e recebem os valores
- * certos por heranca. Os tokens --field-* estao em tokens.css, resolvidos
- * contra o pixel mais claro do ficheiro.
- *
- * O campo e igual nos dois temas, porque uma imagem nao muda com o tema. E por
- * isso o texto por cima tambem nao muda.
+ * Em vez disso, o texto assenta num painel solido, --field-painel, que e o
+ * proprio azul profundo da marca. Nao ha dependencia de nenhum pixel da
+ * fotografia: o painel garante o mesmo contraste em qualquer recorte,
+ * posicao ou fotografia futura, e por isso os pares de contraste ficam em
+ * tests/unit/contraste.test.ts como qualquer outra superficie da aplicacao,
+ * em vez de precisarem de um teste dedicado a decifrar a imagem.
  */
 .zona {
-  --text-strong: var(--field-text-strong);
-  --text-default: var(--field-text-strong);
-  --text-muted: var(--field-text-muted);
-  --text-faint: var(--field-text-faint);
-  --line-control: var(--field-line);
-  --line-subtle: var(--field-line);
-  --accent: var(--field-accent);
-  --accent-hover: var(--field-accent-hover);
-  --text-on-accent: var(--field-on-accent);
-  --focus-ring: var(--field-text-strong);
-
   display: flex;
   min-height: 300px;
   height: 100%;
   padding: var(--space-5);
   /* A cor fica por baixo da imagem: se a imagem falhar, o campo continua a ser
-     azul da marca e o texto branco continua legivel. */
+     azul da marca. */
   background-color: var(--marca-azul-profundo);
   background-image: url('/marca/fundo-caetano.webp');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  border: 1px dashed var(--line-control);
+  /* --field-line, e nao --line-control: a moldura esta sobre a fotografia, nao
+     sobre uma superficie do tema, e o tom claro do painel le-se melhor sobre o
+     azul e o antracite que dominam a imagem. */
+  border: 1px dashed var(--field-line);
   border-radius: var(--radius-md);
-  transition:
-    box-shadow var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out);
+  transition: border-color var(--duration-fast) var(--ease-out);
 }
 
-/*
- * Ficheiro arrastado por cima: escurece e fecha a moldura.
- *
- * Escurece, e nao clareia, por medicao. Um veu branco a apenas 8 % ja punha o
- * texto secundario a 4,30:1, abaixo do limiar, porque o pixel mais claro do
- * campo sobe com ele. Escurecer so aumenta o contraste, e a moldura solida
- * branca e sinal suficiente de que a superficie esta a receber o ficheiro.
- */
+/* Ficheiro arrastado por cima: a moldura fecha a solido e fica branca, o sinal
+   mais forte que a superficie tem para dar. */
 .sobreposto {
-  box-shadow: inset 0 0 0 100vmax oklch(30.3% 0.0961 253.9 / 0.32);
   border-color: var(--field-text-strong);
   border-style: solid;
 }
@@ -70,6 +54,38 @@
   justify-content: flex-end;
   gap: var(--space-6);
   width: 100%;
+}
+
+/*
+ * O painel que leva o texto. Os nomes semanticos sao redefinidos aqui, e nao
+ * em .zona: fora do painel nao ha texto nenhum sobre a fotografia, so a
+ * fotografia e a moldura, portanto so o painel precisa dos tokens --field-*.
+ * .titulo, .subtexto, .botao e .faixa continuam a ler --text-muted, --accent e
+ * o resto sem saber que estao sobre uma imagem.
+ */
+.painel {
+  --text-strong: var(--field-text-strong);
+  --text-default: var(--field-text-strong);
+  --text-muted: var(--field-text-muted);
+  --text-faint: var(--field-text-faint);
+  --line-subtle: var(--field-line);
+  --accent: var(--field-accent);
+  --accent-hover: var(--field-accent-hover);
+  --text-on-accent: var(--field-on-accent);
+  --focus-ring: var(--field-text-strong);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-5);
+  background: var(--field-painel);
+  border-radius: var(--radius-md);
+}
+
+@media (min-width: 768px) {
+  .painel {
+    padding: var(--space-6);
+  }
 }
 
 .texto {
@@ -159,6 +175,34 @@ input:focus-visible + .botao {
   .zona {
     padding: var(--space-8);
     min-height: 380px;
+  }
+}
+
+/*
+ * Ecra mais alto do que largo: `cover` amplia a fotografia para cobrir a
+ * altura toda, e a largura visivel encolhe para uma fatia fina. O lettering
+ * "caetano", que ocupa quase toda a largura da fotografia, aparece cortado a
+ * meio de letras nessa fatia, nao so em telemovel: um separador estreito com
+ * uma janela alta tem o mesmo problema. Por isso a condicao e a proporcao do
+ * ecra, e nao uma largura fixa.
+ *
+ * height:100% herdava um `.vazio` forcado a preencher o ecra inteiro (100dvh
+ * menos o cabecalho). A altura passa a vir do proprio conteudo do painel, e
+ * `align-self: start` evita que a grelha de `.vazio` volte a esticar a zona.
+ *
+ * O painel passa tambem a tocar as duas bordas em vez de deixar uma margem
+ * onde um pedaco de letra podia aparecer. A primeira tentativa fez isso com
+ * uma margem negativa no painel para escapar ao padding da zona; visualmente
+ * corrigia, mas uma margem negativa sobre um pai com overflow visivel deixa o
+ * scrollWidth desse pai maior do que o clientWidth, e e exatamente isso que
+ * tests/e2e/responsive.spec.ts mede para apanhar transbordos. Zerar o padding
+ * lateral da propria zona chega ao mesmo resultado visual sem essa pegada.
+ */
+@media (max-aspect-ratio: 3/4) {
+  .zona {
+    height: auto;
+    align-self: start;
+    padding-inline: 0;
   }
 }
 

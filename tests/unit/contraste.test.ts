@@ -55,9 +55,6 @@ const PARES: readonly {
   { frente: '--text-muted', fundo: '--surface-page', tipo: 'texto', onde: 'texto secundario' },
   { frente: '--text-muted', fundo: '--surface-raised', tipo: 'texto', onde: 'notas em cartao' },
   { frente: '--text-muted', fundo: '--surface-inset', tipo: 'texto', onde: 'opcao nao escolhida' },
-  // A zona de largar troca de fundo enquanto se arrasta um ficheiro por cima.
-  { frente: '--text-strong', fundo: '--accent-quiet', tipo: 'texto', onde: 'zona de largar ativa' },
-  { frente: '--text-muted', fundo: '--accent-quiet', tipo: 'texto', onde: 'apoio na zona ativa' },
 
   // Texto de apoio, pequeno mas ainda texto: o limiar nao baixa por ser discreto.
   { frente: '--text-faint', fundo: '--surface-page', tipo: 'texto', onde: 'dimensoes da imagem' },
@@ -85,10 +82,34 @@ const PARES: readonly {
    * Um campo numerico ou um botao secundario, ao contrario, sao reconhecidos
    * pela moldura, e e essa que tem de cumprir.
    */
-  { frente: '--line-control', fundo: '--surface-page', tipo: 'componente', onde: 'moldura da zona de largar' },
+  { frente: '--line-control', fundo: '--surface-page', tipo: 'componente', onde: 'moldura de botao secundario, interruptor e slider' },
   { frente: '--line-control', fundo: '--surface-raised', tipo: 'componente', onde: 'moldura de campo e de botao secundario' },
   { frente: '--focus-ring', fundo: '--surface-page', tipo: 'componente', onde: 'anel de foco na pagina' },
   { frente: '--focus-ring', fundo: '--surface-raised', tipo: 'componente', onde: 'anel de foco em cartao' },
+
+  /*
+   * O painel da zona de largar, sobre a fotografia da marca.
+   *
+   * --field-painel e uma cor fixa e conhecida, e nao um pixel de imagem, por
+   * isso estes pares vivem aqui como qualquer outra superficie da aplicacao.
+   * Ver o comentario junto destes tokens em tokens.css.
+   */
+  { frente: '--field-text-strong', fundo: '--field-painel', tipo: 'texto', onde: 'titulo sobre o painel da zona de largar' },
+  { frente: '--field-text-muted', fundo: '--field-painel', tipo: 'texto', onde: 'subtexto sobre o painel' },
+  { frente: '--field-text-faint', fundo: '--field-painel', tipo: 'texto', onde: '"ou arraste para aqui" sobre o painel' },
+  { frente: '--field-on-accent', fundo: '--field-accent', tipo: 'texto', onde: 'botao sobre o painel' },
+  { frente: '--field-on-accent', fundo: '--field-accent-hover', tipo: 'texto', onde: 'botao sobre o painel, em hover' },
+  { frente: '--field-line', fundo: '--field-painel', tipo: 'componente', onde: 'linha da faixa, dentro do painel' },
+  /*
+   * A moldura exterior da zona de largar (--field-line ou, a arrastar,
+   * --field-text-strong) NAO esta nesta lista de proposito: essa moldura
+   * assenta diretamente na fotografia, cujo pixel por baixo de cada ponto do
+   * tracado varia com o recorte. Garantir 3:1 contra qualquer pixel exigiria
+   * o mesmo veu pesado que a decisao do painel evitou. Aceita-se um risco
+   * residual ali, coberto por tres sinais redundantes que nao dependem da
+   * fotografia: o painel solido, o botao "Selecionar ficheiros" e o proprio
+   * enquadramento da pagina. Ver DropZone.module.css.
+   */
 ]
 
 function medir(tema: TemaDeCores, frente: string, fundo: string): number {

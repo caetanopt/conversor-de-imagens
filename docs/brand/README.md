@@ -16,8 +16,8 @@ alteração explícita do responsável do projeto.
 | `src/styles/typography.css` | Montserrat, e o peso forte a 700 porque o manual especifica Bold |
 | `src/styles/fontes/` | o ficheiro `.woff2` da Montserrat, servido da nossa origem |
 | `src/components/brand/CaetanoLettering.tsx` | o lettering horizontal, extraído em vetor da página 7 |
-| `src/app/icon.svg` | o ícone, com o tratamento quadrado que o manual usa para avatares na página 36 |
-| `public/marca/fundo-caetano.webp` | o campo azul da página 38, secção 09.4 "Fundo", como fundo da zona de largar |
+| `src/app/icon.png` | o ícone: o monograma "C", fornecido diretamente (não vem do manual, ver abaixo) |
+| `public/marca/fundo-caetano.webp` | a fotografia da marca, fornecida diretamente, fundo da zona de largar (ver abaixo) |
 
 O `tokens.css` tem duas camadas, e a distinção é deliberada:
 
@@ -35,12 +35,9 @@ o laranja 1,91:1 e o amarelo 1,44:1. Usá-las tal e qual em texto seria trocar
 legibilidade por fidelidade cromática, contra a secção 20 do CLAUDE.md. Cada
 derivação tem comentário no ficheiro a dizer o valor medido.
 
-## Decisões que precisam de confirmação
+## Decisão que precisa de confirmação
 
-Duas coisas foram decididas por omissão do manual. Ambas são reversíveis num
-único ficheiro.
-
-**1. O estado de erro é laranja, porque a paleta não tem vermelho.**
+**O estado de erro é laranja, porque a paleta não tem vermelho.**
 
 O laranja dinâmico é a cor mais quente disponível. A alternativa era acrescentar
 um vermelho, e um vermelho num sistema de azuis, cyan e verde seria a violação
@@ -48,47 +45,63 @@ de marca mais visível possível. Erro e aviso distinguem-se pelo tom, 69,5 cont
 90,9 graus, e sempre por texto, nunca só pela cor. Se a marca tiver um vermelho
 não publicado neste manual, muda-se `--state-danger` e `--state-danger-quiet`.
 
-**2. O ícone é o lettering sobre azul profundo, e a 16 px não se lê.**
+## O ícone e a fotografia de fundo não vêm do manual
 
-O manual não define um símbolo que funcione isolado do lettering. A versão
-vertical da página 7 seria mais próxima de um quadrado, mas o manual restringe-a
-explicitamente: "Só deve ser utilizada em bandeirolas". A `caetano`
-tem sete letras com uma proporção de cerca de 5,5:1, e num quadrado de 16 px
-fica uma mancha; torna-se legível por volta dos 48 px. Recortar uma letra para
-fazer um símbolo seria inventar uma marca, o que o CLAUDE.md, secção 14.4,
-proíbe. Se existir um símbolo ou monograma fora deste documento, é o que deve
-entrar em `src/app/icon.svg`.
+O manual não define um símbolo isolado do lettering nem uma fotografia para
+esta página. O ícone (`src/app/icon.png`, um monograma "C" com um acento cyan)
+e a fotografia de fundo (`docs/brand/caetano.webp`, o nó rodoviário com o
+lettering ao centro) foram fornecidos diretamente para este projeto, fora das
+39 páginas do documento. Usados como estão, sem alteração: o CLAUDE.md, secção
+14.4, proíbe inventar símbolos de marca, e o inverso, editar um símbolo já
+fornecido, tem o mesmo problema.
+
+Uma tentativa anterior de ícone, recortando uma letra do lettering para um
+quadrado, tinha o problema oposto: ficava ilegível a 16 px porque a palavra
+inteira tem uma proporção de 5,5:1. O monograma resolve isso, confirmado a
+render: legível desde os 32 px, ainda reconhecível a 16.
 
 ## O fundo da zona de largar
 
-A imagem vem da página 38, secção 09.4 "Fundo": o campo azul oficial da marca.
-Não é uma imagem escolhida por gosto. É gerada por
-`scripts/gerar-fundo-marca.mjs`, que faz três coisas e cada uma tem razão:
+A fotografia é gerada por `scripts/gerar-fundo-marca.mjs` a partir de
+`docs/brand/caetano.webp`: só redimensiona e recomprime, sem cortar, espelhar
+ou aplicar véu.
 
-1. **Corta os 22 % de cima**, onde está o lettering. O cabeçalho já mostra a
-   marca e nenhum outro componente a desenha.
-2. **Espelha na vertical**, para o brilho claro ficar na zona vazia de cima e a
-   parte escura em baixo, onde assenta o texto.
-3. **Aplica um véu do azul profundo a 80 %.** Sem véu, o pixel mais claro do
-   brilho dá 1,01:1 com texto branco por cima, ou seja, texto invisível. A 72 %
-   dava 5,33:1 com branco puro, mas um branco esbatido para texto secundário já
-   caía abaixo de 4,5:1; a 80 % há margem para os dois níveis.
+Uma primeira versão desta página usava um campo de cor liso extraído do
+manual (página 38, secção 09.4 "Fundo") com um véu forte sobre o texto, uma
+técnica que resolvia bem contra uma cor lisa. Contra esta fotografia, que tem
+o lettering "caetano" bem definido e rastos de luz muito claros, um véu forte
+o suficiente para garantir contraste (testado a 70 %) apagava o próprio
+lettering e os rastos numa mancha achatada — o oposto do que a fotografia foi
+escolhida para mostrar.
 
-Sobre uma imagem os tokens do tema deixam de servir, porque o texto escuro do
-tema claro ficaria ilegível. `DropZone.module.css` redefine os nomes semânticos
-para os tokens `--field-*`, e por isso os componentes filhos não mudam: o botão
-continua a ler `--accent` e recebe branco, com o azul da marca por cima.
+Por isso o texto já não assenta na fotografia. Assenta num painel sólido,
+`--field-painel`, que é o azul profundo da marca (`DropZone.module.css`,
+classe `.painel`, envolvendo o título, o botão e a faixa inferior). O painel
+garante o mesmo contraste em qualquer recorte, posição ou fotografia futura,
+porque não depende de nenhum pixel da imagem: os pares `--field-*` vivem em
+`tests/unit/contraste.test.ts` como qualquer outra superfície da aplicação,
+medidos contra uma cor fixa e conhecida, não contra o pior pixel de um
+ficheiro. A fotografia fica livre para mostrar o lettering e os rastos de luz
+sem véu nenhum.
 
-`tests/unit/fundo-da-marca.test.ts` descodifica o ficheiro gravado com o próprio
-motor da aplicação, procura o pixel mais claro de mais de um milhão, e mede cada
-token contra esse pixel. Se o pior caso passa, qualquer recorte e qualquer
-tamanho de ecrã passam. O teste foi verificado com duas violações deliberadas:
-escurecer um token de texto e gerar a imagem com o véu a 40 %.
+A moldura tracejada exterior da zona (`--field-line`, ou branca sólida a
+arrastar um ficheiro) continua sobre a fotografia diretamente, e essa não tem
+a mesma garantia: 3:1 contra qualquer pixel exigiria o mesmo véu que a decisão
+do painel evitou. Aceita-se aqui um risco residual, coberto por três sinais
+redundantes que não dependem da fotografia — o painel sólido, o botão
+"Selecionar ficheiros" e o enquadramento da página. `tests/unit/
+contraste.test.ts` documenta esta exceção explicitamente em vez de fingir
+uma garantia que não existe.
 
-Um detalhe medido e não suposto: **ao arrastar um ficheiro por cima, o campo
-escurece em vez de clarear.** Um véu branco a apenas 8 % já punha o texto
-secundário a 4,30:1, abaixo do limiar, porque o pixel mais claro sobe com ele.
-A moldura sólida branca é sinal suficiente.
+**Ecrãs mais altos do que largos precisaram de um ajuste à parte.** Com
+`background-size: cover`, uma caixa em retrato mostra uma fatia vertical fina
+da fotografia; como o lettering ocupa quase toda a largura da imagem, essa
+fatia cortava a meio de letras. `DropZone.module.css`, sob
+`@media (max-aspect-ratio: 3/4)`, deixa a altura da zona vir do conteúdo do
+painel em vez de esticar para preencher o ecrã, e o painel passa a tocar as
+duas bordas em vez de deixar uma margem onde um pedaço de letra podia
+aparecer. A condição é a proporção do ecrã, não uma largura fixa: uma janela
+de desktop estreita e alta tem o mesmo problema que um telemóvel.
 
 ## Tema escuro
 

@@ -128,27 +128,33 @@
    * token, e nao uma cor fixa no componente. */
   --brand-lettering: var(--marca-azul-profundo);
 
-  /* --- Campo azul da marca -------------------------------------------
-   * A zona de largar tem como fundo o campo azul oficial do manual, pagina 38,
-   * seccao 09.4 "Fundo", gerado por scripts/gerar-fundo-marca.mjs.
+  /* --- Fotografia da marca --------------------------------------------
+   * A zona de largar tem como fundo a fotografia da marca, gerada por
+   * scripts/gerar-fundo-marca.mjs a partir de docs/brand/caetano.webp.
    *
-   * Uma imagem nao tem uma cor unica, portanto estes tokens sao resolvidos
-   * contra o PIXEL MAIS CLARO do ficheiro gravado, #265d88. E o pior caso, e
-   * por isso o texto cumpre o limiar em qualquer recorte ou posicao do fundo.
-   * tests/unit/fundo-da-marca.test.ts le o ficheiro, procura esse pixel e
-   * falha se algum destes tokens deixar de cumprir.
+   * Uma primeira versao resolvia estes tokens contra o pixel mais claro do
+   * ficheiro, para aguentar qualquer recorte. Contra uma fotografia real, com
+   * um lettering branco e rastos de luz muito claros, isso exigia um veu tao
+   * forte que apagava a propria imagem. Por isso o texto ja nao assenta na
+   * fotografia: assenta num painel solido, --field-painel, que e o azul
+   * profundo da marca. Estes tokens sao resolvidos contra ESSE painel, uma
+   * cor fixa e conhecida, exatamente como qualquer outro par de
+   * tests/unit/contraste.test.ts. A fotografia fica livre para mostrar o
+   * lettering e os rastos de luz sem veu nenhum.
    *
-   * Nao mudam com o tema: o campo e o mesmo nos dois, e por isso o texto por
-   * cima tambem. Sao aplicados em DropZone.module.css, que os mapeia sobre os
-   * nomes semanticos locais, e por isso os componentes filhos nao mudam.
+   * Nao mudam com o tema: o painel e o mesmo nos dois, e por isso o texto por
+   * cima tambem. Sao aplicados em DropZone.module.css, no painel, que os
+   * mapeia sobre os nomes semanticos locais, e por isso os componentes
+   * filhos (titulo, botao, faixa) nao sabem que estao sobre uma fotografia.
    */
-  --field-text-strong: var(--marca-ultra-branco); /* 6,99:1 */
-  --field-text-muted: oklch(90% 0.014 234.4); /* 5,20:1 */
-  --field-text-faint: oklch(87% 0.014 234.4); /* 4,73:1 */
-  --field-line: oklch(76% 0.02 234.4); /* 3,27:1, criterio 1.4.11 */
-  /* Botao primario sobre o campo: branco com o azul da marca por cima, 13,56:1.
-     O azul profundo como fundo de botao desaparecia, porque o campo e azul
-     profundo. */
+  --field-painel: var(--marca-azul-profundo);
+  --field-text-strong: var(--marca-ultra-branco); /* 13,56:1 sobre o painel */
+  --field-text-muted: oklch(68.4% 0.02 234.4); /* 4,80:1 sobre o painel */
+  --field-text-faint: oklch(67.6% 0.02 234.4); /* 4,65:1 sobre o painel */
+  --field-line: oklch(58.8% 0.03 234.4); /* 3,30:1, criterio 1.4.11 */
+  /* Botao primario sobre o painel: branco com o azul da marca por cima,
+     13,56:1. O azul profundo como fundo de botao desaparecia, porque o
+     painel e azul profundo. */
   --field-accent: var(--marca-ultra-branco);
   --field-accent-hover: var(--marca-cyan-t4);
   --field-on-accent: var(--marca-azul-profundo);

@@ -73,36 +73,42 @@ export function DropZone({ onFicheiros, disabled = false }: Props) {
       }}
     >
       <div className={styles.conteudo}>
-        <div className={styles.texto}>
-          <h1 className={styles.titulo}>Otimize e converta imagens no seu dispositivo</h1>
-          <p className={styles.subtexto}>
-            Escolha as imagens, defina o formato e descarregue o resultado. Os ficheiros não são
-            enviados para os nossos servidores.
-          </p>
+        {/*
+          O painel e o que garante contraste, independente da fotografia por
+          baixo. Ver o comentario em DropZone.module.css.
+        */}
+        <div className={styles.painel}>
+          <div className={styles.texto}>
+            <h1 className={styles.titulo}>Otimize e converta imagens no seu dispositivo</h1>
+            <p className={styles.subtexto}>
+              Escolha as imagens, defina o formato e descarregue o resultado. Os ficheiros não são
+              enviados para os nossos servidores.
+            </p>
 
-          <div className={styles.acoes}>
-            <FileInput onFicheiros={onFicheiros} className={styles.botao} disabled={disabled}>
-              Selecionar ficheiros
-            </FileInput>
-            <span className={styles.ouArraste} aria-hidden="true">
-              ou arraste para aqui
-            </span>
+            <div className={styles.acoes}>
+              <FileInput onFicheiros={onFicheiros} className={styles.botao} disabled={disabled}>
+                Selecionar ficheiros
+              </FileInput>
+              <span className={styles.ouArraste} aria-hidden="true">
+                ou arraste para aqui
+              </span>
+            </div>
           </div>
-        </div>
 
-        <div className={styles.faixa}>
-          <p className={styles.grupoMeta}>
-            <span className="etiqueta">Formatos aceites</span>
-            <span className="numerico">{formatos}</span>
-          </p>
-          <p className={styles.grupoMeta}>
-            <span className="etiqueta">De cada vez</span>
-            <span className={styles.valorMeta}>Até {LIMITES.maxFicheiros} imagens</span>
-          </p>
-          <p className={styles.grupoMeta}>
-            <span className="etiqueta">Processamento</span>
-            <span className={styles.valorMeta}>No seu browser</span>
-          </p>
+          <div className={styles.faixa}>
+            <p className={styles.grupoMeta}>
+              <span className="etiqueta">Formatos aceites</span>
+              <span className="numerico">{formatos}</span>
+            </p>
+            <p className={styles.grupoMeta}>
+              <span className="etiqueta">De cada vez</span>
+              <span className={styles.valorMeta}>Até {LIMITES.maxFicheiros} imagens</span>
+            </p>
+            <p className={styles.grupoMeta}>
+              <span className="etiqueta">Processamento</span>
+              <span className={styles.valorMeta}>No seu browser</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
