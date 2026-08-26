@@ -74,10 +74,27 @@ describe('TIFF', () => {
     expect(m.height).toBe(64)
   })
 
-  it('as paginas sobrevivem de TIFF para TIFF', async () => {
+  it('as paginas sobrevivem de TIFF para TIFF, cada uma com o seu proprio tamanho', async () => {
+    // A fixture tem paginas de tamanhos diferentes de proposito: cada pagina e
+    // uma imagem completa e independente, nao os fotogramas de uma animacao, e
+    // so contar fotogramas (como este teste fazia antes) deixa passar um motor
+    // que force todas as paginas a geometria da primeira.
     const r = await motor.convert(ler('tiff-multipagina.tiff'), opcoesPorDefeito('tiff'), SEM_HINT)
     expect(r.frameCount).toBe(3)
     expect(r.outputFrameCount).toBe(3)
+
+    const colecao = MagickImageCollection.create()
+    try {
+      colecao.ping(r.bytes, new MagickReadSettings({ format: MagickFormat.Tiff }))
+      const tamanhos = [...colecao].map((frame) => [frame.width, frame.height])
+      expect(tamanhos).toEqual([
+        [320, 240],
+        [160, 120],
+        [480, 360],
+      ])
+    } finally {
+      colecao.dispose()
+    }
   })
 
   it('para WebP fica a primeira pagina, e nao uma animacao', async () => {
@@ -119,8 +136,20 @@ describe('ICO', () => {
   })
 
   it('os tamanhos sobrevivem de ICO para ICO', async () => {
+    // So contar fotogramas (como este teste fazia antes) passava mesmo que o
+    // motor escrevesse os tres a 16 px: era exatamente esse o bug de
+    // coalesce() a forcar todos os frames a geometria do primeiro.
     const r = await motor.convert(ler('ico-multi.ico'), opcoesPorDefeito('ico'), HINT_ICO)
     expect(r.outputFrameCount).toBe(3)
+
+    const colecao = MagickImageCollection.create()
+    try {
+      colecao.ping(r.bytes, new MagickReadSettings({ format: MagickFormat.Ico }))
+      const tamanhos = [...colecao].map((frame) => frame.width).sort((a, b) => a - b)
+      expect(tamanhos).toEqual([16, 48, 256])
+    } finally {
+      colecao.dispose()
+    }
   })
 })
 

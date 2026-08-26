@@ -40,10 +40,15 @@
  *  - num ICO com varios tamanhos, `ImageMagick.read` escolhe o PRIMEIRO frame.
  *    Medido: um ICO com 16, 48 e 256 px devolvia 16x16. A colecao permite
  *    escolher o maior, que e o que o utilizador quer.
- *  - `collection.coalesce()` transforma frames parciais em frames completos.
- *    E obrigatorio antes de redimensionar: um GIF otimizado guarda frames de
+ *  - `collection.coalesce()` transforma frames parciais em frames completos,
+ *    compondo cada um sobre a geometria de canvas do frame 0. Obrigatorio
+ *    antes de redimensionar UMA ANIMACAO: um GIF otimizado guarda frames de
  *    50x50 com deslocamento, e redimensionar cada um separadamente parte a
- *    animacao.
+ *    animacao. NAO se aplica a ICO ('tamanhos') nem TIFF ('paginas'): ai cada
+ *    frame e uma imagem completa e independente, com o seu proprio tamanho, e
+ *    coalesce forcava todas ao tamanho da primeira. Bug real neste ficheiro,
+ *    apanhado por tests/unit/tiff-ico.test.ts a medir dimensoes por frame em
+ *    vez de so contar frames.
  *  - `collection.optimize()` volta a reduzir os frames as regioes que mudam.
  *    Medido: com 8 frames iguais, 523 089 bytes passaram a 66 290. Com frames
  *    genuinamente diferentes o ganho e nulo, porque nao ha nada repetido para
@@ -321,8 +326,12 @@ function escreverTodosOsFrames(
 ): Codificado {
   // Frames parciais viram frames completos antes de qualquer geometria: um GIF
   // otimizado guarda regioes com deslocamento, e redimensionar cada uma em
-  // separado parte a animacao.
-  colecao.coalesce()
+  // separado parte a animacao. So faz sentido para animacao: coalesce compoe
+  // cada frame sobre a geometria de canvas do frame 0, que e exatamente o que
+  // uma animacao precisa mas um ICO ('tamanhos') ou um TIFF ('paginas') nao
+  // pode ter — cada frame ai e uma imagem completa e independente, com o seu
+  // proprio tamanho, e coalesce forcaria todas ao tamanho da primeira.
+  if (destino.multiFrame === 'animacao') colecao.coalesce()
 
   const perfis: string[][] = []
   for (const frame of colecao) perfis.push(aplicarDiretivas(frame, diretivas))
@@ -335,7 +344,7 @@ function escreverTodosOsFrames(
 
   const bytes = colecao.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice())
   const cabeca = colecao[0]
-  if (!cabeca) throw new Error('ImproperImageHeader: colecao vazia depois de coalesce')
+  if (!cabeca) throw new Error('ImproperImageHeader: colecao vazia')
 
   return {
     bytes,

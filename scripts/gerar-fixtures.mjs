@@ -384,18 +384,25 @@ function icoMultiTamanho(lados) {
   return bytes
 }
 
-/** TIFF de varias paginas, para o aviso de paginas ter um caso real. */
-function tiffMultiPagina(paginas) {
+/**
+ * TIFF de varias paginas, para o aviso de paginas ter um caso real.
+ *
+ * Tamanhos propositadamente diferentes entre paginas: cada uma e uma imagem
+ * completa e independente, nao os fotogramas de uma animacao, e uma fixture
+ * com paginas todas do mesmo tamanho nao apanharia um motor que as force
+ * todas a geometria da primeira.
+ */
+function tiffMultiPagina(tamanhos) {
   const colecao = MagickImageCollection.create()
-  for (let i = 0; i < paginas; i += 1) {
+  tamanhos.forEach(([largura, altura], i) => {
     Magick.setRandomSeed(SEMENTE + i * 331)
     const settings = new MagickReadSettings()
-    settings.width = 320
-    settings.height = 240
+    settings.width = largura
+    settings.height = altura
     const frame = MagickImage.create('plasma:', settings)
     for (const nome of CARIMBOS_DO_MOTOR) frame.removeAttribute(nome)
     colecao.push(frame)
-  }
+  })
   const bytes = Buffer.from(colecao.write(MagickFormat.Tiff, (d) => new Uint8Array(d)))
   colecao.dispose()
   return bytes
@@ -409,8 +416,12 @@ await guardar(
 
 await guardar(
   'tiff-multipagina.tiff',
-  tiffMultiPagina(3),
-  '3 paginas: preservadas em TIFF, reduzidas a primeira nos outros destinos',
+  tiffMultiPagina([
+    [320, 240],
+    [160, 120],
+    [480, 360],
+  ]),
+  '3 paginas de tamanhos diferentes: preservadas em TIFF, reduzidas a primeira nos outros destinos',
 )
 
 await guardar(
