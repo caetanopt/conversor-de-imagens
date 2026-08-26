@@ -126,7 +126,14 @@ export function useConverter() {
 
         const preview = await previsualizar(cliente(), job, inspecao)
 
-        if (!montadoRef.current) {
+        // Nao basta a app continuar montada: se o utilizador removeu este job
+        // em particular enquanto a miniatura ainda gerava (criarPreview e por
+        // canvas, fora do WorkerPool, e cancelarTrabalho nao o alcanca), o
+        // reducer nao encontra o id e o dispatch abaixo seria um no-op
+        // silencioso — o object URL criado por preview nunca ficava guardado
+        // nem revogado. CLAUDE.md, seccao 2.7.
+        const aindaExiste = estadoRef.current.jobs.some((j) => j.id === job.id)
+        if (!montadoRef.current || !aindaExiste) {
           revogarObjectUrl(preview?.url)
           return
         }
