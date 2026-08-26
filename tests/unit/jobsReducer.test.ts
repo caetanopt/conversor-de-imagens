@@ -392,7 +392,7 @@ describe('aplicar a todos', () => {
 
   it('copia formato, qualidade, metadados e dimensoes para os restantes', () => {
     const { origem, estado } = comDefinicoesDiferentes()
-    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: origem.id })
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: origem.id, excluir: [] })
 
     for (const job of aplicado.jobs) {
       expect(job.options.outputFormat).toBe('avif')
@@ -404,7 +404,7 @@ describe('aplicar a todos', () => {
   it('nao altera o ficheiro de origem', () => {
     const { origem, estado } = comDefinicoesDiferentes()
     const antes = estado.jobs.find((j) => j.id === origem.id)
-    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: origem.id })
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: origem.id, excluir: [] })
     expect(aplicado.jobs.find((j) => j.id === origem.id)).toBe(antes)
   })
 
@@ -414,7 +414,7 @@ describe('aplicar a todos', () => {
     const comResultado = jobsReducer(estado, { type: 'resultado', id: outro.id, result: resultado })
     expect(comResultado.jobs.find((j) => j.id === outro.id)?.result).not.toBeNull()
 
-    const aplicado = jobsReducer(comResultado, { type: 'aplicar-a-todos', id: jobs[0]!.id })
+    const aplicado = jobsReducer(comResultado, { type: 'aplicar-a-todos', id: jobs[0]!.id, excluir: [] })
     const depois = aplicado.jobs.find((j) => j.id === outro.id)
     expect(depois?.result).toBeNull()
     expect(depois?.status).toBe('ready')
@@ -427,7 +427,7 @@ describe('aplicar a todos', () => {
     estado = jobsReducer(estado, { type: 'modo', mode: 'otimizar' })
     estado = jobsReducer(estado, { type: 'metadados', id: jpg.id, metadata: 'manter' })
 
-    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: jpg.id })
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: jpg.id, excluir: [] })
 
     // O destino nao se copia: otimizar um PNG produz PNG, nao JPEG.
     expect(aplicado.jobs.find((j) => j.id === jpg.id)?.options.outputFormat).toBe('jpeg')
@@ -438,14 +438,34 @@ describe('aplicar a todos', () => {
 
   it('um id que nao existe devolve o mesmo estado', () => {
     const { estado } = comJobs('a.jpg', 'b.jpg')
-    expect(jobsReducer(estado, { type: 'aplicar-a-todos', id: 'inexistente' })).toBe(estado)
+    expect(jobsReducer(estado, { type: 'aplicar-a-todos', id: 'inexistente', excluir: [] })).toBe(estado)
   })
 
   it('nao toca em ficheiros que ja tinham as mesmas definicoes', () => {
     const { jobs, estado } = comJobs('a.jpg', 'b.jpg')
     const antes = estado.jobs[1]
-    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: jobs[0]!.id })
+    const aplicado = jobsReducer(estado, { type: 'aplicar-a-todos', id: jobs[0]!.id, excluir: [] })
     expect(aplicado.jobs[1]).toBe(antes)
+  })
+
+  it('nao toca num ficheiro excluido, mesmo que as suas definicoes difiram', () => {
+    // Um job cuja conversao ja arrancou ja leu as suas opcoes atuais: mudá-las
+    // aqui deixaria o resultado a caminho sem corresponder ao que o painel
+    // passa a mostrar. useConverter.ts passa estes ids via aArrancarRef.
+    const { jobs, origem, estado } = comDefinicoesDiferentes()
+    const emCurso = jobs[1]!
+    const antes = estado.jobs.find((j) => j.id === emCurso.id)
+
+    const aplicado = jobsReducer(estado, {
+      type: 'aplicar-a-todos',
+      id: origem.id,
+      excluir: [emCurso.id],
+    })
+
+    expect(aplicado.jobs.find((j) => j.id === emCurso.id)).toBe(antes)
+    // O terceiro ficheiro, nao excluido, continua a receber as definicoes.
+    const terceiro = jobs[2]!
+    expect(aplicado.jobs.find((j) => j.id === terceiro.id)?.options.outputFormat).toBe('avif')
   })
 })
 

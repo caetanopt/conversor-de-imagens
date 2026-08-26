@@ -39,7 +39,12 @@ export const estadoInicial: ConverterState = { jobs: [], mode: 'converter', sele
 export type ConverterAction =
   | { readonly type: 'adicionar'; readonly jobs: readonly ImageJob[] }
   | { readonly type: 'selecionar'; readonly id: string }
-  | { readonly type: 'aplicar-a-todos'; readonly id: string }
+  | {
+      readonly type: 'aplicar-a-todos'
+      readonly id: string
+      /** Jobs cuja conversao ja arrancou. As suas opcoes nao se tocam. */
+      readonly excluir: readonly string[]
+    }
   | { readonly type: 'inspecao'; readonly id: string; readonly inspection: ImageInspection }
   | { readonly type: 'preview'; readonly id: string; readonly preview: PreviewRef }
   | { readonly type: 'estado'; readonly id: string; readonly status: ConversionStatus }
@@ -78,7 +83,11 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
       if (!origem) return estado
 
       const jobs = estado.jobs.map((job) => {
-        if (job.id === origem.id) return job
+        // A origem nunca se sobrescreve a si propria. Um job excluido ja leu
+        // as suas opcoes atuais para uma conversao em curso (useConverter.ts,
+        // aArrancarRef): mudá-las aqui deixaria o resultado a caminho sem
+        // corresponder ao que o painel passa a mostrar.
+        if (job.id === origem.id || acao.excluir.includes(job.id)) return job
 
         // No modo de otimizacao o destino e imposto pela origem de cada
         // ficheiro, portanto o formato nao se copia: copia-se tudo o resto.

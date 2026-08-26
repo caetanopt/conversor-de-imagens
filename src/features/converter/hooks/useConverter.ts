@@ -65,6 +65,18 @@ export function useConverter() {
   const montadoRef = useRef(true)
 
   /**
+   * Ids de jobs entre o pedido de conversao e o fim de converterJob.
+   *
+   * O estado so passa a 'processing' quando o worker arranca de facto, nao
+   * quando o pedido e feito (comentario em converterJob), por isso ha uma
+   * janela assincrona, antes desse dispatch, em que resumo.aProcessar
+   * continua a 0 e nada na interface esta desligado. Uma ref, nao estado: a
+   * guarda tem de existir sincronamente antes do primeiro await, para um
+   * duplo clique nao passar os dois pela verificacao.
+   */
+  const aArrancarRef = useRef<Set<string>>(new Set())
+
+  /**
    * O lote e assincrono e demorado. Um closure sobre `estado` ficava velho a
    * meio de trinta conversoes, e a alternativa era recriar todas as funcoes a
    * cada dispatch. As funcoes assincronas leem daqui.
@@ -226,24 +238,35 @@ export function useConverter() {
   /** Converte um trabalho e devolve o desfecho, sem depender do render. */
   const converterJob = useCallback(
     async (job: ImageJob): Promise<Desfecho> => {
-      // Cada frame e uma imagem a codificar. Um GIF de 20 frames a 640x480 sao
-      // 6,1 MP de trabalho, nao 0,3 MP. Medido: 2,8 s de encode.
-      const pixels = job.inspection
-        ? job.inspection.width * job.inspection.height * Math.max(1, job.inspection.frameCount)
-        : null
-      const contexto: ContextoDaTarefa = {
-        chave: job.id,
-        ...(pixels === null ? {} : { pixels }),
-        magickFormatHint: hintDoFormato(job.sourceFormat),
-        // O estado passa a 'processing' quando a tarefa arranca de facto, nao
-        // quando entra na fila. Com concorrencia 2 e trinta ficheiros, a
-        // alternativa era mostrar trinta conversoes a decorrer.
-        onInicio: () => {
-          if (montadoRef.current) dispatch({ type: 'estado', id: job.id, status: 'processing' })
-        },
-      }
+      // Guarda sincrona, sem await antes: resumo.aProcessar so sobe quando
+      // onInicio dispara la em baixo, nao quando a conversao e pedida, e ate
+      // la a interface nao desliga nada. Sem isto, um duplo clique em
+      // "Converter", ou "Converter" e "Converter tudo" a apanhar o mesmo
+      // ficheiro, entravam aqui os dois e o motor recebia o mesmo ficheiro
+      // duas vezes em simultaneo. 'cancelado' e a aproximacao mais honesta que
+      // ha entre os tres desfechos possiveis: nao produziu resultado nem
+      // falhou, e nao interrompe a chamada original, que continua a decorrer.
+      if (aArrancarRef.current.has(job.id)) return 'cancelado'
+      aArrancarRef.current.add(job.id)
 
       try {
+        // Cada frame e uma imagem a codificar. Um GIF de 20 frames a 640x480
+        // sao 6,1 MP de trabalho, nao 0,3 MP. Medido: 2,8 s de encode.
+        const pixels = job.inspection
+          ? job.inspection.width * job.inspection.height * Math.max(1, job.inspection.frameCount)
+          : null
+        const contexto: ContextoDaTarefa = {
+          chave: job.id,
+          ...(pixels === null ? {} : { pixels }),
+          magickFormatHint: hintDoFormato(job.sourceFormat),
+          // O estado passa a 'processing' quando a tarefa arranca de facto, nao
+          // quando entra na fila. Com concorrencia 2 e trinta ficheiros, a
+          // alternativa era mostrar trinta conversoes a decorrer.
+          onInicio: () => {
+            if (montadoRef.current) dispatch({ type: 'estado', id: job.id, status: 'processing' })
+          },
+        }
+
         const resultado = await cliente().convert(job.file, job.options, contexto)
         if (!montadoRef.current) return 'ok'
 
@@ -287,6 +310,8 @@ export function useConverter() {
         if (montadoRef.current) dispatch({ type: 'erro', id: job.id, error: dominio })
         registarFalha(job.options.outputFormat, dominio.kind, dominio.detail)
         return 'erro'
+      } finally {
+        aArrancarRef.current.delete(job.id)
       }
     },
     [cliente],
@@ -389,7 +414,10 @@ export function useConverter() {
   }, [])
 
   const aplicarATodos = useCallback((id: string) => {
-    dispatch({ type: 'aplicar-a-todos', id })
+    // Um job "a arrancar" ja leu as suas opcoes para a conversao em curso
+    // (ver aArrancarRef em converterJob); sobrescreve-las aqui deixaria o
+    // resultado a caminho sem corresponder ao que o painel passa a mostrar.
+    dispatch({ type: 'aplicar-a-todos', id, excluir: [...aArrancarRef.current] })
     setAnuncio('Definições aplicadas a todos os ficheiros.')
   }, [])
 

@@ -1,14 +1,13 @@
 /**
- * useConverter: corrida entre remover um ficheiro e a sua propria miniatura
- * ainda a gerar.
+ * useConverter: corridas na fronteira assincrona entre um dispatch e o
+ * proprio estado que o motivou ja ter mudado entretanto.
  *
- * O motor fica mockado por inteiro: o hook nao sabe nada de ImageMagick, e o
- * unico ponto de controlo de que preciso e quando `miniatura()` resolve, para
- * simular remover um ficheiro a meio da geracao da sua propria
- * pre-visualizacao. TIFF porque o browser nunca o descodifica
- * (browserDecodable e falso), o que garante que criarPreview() volta null e a
- * miniatura vem sempre do motor mockado, sem depender de createImageBitmap
- * existir em jsdom.
+ * O motor fica mockado por inteiro: o hook nao sabe nada de ImageMagick, e os
+ * pontos de controlo de que preciso sao quando `miniatura()` e `convert()`
+ * resolvem. TIFF porque o browser nunca o descodifica (browserDecodable e
+ * falso), o que garante que criarPreview() volta null e a miniatura vem
+ * sempre do motor mockado, sem depender de createImageBitmap existir em
+ * jsdom.
  */
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -19,6 +18,7 @@ import type * as ReadFileModule from '@/lib/files/readFile'
 import type { EngineCapabilities } from '@/lib/image-engine/ImageEngine'
 
 let resolverMiniatura: (() => void) | null = null
+let chamadasConvert = 0
 
 // O File do jsdom nao implementa slice(...).arrayBuffer(), so mesmo motivo
 // por que tests/unit/engineClient.test.ts corre em ambiente node (comentario
@@ -66,8 +66,31 @@ vi.mock('@/lib/image-engine/client/EngineClient', () => {
       }
     }
 
-    async convert(): Promise<never> {
-      throw new Error('nao usado neste teste')
+    async convert(): Promise<{
+      blob: Blob
+      size: number
+      width: number
+      height: number
+      durationMs: number
+      decodeMs: number
+      encodeMs: number
+      profilesKept: string[]
+      frameCount: number
+      outputFrameCount: number
+    }> {
+      chamadasConvert += 1
+      return {
+        blob: new Blob([new Uint8Array(8)], { type: 'image/webp' }),
+        size: 8,
+        width: 400,
+        height: 300,
+        durationMs: 1,
+        decodeMs: 0,
+        encodeMs: 1,
+        profilesKept: [],
+        frameCount: 1,
+        outputFrameCount: 1,
+      }
     }
 
     cancelarTrabalho(): void {}
@@ -91,6 +114,7 @@ function ficheiroTiff(nome = 'foto.tif'): File {
 describe('useConverter', () => {
   beforeEach(() => {
     resolverMiniatura = null
+    chamadasConvert = 0
   })
 
   afterEach(() => {
@@ -133,5 +157,34 @@ describe('useConverter', () => {
     // no-op silencioso porque o id ja nao esta na lista, e o object URL desta
     // miniatura fica para sempre em objectUrls.ts. CLAUDE.md, seccao 2.7.
     expect(contarObjectUrlsAtivos()).toBe(0)
+  })
+
+  it('um duplo clique em Converter nao arranca a mesma conversao duas vezes', async () => {
+    const { result } = renderHook(() => useConverter())
+
+    let promessaAdicionar!: Promise<void>
+    act(() => {
+      promessaAdicionar = result.current.adicionarFicheiros([ficheiroTiff()])
+    })
+    await waitFor(() => expect(resolverMiniatura).not.toBeNull())
+    await act(async () => {
+      resolverMiniatura?.()
+      await promessaAdicionar
+    })
+
+    const id = result.current.jobs[0]!.id
+    expect(result.current.jobs[0]!.status).toBe('ready')
+
+    // As duas chamadas arrancam sem esperar uma pela outra: e exatamente um
+    // duplo clique no botao "Converter", que so desliga quando
+    // resumo.aProcessar sobe, e isso so acontece dentro do motor, depois de
+    // ler o ficheiro inteiro para memoria. Sem a guarda sincrona em
+    // converterJob, o motor mockado seria chamado duas vezes para o mesmo
+    // ficheiro.
+    await act(async () => {
+      await Promise.all([result.current.converter(id), result.current.converter(id)])
+    })
+
+    expect(chamadasConvert).toBe(1)
   })
 })
