@@ -15,7 +15,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { EngineClient } from '@/lib/image-engine/client/EngineClient'
+import { EngineClient, ErroDoMotor } from '@/lib/image-engine/client/EngineClient'
 import { opcoesPorDefeito } from '@/features/converter/state/jobsReducer'
 import type { WorkerRequest, WorkerResponse } from '@/lib/image-engine/protocol'
 
@@ -144,6 +144,48 @@ describe('hint de formato', () => {
     const cliente = clienteFalso()
     await cliente.inspect(ficheiro())
     expect(WorkerFalso.pedidosDe('inspecionar')[0]?.magickFormatHint).toBeNull()
+  })
+})
+
+describe('cancelar antes do pool', () => {
+  it('nao chega a pedir nada ao worker se cancelado enquanto ainda lia o ficheiro', async () => {
+    const cliente = clienteFalso()
+    // Motor ja pronto, como a partir da segunda conversao numa sessao: o que
+    // resta antes do pool e so a leitura do ficheiro.
+    await cliente.prepare()
+
+    const chave = 'a-cancelar'
+    const promessa = cliente.convert(ficheiro(), opcoesPorDefeito('png'), { chave })
+    // Sincrono, sem await: cancelarTrabalho() tem de apanhar a chamada ainda
+    // dentro de #prepararELer, antes de qualquer pedido chegar ao pool.
+    cliente.cancelarTrabalho(chave)
+
+    await expect(promessa).rejects.toThrow(ErroDoMotor)
+    await expect(promessa).rejects.toMatchObject({ detalhe: { kind: 'cancelado' } })
+    // A prova de que nunca chegou ao pool: o worker falso nao viu o pedido.
+    expect(WorkerFalso.pedidosDe('converter')).toHaveLength(0)
+  })
+
+  it('nao chega a pedir nada ao worker se cancelado enquanto ainda esperava o motor arrancar', async () => {
+    const cliente = clienteFalso()
+    // Sem prepare() previo: a primeira chamada e que arranca o motor, e e
+    // essa espera (download e arranque do WASM numa sessao real) que fica
+    // por cancelar sem a correcao.
+    const chave = 'a-cancelar'
+    const promessa = cliente.inspect(ficheiro(), { chave })
+    cliente.cancelarTrabalho(chave)
+
+    await expect(promessa).rejects.toMatchObject({ detalhe: { kind: 'cancelado' } })
+    expect(WorkerFalso.pedidosDe('inspecionar')).toHaveLength(0)
+  })
+
+  it('uma chamada sem chave nao e afetada, mesmo chamando cancelarTrabalho com outra chave', async () => {
+    const cliente = clienteFalso()
+    const promessa = cliente.inspect(ficheiro())
+    cliente.cancelarTrabalho('chave-nenhuma-chamada-usa')
+
+    const i = await promessa
+    expect(i.width).toBe(256)
   })
 })
 

@@ -19,7 +19,7 @@ import type { ConversionOptions, ImageInspection } from '@/features/converter/ty
 import { lerComoBuffer } from '@/lib/files/readFile'
 import { registarArranqueDoMotor } from '@/lib/dev/metrics'
 import type { EngineCapabilities } from '../ImageEngine'
-import { inesperado, novoId, WorkerPool } from './WorkerPool'
+import { ERRO_CANCELADO, ErroDoMotor, inesperado, novoId, WorkerPool } from './WorkerPool'
 
 export { ErroDoMotor } from './WorkerPool'
 
@@ -54,6 +54,19 @@ export class EngineClient {
   #capacidades: EngineCapabilities | null = null
 
   /**
+   * Uma entrada por chamada a inspect/miniatura/convert ainda antes do pool.
+   *
+   * prepare() (que na primeira chamada da sessao espera pelo download e
+   * arranque do WASM) e a leitura do ficheiro inteiro para memoria acontecem
+   * antes de pedir um slot ao pool, e WorkerPool.cancelar so alcanca tarefas
+   * ja na sua fila ou a correr num slot. Sem isto, cancelarTrabalho nao tinha
+   * nada para cancelar nessa janela: a chamada prosseguia ate ao fim em
+   * segundo plano, a gastar CPU e memoria por um ficheiro que o utilizador ja
+   * tinha pedido para tirar da fila.
+   */
+  #antesDoPool = new Map<string, { cancelada: boolean }>()
+
+  /**
    * A fabrica de workers e injetavel apenas para testes.
    *
    * Existe por causa de um defeito real: o hint de formato estava ligado em
@@ -86,8 +99,7 @@ export class EngineClient {
   }
 
   async inspect(file: File, contexto: ContextoDaTarefa = {}): Promise<ImageInspection> {
-    await this.prepare()
-    const bytes = await lerComoBuffer(file)
+    const bytes = await this.#prepararELer(file, contexto.chave)
 
     const resposta = await this.#garantirPool().pedir(
       {
@@ -119,8 +131,7 @@ export class EngineClient {
     file: File,
     contexto: ContextoDaTarefa = {},
   ): Promise<{ readonly blob: Blob; readonly width: number; readonly height: number }> {
-    await this.prepare()
-    const bytes = await lerComoBuffer(file)
+    const bytes = await this.#prepararELer(file, contexto.chave)
 
     const resposta = await this.#garantirPool().pedir(
       {
@@ -153,8 +164,7 @@ export class EngineClient {
     options: ConversionOptions,
     contexto: ContextoDaTarefa = {},
   ): Promise<ResultadoConversao> {
-    await this.prepare()
-    const bytes = await lerComoBuffer(file)
+    const bytes = await this.#prepararELer(file, contexto.chave)
 
     const resposta = await this.#garantirPool().pedir(
       {
@@ -194,6 +204,10 @@ export class EngineClient {
 
   /** Cancela apenas o trabalho com esta chave. Os restantes continuam. */
   cancelarTrabalho(chave: string): void {
+    // Se ainda estiver antes do pool (prepare ou leitura do ficheiro em
+    // curso), marca para #prepararELer interromper no proximo checkpoint.
+    const entrada = this.#antesDoPool.get(chave)
+    if (entrada) entrada.cancelada = true
     this.#pool?.cancelar(chave)
   }
 
@@ -210,6 +224,42 @@ export class EngineClient {
   }
 
   // ------------------------------------------------------------------ interno
+
+  /**
+   * Prepara o motor e le o ficheiro inteiro para memoria, interrompivel por
+   * cancelarTrabalho a qualquer momento antes disto acabar.
+   *
+   * Sem chave nao ha como cancelar dirigido a esta chamada, portanto segue
+   * direto. Com chave, verifica depois de CADA await: depois de prepare()
+   * cobre um cancelamento pedido enquanto a sessao ainda esperava pelo
+   * download e arranque do WASM, depois da leitura cobre um pedido durante a
+   * propria leitura do ficheiro. Nenhuma das duas e abortavel a meio (nem
+   * prepare() nem Blob.arrayBuffer aceitam um AbortSignal), mas o que importa
+   * e nao ocupar um slot do pool a seguir: e ali que fica o custo real, o
+   * motor WASM a descodificar ou codificar.
+   */
+  async #prepararELer(file: File, chave: string | undefined): Promise<ArrayBuffer> {
+    if (chave === undefined) {
+      await this.prepare()
+      return lerComoBuffer(file)
+    }
+
+    const entrada = { cancelada: false }
+    this.#antesDoPool.set(chave, entrada)
+    try {
+      await this.prepare()
+      if (entrada.cancelada) throw new ErroDoMotor(ERRO_CANCELADO)
+
+      const bytes = await lerComoBuffer(file)
+      if (entrada.cancelada) throw new ErroDoMotor(ERRO_CANCELADO)
+
+      return bytes
+    } finally {
+      // So a propria entrada: nunca apagar a de uma chamada mais recente que,
+      // por acaso, reuse a mesma chave.
+      if (this.#antesDoPool.get(chave) === entrada) this.#antesDoPool.delete(chave)
+    }
+  }
 
   async #arrancar(): Promise<EngineCapabilities> {
     const pool = this.#garantirPool()
