@@ -75,6 +75,13 @@ for (const largura of LARGURAS) {
       if (await ponteiroGrosseiro(page)) {
         const caixa = await seletor.boundingBox()
         expect(caixa!.height, 'altura do alvo de selecao').toBeGreaterThanOrEqual(ALVO_TATIL)
+
+        // No cabecalho em qualquer estado da pagina, nao so no vazio.
+        const privacidade = page.getByRole('button', { name: 'Processamento local' })
+        const caixaPrivacidade = await privacidade.boundingBox()
+        expect(caixaPrivacidade!.height, 'altura do indicador de privacidade').toBeGreaterThanOrEqual(
+          ALVO_TATIL,
+        )
       }
     })
 
@@ -113,6 +120,8 @@ for (const largura of LARGURAS) {
       const total = await opcoes.count()
       expect(total).toBeGreaterThanOrEqual(8)
 
+      const tatil = await ponteiroGrosseiro(page)
+
       for (let i = 0; i < total; i += 1) {
         const opcao = opcoes.nth(i)
         const caixa = await opcao.boundingBox()
@@ -122,6 +131,12 @@ for (const largura of LARGURAS) {
         expect(caixa!.x + caixa!.width, `opcao ${nome} acaba fora do ecra`).toBeLessThanOrEqual(
           largura,
         )
+        // O input, absoluto a inset:0, cobre a mesma area que .opcao por
+        // baixo — verificar aqui cobre SegmentedControl inteiro (formato,
+        // modo, presets de qualidade, metadados), nao so este seletor.
+        if (tatil) {
+          expect(caixa!.height, `altura da opcao ${nome}`).toBeGreaterThanOrEqual(ALVO_TATIL)
+        }
       }
     })
   })
