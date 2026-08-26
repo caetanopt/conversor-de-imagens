@@ -15,10 +15,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ImageInspection } from '@/features/converter/types'
 import { contarObjectUrlsAtivos } from '@/lib/files/objectUrls'
 import type * as ReadFileModule from '@/lib/files/readFile'
+import type { ContextoDaTarefa } from '@/lib/image-engine/client/EngineClient'
 import type { EngineCapabilities } from '@/lib/image-engine/ImageEngine'
 
 let resolverMiniatura: (() => void) | null = null
 let chamadasConvert = 0
+let ultimoContextoDaMiniatura: ContextoDaTarefa | null = null
 
 // O File do jsdom nao implementa slice(...).arrayBuffer(), so mesmo motivo
 // por que tests/unit/engineClient.test.ts corre em ambiente node (comentario
@@ -54,8 +56,13 @@ vi.mock('@/lib/image-engine/client/EngineClient', () => {
     }
 
     // Bloqueia ate o teste chamar resolverMiniatura(), para simular a
-    // miniatura ainda a gerar quando o utilizador remove o ficheiro.
-    async miniatura(): Promise<{ blob: Blob; width: number; height: number }> {
+    // miniatura ainda a gerar quando o utilizador remove o ficheiro. Regista
+    // o contexto recebido, para o teste do pixels poder inspeciona-lo.
+    async miniatura(
+      _file: File,
+      contexto: ContextoDaTarefa,
+    ): Promise<{ blob: Blob; width: number; height: number }> {
+      ultimoContextoDaMiniatura = contexto
       await new Promise<void>((resolve) => {
         resolverMiniatura = resolve
       })
@@ -115,6 +122,7 @@ describe('useConverter', () => {
   beforeEach(() => {
     resolverMiniatura = null
     chamadasConvert = 0
+    ultimoContextoDaMiniatura = null
   })
 
   afterEach(() => {
@@ -186,5 +194,28 @@ describe('useConverter', () => {
     })
 
     expect(chamadasConvert).toBe(1)
+  })
+
+  it('pede a miniatura do motor com os pixels da inspecao', async () => {
+    // TIFF nunca passa pelo browser (browserDecodable falso), por isso a
+    // miniatura vem sempre daqui: thumbnail() no motor descodifica a imagem
+    // inteira antes de reduzir, com o mesmo pico de memoria de uma conversao
+    // real. Sem pixels no contexto, WorkerPool.ehExclusiva() e a reciclagem
+    // por marca de agua nunca viam este trabalho, e um lote de TIFF grandes
+    // descodificava tudo no mesmo slot sem reciclar entre um e o seguinte.
+    const { result } = renderHook(() => useConverter())
+
+    let promessa!: Promise<void>
+    act(() => {
+      promessa = result.current.adicionarFicheiros([ficheiroTiff()])
+    })
+    await waitFor(() => expect(resolverMiniatura).not.toBeNull())
+    await act(async () => {
+      resolverMiniatura?.()
+      await promessa
+    })
+
+    // 400 x 300 x 1 fotograma, os valores que o inspect() falso devolve.
+    expect(ultimoContextoDaMiniatura?.pixels).toBe(400 * 300)
   })
 })

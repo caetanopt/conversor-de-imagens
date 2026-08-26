@@ -506,8 +506,18 @@ async function previsualizar(
   }
 
   try {
+    // Mesma conta que converterJob faz para o contexto da conversao real:
+    // thumbnail() no motor descodifica a imagem inteira antes de reduzir, nao
+    // faz so um ping, portanto tem o mesmo pico de memoria de uma conversao.
+    // Sem pixels aqui, WorkerPool.ehExclusiva() nunca via uma miniatura como
+    // grande, e a reciclagem por marca de agua (WorkerPool.ts,
+    // precisaDeReciclagem) nunca disparava so por causa de miniaturas — um
+    // lote de TIFF grandes, que nunca passam pelo browser, descodificava tudo
+    // no mesmo slot sem reciclar entre um e o seguinte.
+    const pixels = inspecao.width * inspecao.height * Math.max(1, inspecao.frameCount)
     const m = await cliente.miniatura(job.file, {
       chave: job.id,
+      pixels,
       magickFormatHint: hintDoFormato(job.sourceFormat),
     })
     return previewDeBlob(m.blob, m.width, m.height)
