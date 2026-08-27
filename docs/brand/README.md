@@ -75,8 +75,17 @@ lettering e os rastos numa mancha achatada — o oposto do que a fotografia foi
 escolhida para mostrar.
 
 Por isso o texto já não assenta na fotografia. Assenta num painel,
-`--field-painel`, envolvendo o título, o botão e a faixa inferior
-(`DropZone.module.css`, classe `.painel`).
+`--field-painel` (`DropZone.module.css`, classe `.painel`).
+
+**São dois painéis separados, não um a envolver o outro.** Título, subtítulo
+e botão formam um primeiro painel, do tamanho do próprio conteúdo até 48ch;
+a faixa inferior, com os três grupos de metadados, forma um segundo painel à
+largura toda. Uma primeira versão usava um único painel a envolver os dois,
+esticado à largura toda porque a faixa precisa dela — e isso obrigava o
+fundo a cobrir também o espaço vazio à direita do bloco de texto, mais
+estreito. Como dois painéis, cada um só tem fundo onde tem conteúdo: esse
+espaço fica fora de ambos e mostra a fotografia diretamente, incluindo o
+resto do lettering "caetano" que antes ficava tapado sem necessidade.
 
 **O painel é translúcido, com desfoque por baixo, a pedido explícito.** A
 primeira versão era opaca. A secção 13 do CLAUDE.md pede para evitar

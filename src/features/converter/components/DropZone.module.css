@@ -47,7 +47,12 @@
   opacity: 0.6;
 }
 
-/* Conteudo assente no fundo, com uma faixa a largura toda por baixo. */
+/*
+ * Conteudo assente no fundo, com uma faixa a largura toda por baixo. O gap e
+ * o espaco vertical entre os dois paineis (.texto e .faixa, ver .painel);
+ * como cada um só tem fundo onde tem conteudo, esse espaco tambem mostra a
+ * fotografia diretamente.
+ */
 .conteudo {
   display: flex;
   flex-direction: column;
@@ -57,26 +62,31 @@
 }
 
 /*
- * O painel que leva o texto. Os nomes semanticos sao redefinidos aqui, e nao
- * em .zona: fora do painel nao ha texto nenhum sobre a fotografia, so a
- * fotografia e a moldura, portanto so o painel precisa dos tokens --field-*.
- * .titulo, .subtexto, .botao e .faixa continuam a ler --text-muted, --accent e
- * o resto sem saber que estao sobre uma imagem.
+ * Fundo comum aos dois paineis (o bloco de texto e a faixa), aplicado como
+ * segunda classe em cada um, nao como um invólucro à volta dos dois. Os
+ * nomes semanticos sao redefinidos aqui, e nao em .zona: fora dos paineis nao
+ * ha texto nenhum sobre a fotografia, so a fotografia e a moldura, portanto
+ * so esta classe precisa dos tokens --field-*. .titulo, .subtexto, .botao e
+ * .faixa continuam a ler --text-muted, --accent e o resto sem saber que estao
+ * sobre uma imagem.
+ *
+ * Separados porque um invólucro único tinha de esticar à largura toda para a
+ * faixa (as suas tres colunas ocupam a largura toda), e isso obrigava o fundo
+ * a cobrir tambem o espaco vazio a direita do bloco de texto, que e mais
+ * estreito, limitado a 48ch em .texto. Como dois paineis, cada um so tem
+ * fundo onde tem conteudo: esse espaco fica fora de ambos e mostra a
+ * fotografia diretamente, sem nenhum véu por cima.
  */
 .painel {
   --text-strong: var(--field-text-strong);
   --text-default: var(--field-text-strong);
   --text-muted: var(--field-text-muted);
   --text-faint: var(--field-text-faint);
-  --line-subtle: var(--field-line);
   --accent: var(--field-accent);
   --accent-hover: var(--field-accent-hover);
   --text-on-accent: var(--field-on-accent);
   --focus-ring: var(--field-text-strong);
 
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
   padding: var(--space-5);
   background: var(--field-painel);
   border-radius: var(--radius-md);
@@ -162,14 +172,13 @@ input:focus-visible + .botao {
 }
 
 /* Faixa inferior a largura toda: da uma base a composicao em vez de deixar o
-   bloco de texto a flutuar. */
+   bloco de texto a flutuar. E um painel proprio, separado de .texto, por
+   isso ja nao precisa de um traco a dividir os dois dentro da mesma caixa. */
 .faixa {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-6);
   justify-content: space-between;
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--line-subtle);
 }
 
 .grupoMeta {
