@@ -97,6 +97,7 @@ function pedidoDeConversao(id: string): WorkerRequest {
       autoOrient: true,
       lossless: false,
       resize: null,
+      palette: null,
     },
   }
 }

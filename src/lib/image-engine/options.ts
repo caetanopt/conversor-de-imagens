@@ -66,7 +66,18 @@ export type EncodeDirectives = {
   readonly metadata: MetadataDirective
   readonly resize: ResizeDirective | null
   readonly interlace: boolean
+  /**
+   * Cores a que reduzir a paleta, ou null para nao reduzir.
+   *
+   * Aplicado depois do resize: quantizar primeiro e redimensionar depois
+   * voltava a criar cores por interpolacao, e o ganho desaparecia.
+   */
+  readonly palette: number | null
 }
+
+/** Limites da paleta. 2 e o minimo util, 256 e o maximo de um PNG indexado. */
+export const PALETA_MINIMA = 2
+export const PALETA_MAXIMA = 256
 
 /** Velocidade do encoder AVIF. 9 e o mais rapido; medido nove vezes mais rapido que o defeito. */
 export const AVIF_SPEED_POR_DEFEITO = '9'
@@ -107,7 +118,21 @@ export function resolveEncodeDirectives(options: ConversionOptions): EncodeDirec
     resize: limitarDimensao(resolveResize(options), formato.maxOutputDimension),
     // Progressivo so faz sentido em JPEG e reduz o tamanho percebido no carregamento.
     interlace: formato.id === 'jpeg' && !options.lossless,
+    palette: resolvePaleta(options.palette, formato.supportsPalette),
   }
+}
+
+/**
+ * Cores da paleta, ou null.
+ *
+ * O filtro pelo formato existe aqui e nao so na interface: um valor escolhido
+ * num PNG chegaria intacto ao motor depois de o utilizador mudar o destino para
+ * JPEG, e quantizar um JPEG antes de o comprimir so piora o resultado.
+ */
+function resolvePaleta(palette: number | null, suporta: boolean): number | null {
+  if (!suporta || palette === null) return null
+  if (!Number.isFinite(palette)) return null
+  return Math.min(PALETA_MAXIMA, Math.max(PALETA_MINIMA, Math.round(palette)))
 }
 
 /**

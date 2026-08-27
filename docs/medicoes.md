@@ -175,6 +175,67 @@ A interface passou a dizer isto de forma explícita quando o utilizador escolhe
 otimizar um PNG, e a sugerir WebP. É o caso previsto no CLAUDE.md, secção 6,
 para avaliar um codec dedicado numa etapa posterior.
 
+### Mas há margem, e não é na compressão: é na paleta
+
+A conclusão acima estava certa e era incompleta, e a interface tirou dela uma
+afirmação falsa: que num PNG o único ganho possível vinha da remoção de
+metadados. Ferramentas como o TinyPNG cortam dois terços num PNG, e não o fazem
+com um encoder melhor. Fazem-no reduzindo o número de cores, que é uma operação
+com perda sobre os pixéis e não uma compressão mais esperta.
+
+Medido na mesma imagem de 1 684 594 bytes, 1200x800, com difusão de erro
+Floyd-Steinberg e sem:
+
+| Estratégia | Tamanho | Variação |
+|---|---|---|
+| o que fazíamos: recomprimir sem perda | 1 684 532 | 0,0 % |
+| `png:compression-level=9` | 1 684 532 | 0,0 % |
+| **quantizar a 256 cores, com difusão** | **542 040** | **menos 67,8 %** |
+| quantizar a 256 cores, sem difusão | 434 973 | menos 74,2 % |
+| quantizar a 128 cores, com difusão | 440 906 | menos 73,8 % |
+| quantizar a 64 cores, com difusão | 378 313 | menos 77,5 % |
+| formato PNG8 | 453 688 | menos 73,1 % |
+| referência: WebP q90 | 233 774 | menos 86,1 % |
+
+Os 67,8 % coincidem com os 67 % que o TinyPNG anuncia na mesma classe de
+imagem, o que confirma que a técnica é a mesma.
+
+Duas decisões saíram destes números:
+
+- **Com difusão de erro, não sem.** Sem difusão o ficheiro é 6 pontos menor,
+  mas aparecem faixas visíveis em gradientes e céus. 68 % com a imagem
+  apresentável vale mais do que 74 % com bandas.
+- **Nunca por defeito nem por preset.** Perde informação de forma
+  irreversível, e o PNG é o formato onde o utilizador conta com o contrário.
+  É um controlo explícito, como manda o CLAUDE.md na secção 11.
+
+### A transparência sobrevive à quantização
+
+Verificado, porque um logótipo com fundo transparente é o caso onde reduzir a
+paleta compensa mais, e transformar o fundo em preto seria destruir a imagem em
+silêncio.
+
+Num PNG RGBA com metade dos pixéis a alfa 0, construído byte a byte para a
+entrada ser conhecida:
+
+| Passo | Resultado |
+|---|---|
+| entrada | `colorType=6` (RGBA), 131 942 bytes, `isOpaque=false` |
+| gravado sem quantizar | `colorType=6`, 32 397 bytes |
+| gravado com 256 cores | `colorType=3` (paleta) **com `tRNS`**, 17 124 bytes |
+| relido do ficheiro | `hasAlpha=true`, `isOpaque=false` |
+
+O escritor passa o alfa para um bloco `tRNS`, que é a forma de um PNG indexado
+guardar transparência. Sem esse bloco a imagem sairia opaca, por isso o teste
+verifica a presença do `tRNS` e não apenas a flag `hasAlpha`.
+
+**Achado colateral, ainda não corrigido:** as fixtures `png-transparencia.png`
+e `avif-transparencia.avif` têm canal alfa mas estão totalmente opacas
+(`isOpaque=true`). O `img.evaluate(4, 20, 0.45)` do gerador não chega a alterar
+o alfa. Nenhum teste dependia disso para passar, mas a cobertura de
+transparência da suite é mais fraca do que os nomes das fixtures sugerem, e por
+isso o teste da paleta constrói a sua própria entrada.
+
 ### E o mesmo vale para todos os formatos sem perda
 
 Medido sobre as fixtures, com remoção de metadados aplicada, saída comparada

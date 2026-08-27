@@ -41,8 +41,11 @@ export function QualityControl({
   if (!formato.supportsQuality || quality === null) {
     return (
       <p className={styles.semQualidade}>
-        {formato.label} é um formato sem perda. O tamanho depende do conteúdo da imagem, não de
-        um valor de qualidade.
+        {formato.label} é um formato sem perda, por isso não tem um valor de qualidade para
+        ajustar.{' '}
+        {formato.supportsPalette
+          ? 'A alavanca de tamanho aqui é a paleta de cores, abaixo.'
+          : 'O tamanho depende do conteúdo da imagem.'}
       </p>
     )
   }

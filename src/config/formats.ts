@@ -39,6 +39,19 @@ export type ImageFormatCapability = {
   readonly supportsQuality: boolean
 
   /**
+   * Reduzir a paleta de cores produz um ganho real de tamanho.
+   *
+   * Verdadeiro so onde foi medido. Num PNG e a unica forma de reduzir o
+   * ficheiro, porque nao ha qualidade para baixar e recomprimir sem perda da
+   * 0,0 %. Ver docs/medicoes.md.
+   *
+   * Falso nos formatos com qualidade com perda, onde baixar a qualidade e o
+   * caminho normal e mais eficaz, e falso no GIF, que ja e um formato de
+   * paleta e nao tem cores a mais para retirar.
+   */
+  readonly supportsPalette: boolean
+
+  /**
    * Qualidade mais alta que o encoder com perda aceita.
    *
    * Nao e sempre 100, e as razoes sao diferentes em cada formato:
@@ -129,6 +142,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: false,
     supportsQuality: true,
+    supportsPalette: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'JPEG',
@@ -153,6 +167,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    supportsPalette: true,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'PNG',
@@ -177,6 +192,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: true,
     supportsLossless: true,
     supportsQuality: true,
+    supportsPalette: false,
     maxQuality: 99,
     supportsResize: true,
     magickFormat: 'WEBP',
@@ -200,6 +216,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: false,
     supportsQuality: true,
+    supportsPalette: false,
     maxQuality: 99,
     supportsResize: true,
     magickFormat: 'AVIF',
@@ -226,6 +243,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: true,
     supportsLossless: true,
     supportsQuality: false,
+    supportsPalette: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'GIF',
@@ -253,6 +271,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    supportsPalette: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'BMP',
@@ -280,6 +299,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    supportsPalette: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'TIFF',
@@ -306,6 +326,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: false,
+    supportsPalette: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'ICO',
@@ -333,6 +354,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: true,
     supportsQuality: true,
+    supportsPalette: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'JXL',
@@ -357,6 +379,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsAnimation: false,
     supportsLossless: false,
     supportsQuality: false,
+    supportsPalette: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'HEIC',

@@ -32,6 +32,7 @@ import { FormatSelect } from './FormatSelect'
 import { FramesNotice } from './FramesNotice'
 import { ImagePreview } from './ImagePreview'
 import { MetadataControl } from './MetadataControl'
+import { PaletteControl } from './PaletteControl'
 import { QualityControl } from './QualityControl'
 import { ResizeControls } from './ResizeControls'
 import styles from './ConverterWorkbench.module.css'
@@ -186,6 +187,13 @@ export function ConverterWorkbench() {
               onQualidade={(valor) => conversor.definirQualidade(job.id, valor)}
               onPreset={(preset) => conversor.definirPreset(job.id, preset)}
               onSemPerda={(valor) => conversor.definirSemPerda(job.id, valor)}
+              disabled={definicoesBloqueadas}
+            />
+
+            <PaletteControl
+              outputFormat={job.options.outputFormat}
+              palette={job.options.palette}
+              onChange={(palette) => conversor.definirPaleta(job.id, palette)}
               disabled={definicoesBloqueadas}
             />
 

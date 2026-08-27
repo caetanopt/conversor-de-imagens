@@ -1,0 +1,35 @@
+.envolvente {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Mesmo padrao do sem perda e do redimensionamento, para os interruptores do
+   painel se lerem todos da mesma forma. */
+.ligar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.nota {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+  line-height: var(--leading-relaxed);
+}
+
+/* Consequencia a declarar, nao erro. Mesmo tratamento do aviso de qualidade. */
+.aviso {
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+  line-height: var(--leading-relaxed);
+  padding: var(--space-2) var(--space-3);
+  background: var(--state-caution-quiet);
+  border-left: 3px solid var(--state-caution);
+  border-radius: var(--radius-xs);
+}

@@ -51,6 +51,18 @@ export type ConversionOptions = {
   readonly lossless: boolean
   /** Presente no tipo desde ja, ligado a interface numa etapa posterior. */
   readonly resize: ResizeOptions | null
+  /**
+   * Numero de cores da paleta, ou null para nao reduzir.
+   *
+   * E a unica forma de reduzir de facto o tamanho de um PNG: o formato nao tem
+   * qualidade com perda, e recomprimir sem perda nao ganha nada (medido: 0,0 %,
+   * ver docs/medicoes.md). Reduzir a paleta ganha 68 % na mesma imagem, e e o
+   * que ferramentas como o TinyPNG fazem.
+   *
+   * Perde informacao, por isso e sempre uma escolha explicita do utilizador e
+   * nunca entra por defeito nem por preset. CLAUDE.md, seccao 11.
+   */
+  readonly palette: number | null
 }
 
 /** Resultado de `inspect`: lido dos cabecalhos, sem descodificar os pixels. */

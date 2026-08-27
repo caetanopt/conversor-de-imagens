@@ -55,6 +55,10 @@ export function ConversionModeControl({
     modo === 'otimizar' &&
     formatoDeOtimizacao !== null &&
     !recomprimeNoMesmoFormato(formatoDeOtimizacao)
+  // Onde a paleta e uma alavanca real, o aviso aponta para ela em vez de dizer
+  // que so ha metadados a ganhar, que era falso num PNG.
+  const podeReduzirPaleta =
+    formatoDeOtimizacao !== null && formatoPorId(formatoDeOtimizacao).supportsPalette
 
   return (
     <div className={styles.envolvente}>
@@ -83,8 +87,10 @@ export function ConversionModeControl({
       {semRecompressao ? (
         <p className={styles.aviso}>
           {etiquetaOrigem} não tem compressão com perda, por isso otimizar sem mudar de formato
-          não recomprime a imagem. O único ganho possível vem da remoção de metadados. Para
-          ficheiros bastante mais pequenos, converta para WebP.
+          não recomprime a imagem.{' '}
+          {podeReduzirPaleta
+            ? `Para reduzir de facto o tamanho, ligue "Reduzir paleta de cores" abaixo: corta mais de metade num ${etiquetaOrigem} típico, à custa de usar menos cores. Converter para WebP desce ainda mais.`
+            : 'O único ganho possível vem da remoção de metadados. Para ficheiros bastante mais pequenos, converta para WebP.'}
         </p>
       ) : null}
     </div>

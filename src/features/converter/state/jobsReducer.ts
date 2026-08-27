@@ -57,6 +57,7 @@ export type ConverterAction =
   | { readonly type: 'qualidade'; readonly id: string; readonly quality: number }
   | { readonly type: 'preset'; readonly id: string; readonly preset: PresetId }
   | { readonly type: 'sem-perda'; readonly id: string; readonly lossless: boolean }
+  | { readonly type: 'paleta'; readonly id: string; readonly palette: number | null }
   | { readonly type: 'metadados'; readonly id: string; readonly metadata: MetadataPolicy }
   | { readonly type: 'resize'; readonly id: string; readonly resize: ResizeOptions | null }
   | { readonly type: 'modo'; readonly mode: ConversionMode }
@@ -111,7 +112,8 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
           options.quality !== job.options.quality ||
           options.metadata !== job.options.metadata ||
           options.resize !== job.options.resize ||
-          options.lossless !== job.options.lossless
+          options.lossless !== job.options.lossless ||
+          options.palette !== job.options.palette
 
         if (!mudou) return job
 
@@ -216,6 +218,16 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
         },
       }))
 
+    case 'paleta':
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        // Muda os bytes de saida, logo o resultado anterior deixa de
+        // corresponder ao que esta selecionado.
+        status: job.status === 'done' ? 'ready' : job.status,
+        result: null,
+        options: { ...job.options, palette: acao.palette },
+      }))
+
     case 'metadados':
       return atualizar(estado, acao.id, (job) => ({
         ...job,
@@ -309,6 +321,10 @@ export function opcoesParaFormato(
     // Sem perda so se transporta para um formato onde seja uma escolha. Num
     // PNG a opcao nao existe, porque o formato ja e sem perda.
     lossless: permiteEscolherSemPerda(formato) ? anteriores.lossless : false,
+    // A reducao de paleta tambem nao se transporta para onde nao tem efeito:
+    // num JPEG quantizar antes de comprimir so degrada a imagem sem ganhar
+    // bytes, e o controlo nem aparece.
+    palette: formato.supportsPalette ? anteriores.palette : null,
   }
 }
 
@@ -325,6 +341,9 @@ export function opcoesPorDefeito(outputFormat: FormatId): ConversionOptions {
     autoOrient: true,
     lossless: false,
     resize: null,
+    // Desligada por defeito: perde informacao, e a seccao 11 do CLAUDE.md
+    // manda que a reducao de paleta seja uma escolha explicita.
+    palette: null,
   }
 }
 

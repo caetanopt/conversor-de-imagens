@@ -91,6 +91,7 @@ export function PainelDeDiagnostico() {
           autoOrient: true,
           lossless: false,
           resize: null,
+          palette: null,
         })
         amostras.push({
           formato,
