@@ -4,16 +4,17 @@
  *
  * O motor fica mockado por inteiro: o hook nao sabe nada de ImageMagick, e os
  * pontos de controlo de que preciso sao quando `miniatura()` e `convert()`
- * resolvem. TIFF porque o browser nunca o descodifica (browserDecodable e
- * falso), o que garante que criarPreview() volta null e a miniatura vem
- * sempre do motor mockado, sem depender de createImageBitmap existir em
- * jsdom.
+ * resolvem. A pre-visualizacao pelo browser tambem fica mockada a null, para
+ * a miniatura vir sempre do motor e nao depender de createImageBitmap existir
+ * em jsdom.
  */
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { FormatId } from '@/config/formats'
 import type { ImageInspection } from '@/features/converter/types'
 import { contarObjectUrlsAtivos } from '@/lib/files/objectUrls'
+import type * as PreviewModule from '@/lib/files/preview'
 import type * as ReadFileModule from '@/lib/files/readFile'
 import type { ContextoDaTarefa } from '@/lib/image-engine/client/EngineClient'
 import type { EngineCapabilities } from '@/lib/image-engine/ImageEngine'
@@ -24,20 +25,35 @@ let ultimoContextoDaMiniatura: ContextoDaTarefa | null = null
 /** Tamanho que o motor falso devolve de convert(). Ajustavel por teste. */
 let tamanhoConvertido = 8
 
-// O File do jsdom nao implementa slice(...).arrayBuffer(), so mesmo motivo
-// por que tests/unit/engineClient.test.ts corre em ambiente node (comentario
-// nesse ficheiro). Aqui precisamos de jsdom para renderHook, por isso e
-// lerCabecalho que fica falso em vez do ambiente inteiro.
+/**
+ * Bytes e formato da fonte, partilhados pelos mocks de leitura e de inspecao.
+ *
+ * Ficam numa variavel para um teste poder trocar o contentor: TIFF para os
+ * casos em que basta um formato qualquer, WebP para exercitar a limpeza de
+ * metadados a serio, que so existe em JPEG, PNG e WebP.
+ */
+let bytesDaFonte: Uint8Array<ArrayBuffer> = bytesTiff()
+let formatoDaFonte: FormatId = 'tiff'
+
+// O File do jsdom nao implementa arrayBuffer() nem slice(...).arrayBuffer(),
+// so mesmo motivo por que tests/unit/engineClient.test.ts corre em ambiente
+// node (comentario nesse ficheiro). Aqui precisamos de jsdom para renderHook,
+// por isso e a leitura que fica falsa em vez do ambiente inteiro.
 vi.mock('@/lib/files/readFile', async (importarReal) => {
   const real = await importarReal<typeof ReadFileModule>()
   return {
     ...real,
-    lerCabecalho: async (): Promise<Uint8Array> => {
-      const cabecalho = new Uint8Array(32)
-      cabecalho.set([0x49, 0x49, 0x2a, 0x00]) // assinatura TIFF little-endian
-      return cabecalho
-    },
+    lerCabecalho: async (): Promise<Uint8Array> => bytesDaFonte.slice(0, 32),
+    lerComoBuffer: async (): Promise<ArrayBuffer> => bytesDaFonte.slice().buffer,
   }
+})
+
+// A miniatura vem sempre do motor, nunca do browser: jsdom nao tem
+// createImageBitmap, e deixar o caminho do browser em jogo tornava incerto
+// se `miniatura()` chegava a ser chamada — os testes esperam por ela.
+vi.mock('@/lib/files/preview', async (importarReal) => {
+  const real = await importarReal<typeof PreviewModule>()
+  return { ...real, criarPreview: async (): Promise<null> => null }
 })
 
 vi.mock('@/lib/image-engine/client/EngineClient', () => {
@@ -48,8 +64,8 @@ vi.mock('@/lib/image-engine/client/EngineClient', () => {
 
     async inspect(): Promise<ImageInspection> {
       return {
-        formatId: 'tiff',
-        magickFormat: 'TIFF',
+        formatId: formatoDaFonte,
+        magickFormat: formatoDaFonte.toUpperCase(),
         width: 400,
         height: 300,
         frameCount: 1,
@@ -114,10 +130,75 @@ vi.mock('@/lib/image-engine/client/EngineClient', () => {
 
 const { useConverter } = await import('@/features/converter/hooks/useConverter')
 
-function ficheiroTiff(nome = 'foto.tif'): File {
+function bytesTiff(): Uint8Array<ArrayBuffer> {
   const cabecalho = new Uint8Array(32)
   cabecalho.set([0x49, 0x49, 0x2a, 0x00]) // assinatura TIFF little-endian
-  return new File([cabecalho], nome, { type: 'image/tiff' })
+  return cabecalho
+}
+
+const PRIVADO = 'SN-0123456789'
+
+/**
+ * WebP minimo com um bloco EXIF que carrega uma string identificavel.
+ *
+ * Serve para provar que a limpeza tira o bloco: o teste procura a string nos
+ * bytes que o utilizador recebe.
+ */
+function bytesWebp(): Uint8Array<ArrayBuffer> {
+  const ascii = (t: string) => [...t].map((c) => c.charCodeAt(0))
+  const bloco = (fourcc: string, dados: readonly number[]) => {
+    const n = dados.length
+    return [
+      ...ascii(fourcc),
+      n & 0xff,
+      (n >>> 8) & 0xff,
+      (n >>> 16) & 0xff,
+      (n >>> 24) & 0xff,
+      ...dados,
+      ...(n % 2 === 1 ? [0] : []),
+    ]
+  }
+
+  // VP8X com o bit do EXIF (0x08) ligado, VP8 como substituto dos pixeis.
+  const corpo = [
+    ...bloco('VP8X', [0x08, 0, 0, 0, 0x0f, 0, 0, 0x0f, 0, 0]),
+    ...bloco('VP8 ', [1, 2, 3, 4, 5, 6, 7, 8]),
+    ...bloco('EXIF', ascii(PRIVADO)),
+  ]
+  const tamanho = 4 + corpo.length
+
+  return new Uint8Array([
+    ...ascii('RIFF'),
+    tamanho & 0xff,
+    (tamanho >>> 8) & 0xff,
+    (tamanho >>> 16) & 0xff,
+    (tamanho >>> 24) & 0xff,
+    ...ascii('WEBP'),
+    ...corpo,
+  ])
+}
+
+/** O Blob do jsdom nao tem arrayBuffer(), mas o FileReader le-o. */
+async function lerBlob(blob: Blob): Promise<Uint8Array<ArrayBuffer>> {
+  if (typeof blob.arrayBuffer === 'function') return new Uint8Array(await blob.arrayBuffer())
+  return new Promise((resolve, reject) => {
+    const leitor = new FileReader()
+    leitor.onload = () => resolve(new Uint8Array(leitor.result as ArrayBuffer))
+    leitor.onerror = () => reject(leitor.error)
+    leitor.readAsArrayBuffer(blob)
+  })
+}
+
+function ficheiroTiff(nome = 'foto.tif'): File {
+  bytesDaFonte = bytesTiff()
+  formatoDaFonte = 'tiff'
+  return new File([bytesDaFonte], nome, { type: 'image/tiff' })
+}
+
+function ficheiroWebp(nome = 'foto.webp'): File {
+  bytesDaFonte = bytesWebp()
+  formatoDaFonte = 'webp'
+  return new File([bytesDaFonte], nome, { type: 'image/webp' })
 }
 
 describe('useConverter', () => {
@@ -126,6 +207,8 @@ describe('useConverter', () => {
     chamadasConvert = 0
     ultimoContextoDaMiniatura = null
     tamanhoConvertido = 8
+    bytesDaFonte = bytesTiff()
+    formatoDaFonte = 'tiff'
   })
 
   afterEach(() => {
@@ -224,14 +307,12 @@ describe('useConverter', () => {
 
   /**
    * Otimizar promete reduzir o ficheiro, CLAUDE.md seccao 12. Sem
-   * redimensionar, no mesmo formato e com a politica de metadados em
-   * 'manter', uma recompressao que piora o tamanho nao serve o utilizador
-   * para nada: o original ja e o melhor resultado, e nada e perdido ao usa-lo
-   * porque 'manter' ja nao ia eliminar metadados nenhuns.
+   * redimensionar e no mesmo formato, uma recompressao que piora o tamanho
+   * nao serve o utilizador para nada: o original tem os mesmos pixeis num
+   * ficheiro menor.
    */
-  async function converterComTamanho(tamanho: number) {
+  async function converterComTamanho(tamanho: number, ficheiro = ficheiroTiff()) {
     tamanhoConvertido = tamanho
-    const ficheiro = ficheiroTiff()
     const { result } = renderHook(() => useConverter())
 
     let promessa!: Promise<void>
@@ -248,7 +329,7 @@ describe('useConverter', () => {
     return { result, id, ficheiro }
   }
 
-  it('sem ganho, no mesmo formato, sem redimensionar e a manter metadados, mantem o ficheiro original', async () => {
+  it('sem ganho, no mesmo formato, sem redimensionar e a manter metadados, fica com o tamanho do original', async () => {
     const { result, id, ficheiro } = await converterComTamanho(999)
     act(() => {
       result.current.definirFormatoDeSaida(id, 'tiff') // mesmo formato da origem
@@ -261,19 +342,39 @@ describe('useConverter', () => {
 
     const job = result.current.jobs[0]!
     expect(job.result?.size).toBe(ficheiro.size)
-    expect(job.result?.blob).toBe(ficheiro)
   })
 
-  it('a remover ou preservar metadados, um aumento de tamanho fica visivel em vez de reintroduzir metadados', async () => {
-    // O original tem os metadados que a politica por defeito pede para
-    // eliminar. Devolve-lo como "otimizado" seria reintroduzir GPS, autor ou
-    // numero de serie que o utilizador pediu para tirar — pior do que
-    // entregar um ficheiro maior. CLAUDE.md, seccao 20.
+  it('sem ganho e a preservar a cor, entrega o original limpo em vez de um ficheiro maior', async () => {
+    // O caso que o utilizador encontrou: WebP bem comprimido, preset de
+    // qualidade alta, politica de metadados por defeito. O resultado tem de
+    // ser menor ou igual ao original E sem os metadados privados.
+    const { result, id, ficheiro } = await converterComTamanho(999, ficheiroWebp())
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'webp')
+      result.current.definirMetadados(id, 'preservar-cor')
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    const job = result.current.jobs[0]!
+    // Nunca maior do que o original, e menor porque o EXIF saiu.
+    expect(job.result?.size).toBeLessThan(ficheiro.size)
+
+    // E os metadados privados nao voltaram pela porta do lado.
+    const recebidos = await lerBlob(job.result!.blob)
+    const comoTexto = String.fromCharCode(...recebidos)
+    expect(comoTexto).not.toContain(PRIVADO)
+  })
+
+  it('num contentor que nao sabemos limpar, um aumento fica visivel em vez de reintroduzir metadados', async () => {
+    // TIFF nao entra na limpeza ao nivel do contentor. Sem garantia a dar,
+    // a escolha honesta e mostrar o aumento: devolver o original reintroduzia
+    // os metadados que a politica pediu para eliminar. CLAUDE.md, seccao 20.
     const { result, id, ficheiro } = await converterComTamanho(999)
     act(() => {
       result.current.definirFormatoDeSaida(id, 'tiff')
-      // 'preservar-cor' e o valor por defeito; explicito aqui para o teste
-      // nao depender de nunca mudar.
       result.current.definirMetadados(id, 'preservar-cor')
     })
 

@@ -24,7 +24,8 @@ import { trocarExtensao } from '@/lib/download/fileNames'
 import { criarZip, nomeDoZip } from '@/lib/download/zipResults'
 import { revogarObjectUrl, revogarTodosOsObjectUrls } from '@/lib/files/objectUrls'
 import { criarPreview, previewDeBlob } from '@/lib/files/preview'
-import { lerCabecalho } from '@/lib/files/readFile'
+import { lerCabecalho, lerComoBuffer } from '@/lib/files/readFile'
+import { limparMetadados } from '@/lib/files/stripMetadata'
 import { validarFicheiro, validarInspecao } from '@/lib/validation/validateFile'
 import {
   criarJob,
@@ -274,24 +275,26 @@ export function useConverter() {
          * Otimizar nunca pode entregar um ficheiro maior do que o original.
          * CLAUDE.md, seccao 12, promete o oposto: "reduz o tamanho do
          * ficheiro". Sem redimensionar e no mesmo formato, uma recompressao
-         * que nao ganhe nada fica sem utilidade — o proprio original e o
-         * melhor resultado possivel, e fica esse em vez de algo pior.
+         * que nao ganhe nada fica sem utilidade — o original tem os mesmos
+         * pixeis num ficheiro menor.
          *
-         * So quando a politica de metadados e 'manter': o original tem
-         * exatamente os metadados que o utilizador pediu para manter, mas
-         * com 'remover' ou 'preservar-cor' ele tem os que foram pedidos para
-         * eliminar. Entregar esse ficheiro devolvia GPS, autor ou numero de
-         * serie que o utilizador explicitamente pediu para tirar — pior do
-         * que um ficheiro maior. CLAUDE.md, seccao 20: entre conveniencia e
-         * privacidade, a privacidade ganha.
+         * Nao serve devolver o original tal e qual: ele ainda tem os
+         * metadados que a politica pediu para eliminar, e reintroduzir GPS,
+         * autor ou numero de serie seria pior do que um ficheiro maior.
+         * limparMetadados() resolve as duas coisas, tirando os metadados do
+         * contentor sem recodificar os pixeis, portanto o resultado nunca e
+         * maior do que o original nem traz de volta o que foi pedido para
+         * tirar.
          */
-        const semGanho =
+        const alternativa =
           job.options.resize === null &&
-          job.options.metadata === 'manter' &&
           job.options.outputFormat === job.sourceFormat &&
           resultado.size > job.sourceSize
-        const blobFinal = semGanho ? job.file : resultado.blob
-        const sizeFinal = semGanho ? job.sourceSize : resultado.size
+            ? await originalSemMetadados(job)
+            : null
+        const usarOriginal = alternativa !== null && alternativa.size < resultado.size
+        const blobFinal = usarOriginal ? alternativa.blob : resultado.blob
+        const sizeFinal = usarOriginal ? alternativa.size : resultado.size
 
         dispatch({
           type: 'resultado',
@@ -567,6 +570,32 @@ const ERRO_MOTOR_INDISPONIVEL: JobError = {
   kind: 'motor-indisponivel',
   message:
     'Não foi possível preparar o motor de conversão. Verifique a ligação e recarregue a página.',
+}
+
+/**
+ * O original a cumprir a politica de metadados, quando isso e possivel.
+ *
+ * Serve de alternativa quando o encoder produz um ficheiro maior do que a
+ * entrada. Devolve null quando nao ha garantia a dar: contentor que nao
+ * sabemos percorrer, estrutura inesperada, ou falha de leitura. Nesses casos
+ * quem chama fica com o resultado do motor e o aumento aparece, como manda a
+ * seccao 24.
+ */
+async function originalSemMetadados(job: ImageJob): Promise<{ blob: Blob; size: number } | null> {
+  if (!job.sourceFormat) return null
+
+  try {
+    const bytes = new Uint8Array(await lerComoBuffer(job.file))
+    const limpo = limparMetadados(bytes, job.sourceFormat, job.options.metadata)
+    if (limpo === null) return null
+
+    return {
+      blob: new Blob([limpo.bytes], { type: job.file.type }),
+      size: limpo.bytes.byteLength,
+    }
+  } catch {
+    return null
+  }
 }
 
 /**

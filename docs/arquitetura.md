@@ -220,6 +220,36 @@ Duas honestidades que as medições impuseram na interface:
 
 Ver `docs/medicoes.md` para os números.
 
+### Otimizar nunca devolve um ficheiro maior
+
+Recomprimir uma imagem que já vem bem comprimida pode produzir um ficheiro
+maior do que a entrada: o nosso encoder não sabe com que qualidade o original
+foi escrito, e a qualidade 90 de um WebP que já tinha sido escrito mais abaixo
+custa mais bytes. Prometer redução e entregar um aumento é uma contradição com
+a secção 12 do `CLAUDE.md`.
+
+Quando isso acontece, e só no mesmo formato e sem redimensionar, o resultado
+passa a ser o original. Mas não o original tal e qual: ele ainda tem os
+metadados que a política mandou eliminar, e devolver GPS ou autor depois de o
+utilizador pedir para os tirar seria trocar privacidade por bytes.
+
+`lib/files/stripMetadata.ts` resolve as duas coisas ao mesmo tempo. Percorre o
+contentor e retira os blocos de metadados sem descodificar nem recomprimir
+nada:
+
+- **JPEG**, segmentos `APP1` (EXIF e XMP), `APP13` (IPTC) e `COM`; o `APP2` com
+  o perfil ICC só sai em `remover`.
+- **PNG**, blocos `eXIf`, `tEXt`, `zTXt`, `iTXt` e `tIME`; o `iCCP` só sai em
+  `remover`. Os blocos ficam intactos, portanto os CRC continuam válidos.
+- **WebP**, blocos `EXIF` e `XMP `; o `ICCP` só sai em `remover`. Além disso
+  corrige o tamanho declarado no cabeçalho RIFF e os bits do `VP8X` que
+  anunciam quais dos blocos opcionais existem.
+
+Como só retira bytes, a saída nunca é maior do que a entrada, e os pixéis
+ficam byte a byte iguais. Nos contentores que não sabe percorrer (AVIF, TIFF,
+GIF, BMP, ICO) devolve `null` e o aumento aparece na interface, como manda a
+secção 24: sem garantia a dar, mais vale dizer a verdade.
+
 ## Redimensionamento
 
 A previsão que a interface mostra e a geometria que o motor executa são a mesma
