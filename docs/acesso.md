@@ -57,21 +57,47 @@ exactamente o que esta montagem faz.
 Cloudflare com o proxy ativo (nuvem laranja). Se o site estiver alojado em
 Cloudflare Pages, já está.
 
+São duas partes, e **a ordem importa**. O método de login configura-se ao nível
+da conta, e não dentro da aplicação. Criar a aplicação primeiro leva ao erro
+descrito no fim desta secção.
+
+### Parte A: método de login, uma vez por conta
+
+Uma organização Zero Trust nova traz como método de login por defeito o
+**Cloudflare identity provider**. O **One-time PIN já não é adicionado
+automaticamente**, ao contrário do que acontecia antes: tem de ser ligado à mão.
+
 1. Cloudflare Dashboard → **Zero Trust**
-2. **Access → Applications → Add an application → Self-hosted**
-3. **Application name:** `Conversor de Imagens`
-4. **Session Duration:** `1 week` (ver a nota abaixo)
-5. **Application domain:** o domínio ou subdomínio onde o conversor está
-6. **Policies → Add a policy:**
+2. **Integrations → Identity providers**
+3. **Add new identity provider**
+4. Escolher:
+   - **One-time PIN**, se a equipa não tiver fornecedor de identidade. É um
+     código enviado por email e não exige montar mais nada.
+   - **Google Workspace** ou **Microsoft Entra ID**, se a empresa já usar um
+     deles. É preferível: quem sai da empresa perde o acesso no mesmo momento
+     em que perde a conta, sem ninguém ter de se lembrar de o retirar aqui.
+
+### Parte B: a aplicação
+
+5. **Access → Applications → Add an application → Self-hosted**
+6. **Application name:** `Conversor de Imagens`
+7. **Session Duration:** `1 week` (ver a nota abaixo)
+8. **Application domain:** o domínio ou subdomínio onde o conversor está
+9. **Policies → Add a policy:**
    - **Policy name:** `Equipa Caetano`
    - **Action:** `Allow`
    - **Include:** `Emails ending in` → `@caetano.pt`
-7. **Login methods:** deixar apenas `One-time PIN`. É um código enviado por
-   email e não exige montar nenhum fornecedor de identidade. Se a empresa já
-   usa Google Workspace ou Microsoft 365, vale mais ligar esse fornecedor e
-   desativar o PIN, porque assim quem sai da empresa perde o acesso no mesmo
-   momento em que perde a conta.
-8. **Save.**
+10. Métodos de login aceites: por defeito vem **Accept all available identity
+    providers**, que serve. Se quiser restringir a um só, desmarcar essa opção e
+    escolher da lista os que foram configurados na Parte A.
+11. **Save.**
+
+### O erro que a inversão da ordem provoca
+
+Se a aplicação for criada sem o One-time PIN estar configurado na Parte A, a
+política aceita o email mas **o código nunca chega**, porque o Access só envia
+PIN se esse método de login existir na conta. Parece avaria de entrega de email
+e não é: é um método de login em falta.
 
 Confirmar os limites do escalão gratuito antes de contar com ele. Historicamente
 cobre equipas pequenas, na ordem das dezenas de utilizadores, mas os planos
