@@ -94,7 +94,7 @@ export function FileQueueItem({
         )}
 
         <Button
-          variante="discreto"
+          variante="secundario"
           className={styles.remover}
           onClick={() => onRemover(job.id)}
           aria-label={`Remover ${job.sourceName}`}

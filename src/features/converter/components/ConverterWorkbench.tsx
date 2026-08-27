@@ -237,6 +237,7 @@ export function ConverterWorkbench() {
         <BatchActionBar
           resumo={resumo}
           selecionado={job}
+          mode={conversor.mode}
           motorPronto={conversor.estadoDoMotor === 'pronto'}
           aAnalisar={conversor.aAnalisar}
           aEmpacotar={conversor.aEmpacotar}

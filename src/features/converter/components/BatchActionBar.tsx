@@ -16,13 +16,14 @@ import { formatoPorId } from '@/config/formats'
 import { formatarBytes } from '@/lib/format/bytes'
 import { compararTamanhos, formatarVariacao } from '@/lib/format/percent'
 import type { ResumoDoLote } from '../state/selectors'
-import type { ImageJob } from '../types'
+import type { ConversionMode, ImageJob } from '../types'
 import styles from './BatchActionBar.module.css'
 
 type Props = {
   readonly resumo: ResumoDoLote
   /** Ficheiro em foco. Com um unico ficheiro na fila e sempre esse. */
   readonly selecionado: ImageJob | null
+  readonly mode: ConversionMode
   readonly motorPronto: boolean
   readonly aAnalisar: boolean
   readonly aEmpacotar: boolean
@@ -36,6 +37,7 @@ type Props = {
 export function BatchActionBar({
   resumo,
   selecionado,
+  mode,
   motorPronto,
   aAnalisar,
   aEmpacotar,
@@ -97,7 +99,7 @@ export function BatchActionBar({
             disabled={!podeConverter}
             aria-busy={aProcessar}
           >
-            {textoDeConverter(resumo, aProcessar, aAnalisar, selecionado)}
+            {textoDaAcaoPrincipal(resumo, aProcessar, aAnalisar, selecionado, mode)}
           </Button>
         ) : null}
       </div>
@@ -182,21 +184,28 @@ function textoDeFalhas(resumo: ResumoDoLote): string {
   return partes.join(' e ')
 }
 
-function textoDeConverter(
+/**
+ * O verbo segue o modo em vigor, nao o modo em que o ficheiro entrou na fila.
+ * Sem isto o botao ficava preso no texto de "Converter" mesmo depois de o
+ * utilizador escolher "Otimizar", porque nada voltava a ler o modo atual.
+ */
+function textoDaAcaoPrincipal(
   resumo: ResumoDoLote,
   aProcessar: boolean,
   aAnalisar: boolean,
   selecionado: ImageJob | null,
+  mode: ConversionMode,
 ): string {
+  const acao = mode === 'otimizar' ? 'Otimizar' : 'Converter'
   if (aAnalisar) return 'A analisar ficheiros...'
-  if (aProcessar) return 'A converter...'
+  if (aProcessar) return mode === 'otimizar' ? 'A otimizar...' : 'A converter...'
   if (resumo.total > 1) {
-    // Com o lote todo recusado, "Converter 0 imagens" seria absurdo.
-    if (resumo.porConverter === 0) return 'Nada para converter'
-    return `Converter ${resumo.porConverter} ${resumo.porConverter === 1 ? 'imagem' : 'imagens'}`
+    // Com o lote todo recusado, "Otimizar 0 imagens" seria absurdo.
+    if (resumo.porConverter === 0) return `Nada para ${acao.toLowerCase()}`
+    return `${acao} ${resumo.porConverter} ${resumo.porConverter === 1 ? 'imagem' : 'imagens'}`
   }
-  if (!selecionado) return 'Converter'
-  return `Converter para ${formatoPorId(selecionado.options.outputFormat).label}`
+  if (!selecionado) return acao
+  return `${acao} para ${formatoPorId(selecionado.options.outputFormat).label}`
 }
 
 function textoDeDescarregar(
