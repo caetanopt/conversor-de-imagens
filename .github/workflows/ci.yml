@@ -1,0 +1,47 @@
+name: CI
+
+# A suite local e extensa (typecheck, lint, testes unitarios, e2e em dois
+# perfis Playwright) mas nada a corria automaticamente antes de um push ou PR
+# chegar ao repositorio remoto — cada verificacao dependia de alguem a correr
+# a mao. Dois trabalhos, para o feedback rapido (typecheck, lint, testes
+# unitarios, build) nao esperar pelo mais lento (Playwright): ver
+# package.json para os scripts que cada passo usa.
+
+"on":
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verificar (typecheck, lint, testes, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run verify:all
+
+  e2e:
+    name: Testes end-to-end (Playwright, Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run fixtures
+      - run: npm run test:e2e:chromium

@@ -52,6 +52,10 @@ npm run test:e2e      # testes end to end, exige build e fixtures
 O `verify` inclui o teste de contraste dos tokens de cor, e o `test:e2e` inclui
 a verificação das seis larguras da secção 21 do CLAUDE.md.
 
+`.github/workflows/ci.yml` corre `verify:all` e `test:e2e:chromium` a cada
+push e pull request, em dois trabalhos separados para o feedback rápido não
+esperar pelo Playwright.
+
 As fixtures são geradas e não versionadas. Incluem JPEG progressivo, JPEG com
 EXIF e GPS, JPEG com perfil ICC AdobeRGB, JPEG CMYK, PNG com transparência,
 ficheiros corrompidos, truncados, vazios, com extensão errada, sem extensão, e
