@@ -167,10 +167,13 @@ Documentação mais detalhada em `docs/`.
 
 ## Identidade visual
 
-O manual de identidade da marca ainda não foi fornecido. Todos os valores
-visuais em `src/styles/tokens.css` são provisórios e estão assinalados como
-tal. Nenhum componente escreve uma cor, um tipo de letra, um raio ou um
-espaçamento literal: tudo lê variáveis CSS.
+O manual de identidade da marca foi fornecido e está aplicado:
+`docs/brand/Manual_Identidade_Caetano_042026.pdf`. A paleta, a tipografia
+Montserrat e o lettering em `src/styles/tokens.css` e
+`src/components/brand/CaetanoLettering.tsx` vêm de lá. Nenhum componente
+escreve uma cor, um tipo de letra, um raio ou um espaçamento literal: tudo lê
+variáveis CSS.
 
-Quando o manual existir, deve ser colocado em `docs/brand/` e lido antes de
-qualquer trabalho visual.
+`docs/brand/README.md` documenta o que veio diretamente do manual, o que foi
+derivado e porquê, e as decisões que ainda pedem confirmação do responsável
+da marca. Ler antes de qualquer trabalho visual.

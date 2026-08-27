@@ -181,12 +181,15 @@ entre motores. So medido no Chromium.
 
 ## Viewports
 
-Testados em Chromium: 1440 e 390 px de largura, atraves dos perfis
-`desktop` e `movel` do Playwright. Os pontos de rutura declarados no CSS sao
-520, 768, 1024 e 1440 px.
+`tests/e2e/responsive.spec.ts` testa as seis larguras da seccao 21 do
+CLAUDE.md — 360, 390, 768, 1024, 1280 e 1440 px — atraves dos perfis
+`desktop` e `movel` do Playwright, ambos em Chromium. Os pontos de rutura
+declarados no CSS sao 520, 768, 1024 e 1440 px.
 
-Ainda nao verificados nos restantes valores exigidos pelo CLAUDE.md, seccao 21:
-360, 768, 1024 e 1280 px.
+O que o teste cobre: deslocamento horizontal da pagina, elementos a
+transbordar da propria caixa, o botao principal sempre visivel sem
+deslocamento, e alvos de toque de pelo menos 44 px sob ponteiro grosseiro
+(perfil `movel`). Nao cobre comparacao visual pixel a pixel.
 
 ---
 
