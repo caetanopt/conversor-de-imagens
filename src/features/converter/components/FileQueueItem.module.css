@@ -134,12 +134,26 @@
   position: relative;
   z-index: 1;
   flex: none;
+  padding: 0 var(--space-3);
+  font-size: var(--text-ui-small);
   /*
    * Sem margem negativa de proposito. Alinhava o texto do botao com a margem
    * do cartao, mas punha a area de clique por cima da propria moldura e fazia
    * a linha transbordar a sua caixa em todas as larguras testadas. O ganho
    * tipografico nao paga isso.
    */
+}
+
+/*
+ * Mais compacto do que o botao por defeito: aqui e uma accao secundaria ao
+ * lado do nome do ficheiro, nao uma accao principal. O alvo tatil de 44 px
+ * do componente base mantem-se onde o ponteiro e grosseiro.
+ */
+@media (pointer: fine) {
+  .remover {
+    min-height: 30px;
+    padding: 0 var(--space-2);
+  }
 }
 
 .acoes {
