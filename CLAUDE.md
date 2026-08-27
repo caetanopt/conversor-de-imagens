@@ -118,7 +118,11 @@ A conversão deve ser local no browser. O ficheiro não deve sair do dispositivo
 
 ### Fora do âmbito nesta fase
 
-1. Autenticação.
+1. Autenticação dentro da aplicação. Em agosto de 2026, a pedido do responsável
+   do projeto, o acesso passou a ser restringido à equipa por autenticação no
+   edge, à frente do site. Continua a não existir ecrã de login no produto,
+   base de dados, ou segredos no repositório, e a aplicação continua a ser um
+   export estático. Ver `docs/acesso.md`.
 2. Registo.
 3. Área pessoal.
 4. Histórico de conversões.
@@ -859,7 +863,9 @@ Os componentes não devem conhecer detalhes do ImageMagick. Devem falar apenas c
 
 O MVP só está concluído quando:
 
-1. É possível abrir a aplicação sem autenticação.
+1. É possível usar a aplicação sem criar conta, sem registo e sem qualquer ecrã
+   de login dentro do produto. O acesso ao site é restringido à equipa fora da
+   aplicação, no edge, sem que o código saiba disso. Ver `docs/acesso.md`.
 2. É possível selecionar várias imagens.
 3. É possível arrastar e largar imagens.
 4. A aplicação identifica o formato de cada imagem.

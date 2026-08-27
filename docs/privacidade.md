@@ -29,6 +29,22 @@ permite que a proibição seja absoluta e sem exceções.
 que nenhum tem corpo, que nenhum sai da nossa origem, e procura ativamente
 representações dos bytes da imagem em cada URL e em cada corpo.
 
+### O controlo de acesso não abre exceção a nada disto
+
+O conversor é uma ferramenta interna e o acesso está restringido à equipa. Essa
+restrição vive **à frente do site**, no edge, e não dentro da aplicação. Ver
+`docs/acesso.md`.
+
+A distinção importa para este documento: o que o edge decide é se os ficheiros
+da aplicação são entregues a quem os pede. Não recebe, não vê e não processa
+imagens, porque as imagens nunca chegam a sair do browser. A aplicação continua
+a ser um export estático, sem `route.ts` e sem server actions, e as três camadas
+acima continuam intactas e verificadas.
+
+O que passou a existir é registo de **quem acedeu e quando**, com email e IP,
+nos logs do fornecedor. Não é conteúdo de imagens, mas é tratamento de dados
+pessoais que antes não havia, e está registado como tal em `docs/acesso.md`.
+
 ---
 
 ## O ZIP é criado no dispositivo

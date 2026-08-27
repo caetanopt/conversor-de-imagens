@@ -80,6 +80,17 @@ A suite end to end é a prova de que não existe dependência de plataforma: ser
 o `out/` com `python3 -m http.server`, um servidor de ficheiros sem qualquer
 noção de Next.js.
 
+### Acesso restringido à equipa
+
+É uma ferramenta interna. O acesso é travado no edge, à frente do site, e não
+com um ecrã de login dentro da aplicação: o código não sabe que isto existe,
+não há base de dados, não há segredos para gerir e o export estático fica
+intacto.
+
+A configuração vive na conta Cloudflare e está documentada passo a passo em
+`docs/acesso.md`, incluindo o furo a tapar quando o site está alojado fora da
+Cloudflare e como verificar que ficou fechado.
+
 ## Diagnóstico em dispositivos reais
 
 ```bash
