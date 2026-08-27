@@ -21,6 +21,8 @@ import type { EngineCapabilities } from '@/lib/image-engine/ImageEngine'
 let resolverMiniatura: (() => void) | null = null
 let chamadasConvert = 0
 let ultimoContextoDaMiniatura: ContextoDaTarefa | null = null
+/** Tamanho que o motor falso devolve de convert(). Ajustavel por teste. */
+let tamanhoConvertido = 8
 
 // O File do jsdom nao implementa slice(...).arrayBuffer(), so mesmo motivo
 // por que tests/unit/engineClient.test.ts corre em ambiente node (comentario
@@ -88,7 +90,7 @@ vi.mock('@/lib/image-engine/client/EngineClient', () => {
       chamadasConvert += 1
       return {
         blob: new Blob([new Uint8Array(8)], { type: 'image/webp' }),
-        size: 8,
+        size: tamanhoConvertido,
         width: 400,
         height: 300,
         durationMs: 1,
@@ -123,6 +125,7 @@ describe('useConverter', () => {
     resolverMiniatura = null
     chamadasConvert = 0
     ultimoContextoDaMiniatura = null
+    tamanhoConvertido = 8
   })
 
   afterEach(() => {
@@ -217,5 +220,120 @@ describe('useConverter', () => {
 
     // 400 x 300 x 1 fotograma, os valores que o inspect() falso devolve.
     expect(ultimoContextoDaMiniatura?.pixels).toBe(400 * 300)
+  })
+
+  /**
+   * Otimizar promete reduzir o ficheiro, CLAUDE.md seccao 12. Sem
+   * redimensionar, no mesmo formato e com a politica de metadados em
+   * 'manter', uma recompressao que piora o tamanho nao serve o utilizador
+   * para nada: o original ja e o melhor resultado, e nada e perdido ao usa-lo
+   * porque 'manter' ja nao ia eliminar metadados nenhuns.
+   */
+  async function converterComTamanho(tamanho: number) {
+    tamanhoConvertido = tamanho
+    const ficheiro = ficheiroTiff()
+    const { result } = renderHook(() => useConverter())
+
+    let promessa!: Promise<void>
+    act(() => {
+      promessa = result.current.adicionarFicheiros([ficheiro])
+    })
+    await waitFor(() => expect(resolverMiniatura).not.toBeNull())
+    await act(async () => {
+      resolverMiniatura?.()
+      await promessa
+    })
+
+    const id = result.current.jobs[0]!.id
+    return { result, id, ficheiro }
+  }
+
+  it('sem ganho, no mesmo formato, sem redimensionar e a manter metadados, mantem o ficheiro original', async () => {
+    const { result, id, ficheiro } = await converterComTamanho(999)
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'tiff') // mesmo formato da origem
+      result.current.definirMetadados(id, 'manter')
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    const job = result.current.jobs[0]!
+    expect(job.result?.size).toBe(ficheiro.size)
+    expect(job.result?.blob).toBe(ficheiro)
+  })
+
+  it('a remover ou preservar metadados, um aumento de tamanho fica visivel em vez de reintroduzir metadados', async () => {
+    // O original tem os metadados que a politica por defeito pede para
+    // eliminar. Devolve-lo como "otimizado" seria reintroduzir GPS, autor ou
+    // numero de serie que o utilizador pediu para tirar — pior do que
+    // entregar um ficheiro maior. CLAUDE.md, seccao 20.
+    const { result, id, ficheiro } = await converterComTamanho(999)
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'tiff')
+      // 'preservar-cor' e o valor por defeito; explicito aqui para o teste
+      // nao depender de nunca mudar.
+      result.current.definirMetadados(id, 'preservar-cor')
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    const job = result.current.jobs[0]!
+    expect(job.result?.size).toBe(999)
+    expect(job.result?.blob).not.toBe(ficheiro)
+  })
+
+  it('quando a recompressao reduz o ficheiro, usa o resultado do motor', async () => {
+    const { result, id, ficheiro } = await converterComTamanho(8)
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'tiff')
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    const job = result.current.jobs[0]!
+    expect(job.result?.size).toBe(8)
+    expect(job.result?.blob).not.toBe(ficheiro)
+  })
+
+  it('ao mudar de formato, um aumento de tamanho fica visivel em vez de escondido', async () => {
+    const { result, id, ficheiro } = await converterComTamanho(999)
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'webp') // formato diferente da origem (tiff)
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    const job = result.current.jobs[0]!
+    expect(job.result?.size).toBe(999)
+    expect(job.result?.blob).not.toBe(ficheiro)
+  })
+
+  it('ao redimensionar, um aumento de tamanho tambem fica visivel', async () => {
+    const { result, id, ficheiro } = await converterComTamanho(999)
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'tiff')
+      result.current.definirResize(id, {
+        width: 100,
+        height: null,
+        preserveAspectRatio: true,
+        allowUpscale: false,
+      })
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    const job = result.current.jobs[0]!
+    expect(job.result?.size).toBe(999)
+    expect(job.result?.blob).not.toBe(ficheiro)
   })
 })

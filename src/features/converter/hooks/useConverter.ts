@@ -270,12 +270,35 @@ export function useConverter() {
         const resultado = await cliente().convert(job.file, job.options, contexto)
         if (!montadoRef.current) return 'ok'
 
+        /**
+         * Otimizar nunca pode entregar um ficheiro maior do que o original.
+         * CLAUDE.md, seccao 12, promete o oposto: "reduz o tamanho do
+         * ficheiro". Sem redimensionar e no mesmo formato, uma recompressao
+         * que nao ganhe nada fica sem utilidade — o proprio original e o
+         * melhor resultado possivel, e fica esse em vez de algo pior.
+         *
+         * So quando a politica de metadados e 'manter': o original tem
+         * exatamente os metadados que o utilizador pediu para manter, mas
+         * com 'remover' ou 'preservar-cor' ele tem os que foram pedidos para
+         * eliminar. Entregar esse ficheiro devolvia GPS, autor ou numero de
+         * serie que o utilizador explicitamente pediu para tirar — pior do
+         * que um ficheiro maior. CLAUDE.md, seccao 20: entre conveniencia e
+         * privacidade, a privacidade ganha.
+         */
+        const semGanho =
+          job.options.resize === null &&
+          job.options.metadata === 'manter' &&
+          job.options.outputFormat === job.sourceFormat &&
+          resultado.size > job.sourceSize
+        const blobFinal = semGanho ? job.file : resultado.blob
+        const sizeFinal = semGanho ? job.sourceSize : resultado.size
+
         dispatch({
           type: 'resultado',
           id: job.id,
           result: {
-            blob: resultado.blob,
-            size: resultado.size,
+            blob: blobFinal,
+            size: sizeFinal,
             width: resultado.width,
             height: resultado.height,
             formatId: job.options.outputFormat,
@@ -293,7 +316,7 @@ export function useConverter() {
           formatoDestino: job.options.outputFormat,
           pixels: resultado.width * resultado.height,
           bytesOrigem: job.sourceSize,
-          bytesDestino: resultado.size,
+          bytesDestino: sizeFinal,
           duracaoMs: resultado.durationMs,
         })
         return 'ok'
