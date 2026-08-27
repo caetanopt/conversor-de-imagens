@@ -25,6 +25,7 @@
  * falhar por razoes diferentes, e a mensagem tem de estar junto do ficheiro a
  * que pertence. CLAUDE.md, seccao 20.6.
  */
+import { useId } from 'react'
 import { Button } from '@/components/controls/Button'
 import { ErrorMessage } from '@/components/feedback/ErrorMessage'
 import { formatoPorId } from '@/config/formats'
@@ -63,6 +64,12 @@ export function FileQueueItem({
   const emFoco = lote && selecionado
   const podeDescarregar = job.status === 'done' && job.result !== null
   const podeCancelar = job.status === 'processing'
+  // Liga os controlos da linha ao erro, quando existe, para um leitor de
+  // ecra continuar a anunciar o erro ao voltar a esta linha mais tarde, nao
+  // so no instante em que role="alert" o anuncia pela primeira vez.
+  // CLAUDE.md, seccao 20.6.
+  const erroId = useId()
+  const descreverErro = job.error ? erroId : undefined
 
   return (
     <article className={`${styles.item} ${emFoco ? styles.selecionado : ''}`}>
@@ -75,6 +82,7 @@ export function FileQueueItem({
             className={styles.seletor}
             title={job.sourceName}
             aria-pressed={selecionado}
+            aria-describedby={descreverErro}
             onClick={() => onSelecionar(job.id)}
           >
             {job.sourceName}
@@ -90,6 +98,7 @@ export function FileQueueItem({
           className={styles.remover}
           onClick={() => onRemover(job.id)}
           aria-label={`Remover ${job.sourceName}`}
+          aria-describedby={descreverErro}
         >
           Remover
         </Button>
@@ -141,7 +150,7 @@ export function FileQueueItem({
         </div>
       ) : null}
 
-      {job.error ? <ErrorMessage erro={job.error} /> : null}
+      {job.error ? <ErrorMessage id={erroId} erro={job.error} /> : null}
     </article>
   )
 }
