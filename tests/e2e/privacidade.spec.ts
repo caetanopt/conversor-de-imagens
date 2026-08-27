@@ -79,7 +79,13 @@ test.describe('processamento local', () => {
       timeout: 120_000,
     })
     await expect(page.getByText('1200 x 800')).toBeVisible()
-    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+
+    // O modo por defeito, otimizar, mantem JPG. Este teste testa uma
+    // conversao de formato a serio, por isso escolhe-a de forma explicita.
+    const modoConverter = page.getByRole('radio', { name: 'Converter' })
+    await expect(modoConverter).toBeEnabled({ timeout: 120_000 })
+    await modoConverter.check()
+    await page.getByRole('radio', { name: 'WebP' }).check()
 
     const botaoConverter = page.getByRole('button', { name: /Converter para WebP/ })
     await expect(botaoConverter).toBeEnabled({ timeout: 120_000 })
@@ -155,6 +161,11 @@ test.describe('processamento local', () => {
   test('nao guarda nada no dispositivo', async ({ page }) => {
     await page.goto('/')
     await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+
+    const modoConverter = page.getByRole('radio', { name: 'Converter' })
+    await expect(modoConverter).toBeEnabled({ timeout: 120_000 })
+    await modoConverter.check()
+    await page.getByRole('radio', { name: 'WebP' }).check()
 
     const botao = page.getByRole('button', { name: /Converter para WebP/ })
     await expect(botao).toBeEnabled({ timeout: 120_000 })
@@ -238,6 +249,14 @@ test.describe('processamento local', () => {
     const pedidos = gravarPedidos(page)
     await page.goto('/')
     await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
+
+    // Trocar de modo e formato e so estado React: nao gera pedido nenhum, por
+    // isso nao muda o inventario abaixo.
+    const modoConverter = page.getByRole('radio', { name: 'Converter' })
+    await expect(modoConverter).toBeEnabled({ timeout: 120_000 })
+    await modoConverter.check()
+    await page.getByRole('radio', { name: 'WebP' }).check()
+
     const botao = page.getByRole('button', { name: /Converter para WebP/ })
     await expect(botao).toBeEnabled({ timeout: 120_000 })
     await botao.click()
@@ -287,7 +306,9 @@ test.describe('estados da interface', () => {
       const texto = (await alerta.textContent()) ?? ''
       expect(texto).not.toMatch(/NoDecodeDelegate|error\/|0x[0-9a-f]{2}|magick|wasm/i)
 
-      await expect(page.getByRole('button', { name: /^Converter para/ })).toBeDisabled()
+      // O modo por defeito e otimizar, por isso o botao principal comeca com
+      // esse verbo em vez de "Converter".
+      await expect(page.getByRole('button', { name: /^Otimizar para/ })).toBeDisabled()
     })
   }
 
@@ -310,8 +331,9 @@ test.describe('estados da interface', () => {
 
     // O aviso diz o que vai acontecer, em vez de tratar em silencio.
     await expect(page.getByText(/conteúdo é PNG/i)).toBeVisible()
-    // E o destino sugerido continua a ser WebP, porque a origem e PNG.
-    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+    // O modo por defeito, otimizar, confirma o formato real detetado:
+    // mantem-se PNG, nao o JPG que a extensao sugeria.
+    await expect(page.getByText(/Mantém PNG/)).toBeVisible()
   })
 
   test('um ficheiro sem extensao funciona normalmente', async ({ page }) => {
@@ -320,7 +342,8 @@ test.describe('estados da interface', () => {
     await expect(page.getByRole('img', { name: /Pré-visualização/ })).toBeVisible({
       timeout: 120_000,
     })
-    await expect(page.getByRole('button', { name: /Converter para WebP/ })).toBeEnabled()
+    // O conteudo real e JPEG; o modo por defeito, otimizar, mantem-no.
+    await expect(page.getByRole('button', { name: /Otimizar para JPG/ })).toBeEnabled()
   })
 
   test('um nome Unicode sobrevive ao descarregamento', async ({ page }) => {
@@ -353,7 +376,9 @@ test.describe('estados da interface', () => {
     // O nome chega intacto a interface.
     await expect(page.getByTitle(nome)).toBeVisible({ timeout: 120_000 })
 
-    const botao = page.getByRole('button', { name: /Converter para WebP/ })
+    // O modo por defeito, otimizar, mantem JPG: o teste continua focado no
+    // nome Unicode, sem precisar de trocar de formato.
+    const botao = page.getByRole('button', { name: /Otimizar para JPG/ })
     await expect(botao).toBeEnabled({ timeout: 120_000 })
     await botao.click()
 
@@ -361,10 +386,9 @@ test.describe('estados da interface', () => {
     await expect(descarregar).toBeVisible({ timeout: 120_000 })
     const [download] = await Promise.all([page.waitForEvent('download'), descarregar.click()])
 
-    // O conteudo descarregado e um WebP valido.
+    // O conteudo descarregado e um JPEG valido.
     const resultado = readFileSync(await download.path())
-    expect(resultado.subarray(0, 4).toString('latin1')).toBe('RIFF')
-    expect(resultado.subarray(8, 12).toString('latin1')).toBe('WEBP')
+    expect(resultado.subarray(0, 3).toString('hex')).toBe('ffd8ff')
 
     // NAO verificamos aqui o nome do ficheiro descarregado.
     //
@@ -386,6 +410,13 @@ test.describe('estados da interface', () => {
     await page.goto('/')
     await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
 
+    // Este teste precisa de trocar de formato de destino, o que so existe em
+    // modo converter.
+    const modoConverter = page.getByRole('radio', { name: 'Converter' })
+    await expect(modoConverter).toBeEnabled({ timeout: 120_000 })
+    await modoConverter.check()
+    await page.getByRole('radio', { name: 'WebP' }).check()
+
     const converter = page.getByRole('button', { name: /Converter para WebP/ })
     await expect(converter).toBeEnabled({ timeout: 120_000 })
     await converter.click()
@@ -406,6 +437,12 @@ test.describe('estados da interface', () => {
     })
 
     await expect(page.getByRole('slider', { name: /Qualidade/ })).toBeVisible()
+
+    // O seletor de formato so existe em modo converter.
+    const modoConverter = page.getByRole('radio', { name: 'Converter' })
+    await expect(modoConverter).toBeEnabled({ timeout: 120_000 })
+    await modoConverter.check()
+
     await page.getByRole('radio', { name: 'PNG' }).check()
     await expect(page.getByRole('slider', { name: /Qualidade/ })).toBeHidden()
     await expect(page.getByText(/formato sem perda/)).toBeVisible()
@@ -424,7 +461,9 @@ test.describe('redimensionamento', () => {
     // A previsao aparece antes de converter, com a altura calculada.
     await expect(page.getByText('1200 x 800 para 600 x 400')).toBeVisible()
 
-    await page.getByRole('button', { name: /Converter para WebP/ }).click()
+    // O modo por defeito, otimizar, mantem JPG: o redimensionamento
+    // funciona da mesma forma independentemente do formato de saida.
+    await page.getByRole('button', { name: /Otimizar para JPG/ }).click()
     await expect(page.getByText('Tamanho final')).toBeVisible({ timeout: 120_000 })
 
     // O resumo mostra a dimensao final, que tem de ser a prometida.
@@ -436,10 +475,9 @@ test.describe('redimensionamento', () => {
       page.getByRole('button', { name: /Descarregar/ }).click(),
     ])
     const bytes = readFileSync(await download.path())
-    expect(bytes.subarray(0, 4).toString('latin1')).toBe('RIFF')
+    expect(bytes.subarray(0, 3).toString('hex')).toBe('ffd8ff')
 
-    // Um WebP de 600x400 tem as dimensoes no cabecalho VP8. Verificamos o
-    // tamanho como sinal: metade das dimensoes da bem menos de metade dos bytes.
+    // Metade das dimensoes da bem menos de metade dos bytes.
     expect(bytes.byteLength).toBeLessThan(readFileSync(AMOSTRA_JPG).byteLength / 2)
   })
 
@@ -464,7 +502,11 @@ test.describe('AVIF', () => {
   test('converte JPG para AVIF e o ficheiro e um AVIF valido', async ({ page }) => {
     await page.goto('/')
     await page.setInputFiles('input[type="file"]', AMOSTRA_JPG)
-    await expect(page.getByRole('radio', { name: 'AVIF' })).toBeVisible({ timeout: 120_000 })
+
+    // O seletor de formato so existe em modo converter.
+    const modoConverter = page.getByRole('radio', { name: 'Converter' })
+    await expect(modoConverter).toBeEnabled({ timeout: 120_000 })
+    await modoConverter.check()
 
     await page.getByRole('radio', { name: 'AVIF' }).check()
     await page.getByRole('button', { name: /Converter para AVIF/ }).click()
@@ -489,8 +531,10 @@ test.describe('AVIF', () => {
       timeout: 120_000,
     })
     await expect(page.getByText('1200 x 800')).toBeVisible()
-    // A origem e AVIF, logo o destino sugerido e WebP.
-    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+    // O modo por defeito, otimizar, mantem o formato de origem: AVIF
+    // continua AVIF em vez de saltar para o destino sugerido do modo
+    // converter.
+    await expect(page.getByText(/Mantém AVIF/)).toBeVisible()
   })
 })
 
@@ -508,7 +552,7 @@ test.describe('otimizar no mesmo formato', () => {
     await expect(page.getByText(/Mantém JPG/)).toBeVisible()
     await expect(page.getByRole('radio', { name: 'PNG' })).toBeHidden()
 
-    const converter = page.getByRole('button', { name: /Converter para JPG/ })
+    const converter = page.getByRole('button', { name: /Otimizar para JPG/ })
     await expect(converter).toBeEnabled()
     await converter.click()
 
@@ -527,7 +571,9 @@ test.describe('otimizar no mesmo formato', () => {
     await page.goto('/')
     await page.setInputFiles('input[type="file"]', resolve(FIXTURES, 'jpeg-tudo-metadados.jpg'))
 
-    const converter = page.getByRole('button', { name: /Converter para WebP/ })
+    // O modo por defeito, otimizar, mantem JPG: a remocao de metadados e
+    // independente do formato de saida escolhido.
+    const converter = page.getByRole('button', { name: /Otimizar para JPG/ })
     await expect(converter).toBeEnabled({ timeout: 120_000 })
 
     // O valor por defeito e visivel na interface, nao escondido.

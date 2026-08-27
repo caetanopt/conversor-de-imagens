@@ -18,7 +18,18 @@ const ESPERA_LONGA = { timeout: 120_000 }
 async function carregar(page: Page, ficheiro: string): Promise<void> {
   await page.goto('/')
   await page.setInputFiles('input[type="file"]', resolve(FIXTURES, ficheiro))
-  await expect(page.getByRole('button', { name: /^Converter para/ })).toBeEnabled(ESPERA_LONGA)
+  // O texto do botao segue o modo (otimizar por defeito), por isso o padrao
+  // cobre os dois verbos em vez de assumir qual esta em vigor.
+  await expect(
+    page.getByRole('button', { name: /^(Otimizar|Converter|Nada para (otimizar|converter))/ }),
+  ).toBeEnabled(ESPERA_LONGA)
+}
+
+/** Muda para o modo converter, onde o seletor de formato existe. */
+async function escolherModoConverter(page: Page): Promise<void> {
+  const radio = page.getByRole('radio', { name: 'Converter' })
+  await expect(radio).toBeEnabled(ESPERA_LONGA)
+  await radio.check()
 }
 
 test.describe('TIFF', () => {
@@ -32,6 +43,9 @@ test.describe('TIFF', () => {
 
   test('converte para WebP e o resultado e muito mais pequeno', async ({ page }) => {
     await carregar(page, 'tiff-normal.tif')
+    // O modo por defeito, otimizar, mantem TIFF; este teste quer WebP.
+    await escolherModoConverter(page)
+    await page.getByRole('radio', { name: 'WebP' }).click()
     await page.getByRole('button', { name: /^Converter para WebP/ }).click()
     await expect(page.getByText('Tamanho final')).toBeVisible(ESPERA_LONGA)
 
@@ -46,16 +60,19 @@ test.describe('TIFF', () => {
     expect(resultado).toBeLessThan(original / 10)
   })
 
-  test('um TIFF de varias paginas avisa antes de reduzir a primeira', async ({ page }) => {
+  test('um TIFF de varias paginas mantem todas por defeito, e avisa se mudar para WebP', async ({
+    page,
+  }) => {
     await carregar(page, 'tiff-multipagina.tiff')
 
-    // O destino sugerido e WebP, que nao guarda paginas.
+    // O modo por defeito, otimizar, mantem TIFF: todas as paginas sobrevivem.
     await expect(page.getByText(/3 páginas/)).toBeVisible()
-    await expect(page.getByText(/fica apenas a primeira/)).toBeVisible()
-
-    // Em TIFF as paginas mantem-se, e o aviso muda.
-    await page.getByRole('radio', { name: 'TIFF' }).click()
     await expect(page.getByText(/Todas são mantidas/)).toBeVisible()
+
+    // WebP nao guarda paginas, e o aviso muda ao escolher esse destino.
+    await escolherModoConverter(page)
+    await page.getByRole('radio', { name: 'WebP' }).click()
+    await expect(page.getByText(/fica apenas a primeira/)).toBeVisible()
   })
 })
 
@@ -69,6 +86,7 @@ test.describe('ICO', () => {
 
   test('avisa que vai reduzir para 256 antes de converter', async ({ page }) => {
     await carregar(page, 'jpeg-normal.jpg')
+    await escolherModoConverter(page)
     await page.getByRole('radio', { name: 'ICO' }).click()
 
     const aviso = page.getByText(/não passa de 256 píxeis/)
@@ -82,6 +100,7 @@ test.describe('ICO', () => {
 
   test('produz um ICO que declara as dimensoes certas', async ({ page }) => {
     await carregar(page, 'jpeg-normal.jpg')
+    await escolherModoConverter(page)
     await page.getByRole('radio', { name: 'ICO' }).click()
     await page.getByRole('button', { name: /^Converter para ICO/ }).click()
     await expect(page.getByText('Tamanho final')).toBeVisible(ESPERA_LONGA)

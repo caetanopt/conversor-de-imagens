@@ -21,6 +21,14 @@ const ESPERA_LONGA = { timeout: 120_000 }
 async function carregar(page: Page, ficheiro: string): Promise<void> {
   await page.goto('/')
   await page.setInputFiles('input[type="file"]', ficheiro)
+  // Este ficheiro testa a mecanica de escolha de formato, que so existe em
+  // modo 'converter' — FormatSelect nem chega a ser desenhado em 'otimizar'.
+  // O modo por defeito da aplicacao e 'otimizar', por isso o pedido e
+  // explicito em vez de assumido. O texto do botao principal segue o modo,
+  // por isso a troca acontece antes de esperar por "Converter para X".
+  const modoConverter = page.getByRole('radio', { name: 'Converter' })
+  await expect(modoConverter).toBeEnabled(ESPERA_LONGA)
+  await modoConverter.check()
   await expect(page.getByRole('button', { name: /^Converter para/ })).toBeEnabled(ESPERA_LONGA)
 }
 
@@ -55,7 +63,9 @@ test.describe('aviso de animacao antes de converter', () => {
 test.describe('conversao dos formatos novos', () => {
   test('GIF animado para WebP produz um WebP animado descarregavel', async ({ page }) => {
     await carregar(page, GIF_ANIMADO)
-    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+    // O modo 'otimizar' por defeito mantem GIF; este teste e especificamente
+    // sobre converter para WebP, por isso escolhe-o de forma explicita.
+    await page.getByRole('radio', { name: 'WebP' }).click()
 
     await page.getByRole('button', { name: /^Converter para WebP/ }).click()
     await expect(page.getByText('Tamanho final')).toBeVisible(ESPERA_LONGA)
@@ -78,6 +88,9 @@ test.describe('conversao dos formatos novos', () => {
   test('um BMP e aceite e converte para WebP muito mais pequeno', async ({ page }) => {
     await carregar(page, BMP)
     await expect(page.getByText('bmp-rgb.bmp')).toBeVisible()
+    // O modo 'otimizar' por defeito mantem BMP; este teste e especificamente
+    // sobre converter para WebP, por isso escolhe-o de forma explicita.
+    await page.getByRole('radio', { name: 'WebP' }).click()
 
     await page.getByRole('button', { name: /^Converter para WebP/ }).click()
     await expect(page.getByText('Tamanho final')).toBeVisible(ESPERA_LONGA)
@@ -119,8 +132,9 @@ test.describe('sem perda', () => {
   }) => {
     await carregar(page, resolve(FIXTURES, 'jpeg-normal.jpg'))
 
-    // WebP tem os dois modos, portanto a escolha existe.
-    await expect(page.getByRole('radio', { name: 'WebP' })).toBeChecked()
+    // O modo 'otimizar' por defeito mantem JPG; este teste precisa de WebP,
+    // que tem os dois modos, sem nem com perda.
+    await page.getByRole('radio', { name: 'WebP' }).click()
     const semPerda = page.getByRole('checkbox', { name: 'Sem perda' })
     await expect(semPerda).toBeVisible()
     await expect(semPerda).not.toBeChecked()

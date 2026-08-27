@@ -89,7 +89,9 @@ for (const largura of LARGURAS) {
       await page.setViewportSize({ width: largura, height: 900 })
       await page.goto('/')
       await page.setInputFiles('input[type="file"]', JPG)
-      await expect(page.getByRole('button', { name: /^Converter para/ })).toBeEnabled({
+      // O texto do botao segue o modo (otimizar por defeito), por isso o
+      // padrao cobre os dois verbos em vez de assumir qual esta em vigor.
+      await expect(page.getByRole('button', { name: /^(Otimizar|Converter) para/ })).toBeEnabled({
         timeout: 120_000,
       })
 
@@ -97,7 +99,7 @@ for (const largura of LARGURAS) {
       expect(await transbordos(page), 'elementos a transbordar').toEqual([])
 
       // A acao principal tem de estar visivel sem procurar, em qualquer largura.
-      const converter = page.getByRole('button', { name: /^Converter para/ })
+      const converter = page.getByRole('button', { name: /^(Otimizar|Converter) para/ })
       await expect(converter).toBeInViewport()
 
       if (await ponteiroGrosseiro(page)) {
@@ -110,12 +112,17 @@ for (const largura of LARGURAS) {
       await page.setViewportSize({ width: largura, height: 900 })
       await page.goto('/')
       await page.setInputFiles('input[type="file"]', JPG)
-      await expect(page.getByRole('button', { name: /^Converter para/ })).toBeEnabled({
-        timeout: 120_000,
-      })
 
-      // Oito formatos ativos. Se um ficar fora do ecra, deixa de existir para
-      // o utilizador: foi o que aconteceu ao BMP quando eram seis numa linha.
+      // O seletor de formato so existe em modo converter. Sem isto o teste
+      // deixava de o cobrir e passava por acidente, com os radios do modo, dos
+      // presets e dos metadados a chegarem sozinhos aos oito.
+      const modoConverter = page.getByRole('radio', { name: 'Converter' })
+      await expect(modoConverter).toBeEnabled({ timeout: 120_000 })
+      await modoConverter.check()
+
+      // Oito formatos ativos, mais os radios do modo, dos presets e dos
+      // metadados. Se um ficar fora do ecra, deixa de existir para o
+      // utilizador: foi o que aconteceu ao BMP quando eram seis numa linha.
       const opcoes = page.getByRole('radio')
       const total = await opcoes.count()
       expect(total).toBeGreaterThanOrEqual(8)

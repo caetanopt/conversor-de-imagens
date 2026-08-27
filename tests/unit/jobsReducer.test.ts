@@ -14,15 +14,22 @@ function ficheiro(nome = 'foto.jpg', tamanho = 1000): File {
   return new File([new Uint8Array(tamanho)], nome, { type: 'image/jpeg' })
 }
 
+// Modo explicito, independente do que estadoInicial usa por defeito na
+// aplicacao real: os testes que consomem estes dois helpers testam
+// comportamento especifico do modo 'converter' (copiar o formato de saida
+// escolhido em vez de o impor a partir da origem), e ficavam a testar outra
+// coisa, em silencio, se o modo por defeito alguma vez mudasse.
 function comJob(nome = 'foto.jpg') {
   const job = criarJob(ficheiro(nome), 'jpeg', 'webp')
-  return { job, estado: jobsReducer(estadoInicial, { type: 'adicionar', jobs: [job] }) }
+  const base = jobsReducer(estadoInicial, { type: 'adicionar', jobs: [job] })
+  return { job, estado: jobsReducer(base, { type: 'modo', mode: 'converter' }) }
 }
 
 /** Fila com varios ficheiros, para os testes de lote. */
 function comJobs(...nomes: readonly string[]) {
   const jobs = nomes.map((nome) => criarJob(ficheiro(nome), 'jpeg', 'webp'))
-  return { jobs, estado: jobsReducer(estadoInicial, { type: 'adicionar', jobs }) }
+  const base = jobsReducer(estadoInicial, { type: 'adicionar', jobs })
+  return { jobs, estado: jobsReducer(base, { type: 'modo', mode: 'converter' }) }
 }
 
 const inspecao: ImageInspection = {
@@ -287,6 +294,7 @@ describe('jobsReducer', () => {
     })
 
     it('repetir o mesmo modo devolve o mesmo estado', () => {
+      // comJob() fixa o modo em 'converter'; repetir esse modo e o no-op.
       const { estado } = comJob()
       expect(jobsReducer(estado, { type: 'modo', mode: 'converter' })).toBe(estado)
     })
@@ -424,6 +432,11 @@ describe('aplicar a todos', () => {
     const jpg = criarJob(ficheiro('a.jpg'), 'jpeg', 'webp')
     const png = criarJob(ficheiro('b.png'), 'png', 'webp')
     let estado = jobsReducer(estadoInicial, { type: 'adicionar', jobs: [jpg, png] })
+    // Ponto de partida conhecido, independente do modo por defeito: o proprio
+    // caso 'modo' do reducer e um no-op quando o modo pedido ja e o atual, e
+    // o teste precisa de uma transicao real para otimizar para recalcular o
+    // formato de jpg a partir de 'webp'.
+    estado = jobsReducer(estado, { type: 'modo', mode: 'converter' })
     estado = jobsReducer(estado, { type: 'modo', mode: 'otimizar' })
     estado = jobsReducer(estado, { type: 'metadados', id: jpg.id, metadata: 'manter' })
 

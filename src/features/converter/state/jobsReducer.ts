@@ -34,7 +34,9 @@ export type ConverterState = {
   readonly selecionadoId: string | null
 }
 
-export const estadoInicial: ConverterState = { jobs: [], mode: 'converter', selecionadoId: null }
+// 'otimizar' por defeito: reduzir o ficheiro sem mudar de formato e o pedido
+// mais comum, e mantem o utilizador a decidir converter em vez de assumir.
+export const estadoInicial: ConverterState = { jobs: [], mode: 'otimizar', selecionadoId: null }
 
 export type ConverterAction =
   | { readonly type: 'adicionar'; readonly jobs: readonly ImageJob[] }

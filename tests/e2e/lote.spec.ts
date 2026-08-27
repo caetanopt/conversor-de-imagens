@@ -42,9 +42,16 @@ async function carregar(page: Page, ficheiros: readonly string[]): Promise<void>
   await page.setInputFiles('input[type="file"]', [...ficheiros])
 }
 
-/** Espera que a analise inicial acabe: ate ai o botao de converter esta preso. */
-async function esperarProntoParaConverter(page: Page): Promise<Locator> {
-  const botao = page.getByRole('button', { name: /^(Converter|Nada para converter)/ })
+/**
+ * Espera que a analise inicial acabe: ate ai o botao principal esta preso.
+ *
+ * O texto do botao segue o modo (otimizar ou converter), por isso o padrao
+ * cobre os dois verbos em vez de assumir qual esta em vigor.
+ */
+async function esperarBotaoPrincipalPronto(page: Page): Promise<Locator> {
+  const botao = page.getByRole('button', {
+    name: /^(Otimizar|Converter|Nada para (otimizar|converter))/,
+  })
   await expect(botao).toBeVisible(ESPERA_LONGA)
   await expect(botao).toBeEnabled(ESPERA_LONGA)
   return botao
@@ -69,8 +76,9 @@ test.describe('lote', () => {
     await expect(page.getByRole('listitem')).toHaveCount(3)
     await expect(page.getByRole('heading', { name: '3 ficheiros' })).toBeVisible()
 
-    const converter = await esperarProntoParaConverter(page)
-    await expect(converter).toHaveText('Converter 3 imagens')
+    // Modo por defeito: otimizar. Cada ficheiro fica no seu proprio formato.
+    const converter = await esperarBotaoPrincipalPronto(page)
+    await expect(converter).toHaveText('Otimizar 3 imagens')
     await converter.click()
 
     await expect(page.getByText('3 de 3 concluídas')).toBeVisible(ESPERA_LONGA)
@@ -86,16 +94,19 @@ test.describe('lote', () => {
 
     const conteudo = unzipSync(readFileSync(await download.path()))
     expect(Object.keys(conteudo).sort()).toEqual([
-      'jpeg-normal.webp',
-      'png-rgb.webp',
-      'png-transparencia.webp',
+      'jpeg-normal.jpg',
+      'png-rgb.png',
+      'png-transparencia.png',
     ])
 
-    // Cada entrada e um WebP de verdade, nao um ficheiro vazio com o nome certo.
-    for (const [nome, bytes] of Object.entries(conteudo)) {
-      const cabecalho = Buffer.from(bytes.subarray(0, 12))
-      expect(cabecalho.subarray(0, 4).toString('latin1'), nome).toBe('RIFF')
-      expect(cabecalho.subarray(8, 12).toString('latin1'), nome).toBe('WEBP')
+    // Cada entrada e um ficheiro de verdade no seu formato, nao um ficheiro
+    // vazio com o nome certo.
+    const jpeg = Buffer.from(conteudo['jpeg-normal.jpg'].subarray(0, 3))
+    expect(jpeg.toString('hex')).toBe('ffd8ff')
+
+    for (const nome of ['png-rgb.png', 'png-transparencia.png']) {
+      const assinatura = Buffer.from(conteudo[nome].subarray(0, 8))
+      expect(assinatura.toString('latin1'), nome).toBe('\x89PNG\r\n\x1a\n')
     }
 
     // ------------------------------------------------------------------
@@ -112,13 +123,15 @@ test.describe('lote', () => {
   })
 
   test('aplicar a todos empurra as definicoes do ficheiro selecionado', async ({ page }) => {
-    // Estes dois tem destinos sugeridos diferentes por defeito: JPG vai para
-    // WebP e WebP vai para JPG. Se "aplicar a todos" nao funcionar, o ZIP sai
-    // com extensoes diferentes.
+    // No modo por defeito (otimizar) cada um fica no seu formato: JPG
+    // mantem-se JPG e WebP mantem-se WebP. Ja chega para o teste ser
+    // significativo, mas so o modo converter mostra o seletor de formato,
+    // por isso o teste muda de modo antes de pedir AVIF para os dois.
     await carregar(page, [JPG, WEBP])
-    await esperarProntoParaConverter(page)
+    await esperarBotaoPrincipalPronto(page)
 
     await botaoDeSelecao(page, 'jpeg-normal.jpg').click()
+    await page.getByRole('radio', { name: 'Converter' }).check()
     await page.getByRole('radio', { name: 'AVIF' }).click()
     await page.getByRole('button', { name: 'Aplicar a todos os ficheiros' }).click()
 
@@ -126,7 +139,7 @@ test.describe('lote', () => {
     await botaoDeSelecao(page, 'webp-normal.webp').click()
     await expect(page.getByRole('radio', { name: 'AVIF' })).toBeChecked()
 
-    const converter = await esperarProntoParaConverter(page)
+    const converter = await esperarBotaoPrincipalPronto(page)
     await converter.click()
     await expect(page.getByText('2 de 2 concluídas')).toBeVisible(ESPERA_LONGA)
 
@@ -153,9 +166,9 @@ test.describe('lote', () => {
     await expect(page.getByRole('listitem')).toHaveCount(2)
     await expect(linhaDaFila(page, 'nao-e-imagem.jpg')).toContainText('Erro')
 
-    const converter = await esperarProntoParaConverter(page)
+    const converter = await esperarBotaoPrincipalPronto(page)
     // Um so e convertivel: o outro nao passou a validacao.
-    await expect(converter).toHaveText('Converter 1 imagem')
+    await expect(converter).toHaveText('Otimizar 1 imagem')
     await converter.click()
 
     const estado = page.getByText(/1 de 2 concluídas/)
@@ -171,7 +184,7 @@ test.describe('lote', () => {
   test('cancelar tudo interrompe o lote e a fila diz que foi cancelado', async ({ page }) => {
     // A imagem de 6 MP leva segundos, o que da uma janela real para cancelar.
     await carregar(page, [PNG_GRANDE, JPG])
-    const converter = await esperarProntoParaConverter(page)
+    const converter = await esperarBotaoPrincipalPronto(page)
     await converter.click()
 
     const cancelar = page.getByRole('button', { name: 'Cancelar tudo' })
@@ -191,7 +204,7 @@ test.describe('lote', () => {
     await expect(rodape).not.toContainText('concluídas')
 
     // Cancelar nao e um erro: o ficheiro volta a poder ser convertido.
-    await expect(page.getByRole('button', { name: /^Converter \d/ })).toBeEnabled(ESPERA_LONGA)
+    await expect(page.getByRole('button', { name: /^Otimizar \d/ })).toBeEnabled(ESPERA_LONGA)
   })
 
   test('remover tudo limpa a fila e devolve a zona de entrada', async ({ page }) => {
@@ -206,7 +219,7 @@ test.describe('lote', () => {
 
   test('remover um ficheiro passa a selecao para outro', async ({ page }) => {
     await carregar(page, [JPG, PNG])
-    await esperarProntoParaConverter(page)
+    await esperarBotaoPrincipalPronto(page)
 
     await botaoDeSelecao(page, 'jpeg-normal.jpg').click()
     await expect(botaoDeSelecao(page, 'jpeg-normal.jpg')).toHaveAttribute('aria-pressed', 'true')
