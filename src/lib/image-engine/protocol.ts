@@ -67,6 +67,7 @@ export type WorkerResponse =
       readonly profilesKept: readonly string[]
       readonly frameCount: number
       readonly outputFrameCount: number
+      readonly backgroundKeptPercent: number | null
     }
   | {
       readonly kind: 'erro'

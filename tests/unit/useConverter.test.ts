@@ -102,6 +102,7 @@ vi.mock('@/lib/image-engine/client/EngineClient', () => {
       profilesKept: string[]
       frameCount: number
       outputFrameCount: number
+      backgroundKeptPercent: number | null
     }> {
       chamadasConvert += 1
       return {
@@ -115,6 +116,7 @@ vi.mock('@/lib/image-engine/client/EngineClient', () => {
         profilesKept: [],
         frameCount: 1,
         outputFrameCount: 1,
+        backgroundKeptPercent: null,
       }
     }
 
@@ -366,6 +368,50 @@ describe('useConverter', () => {
     const recebidos = await lerBlob(job.result!.blob)
     const comoTexto = String.fromCharCode(...recebidos)
     expect(comoTexto).not.toContain(PRIVADO)
+  })
+
+  it('com o fundo removido, nao troca o resultado pelo original mesmo ficando maior', async () => {
+    /*
+     * A regra "nunca maior do que o original" nao se aplica quando os pixeis
+     * pedidos nao sao os do original.
+     *
+     * Remover o fundo torna transparente uma parte da imagem, e um ficheiro com
+     * canal alfa e quase sempre maior do que o opaco de onde veio. Sem este
+     * guarda, a alternativa do original disparava precisamente nos casos em que
+     * a opcao foi usada, e o utilizador recebia a imagem COM fundo depois de
+     * pedir para o tirar, sem nenhum erro a explicar porque.
+     */
+    const { result, id, ficheiro } = await converterComTamanho(999, ficheiroWebp())
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'webp')
+      result.current.definirFundo(id, 'exata')
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    const job = result.current.jobs[0]!
+    // O resultado do motor, mesmo sendo maior: e o unico que tem o recorte.
+    expect(job.result?.size).toBe(999)
+    expect(job.result?.size).toBeGreaterThan(ficheiro.size)
+  })
+
+  it('sem o fundo removido, a regra do original continua a valer', async () => {
+    // O par do teste acima: a mesma situacao com a opcao desligada tem de
+    // continuar a entregar o original limpo. O guarda nao pode ter desligado a
+    // garantia para todos os casos.
+    const { result, id, ficheiro } = await converterComTamanho(999, ficheiroWebp())
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'webp')
+      result.current.definirFundo(id, null)
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    expect(result.current.jobs[0]!.result?.size).toBeLessThan(ficheiro.size)
   })
 
   it('num contentor que nao sabemos limpar, um aumento fica visivel em vez de reintroduzir metadados', async () => {

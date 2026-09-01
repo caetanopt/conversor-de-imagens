@@ -75,6 +75,7 @@ class WorkerFalso {
       profilesKept: [],
       frameCount: 1,
       outputFrameCount: 1,
+    backgroundKeptPercent: null,
     })
   }
 }
@@ -99,6 +100,7 @@ function pedidoDeConversao(id: string): WorkerRequest {
       resize: null,
       palette: null,
       chroma: '4:2:0',
+    background: null,
     },
   }
 }

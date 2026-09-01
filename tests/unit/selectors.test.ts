@@ -34,6 +34,7 @@ function resultado(size: number): ConversionResult {
     profilesKept: [],
     frameCount: 1,
     outputFrameCount: 1,
+  backgroundKeptPercent: null,
 }
 }
 

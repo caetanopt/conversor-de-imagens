@@ -49,20 +49,38 @@
  *    coalesce forcava todas ao tamanho da primeira. Bug real neste ficheiro,
  *    apanhado por tests/unit/tiff-ico.test.ts a medir dimensoes por frame em
  *    vez de so contar frames.
+ *  - `floodFill(alphaNumerico, x, y)` NAO faz nada. A sobrecarga existe na
+ *    assinatura, aceita a chamada, nao lanca, e o canal alfa fica intacto:
+ *    medido 0,0 % de pixeis transparentes em quatro cantos de um fundo branco
+ *    puro. A sobrecarga que funciona e a que recebe uma MagickColor
+ *    transparente, com a qual a mesma imagem da 78,7 %. Outro caso do mesmo
+ *    padrao do `write` com formato invalido: a API aceita e mente.
+ *  - `statistics(Channels.Alpha)` devolve a media em unidades de quantum
+ *    (0 a 255 nesta build Q8), nao normalizada. `maximum` e o maior valor
+ *    PRESENTE e nao o teto do quantum, portanto nao serve de divisor: numa
+ *    imagem toda transparente vale 0.
  *  - `collection.optimize()` volta a reduzir os frames as regioes que mudam.
  *    Medido: com 8 frames iguais, 523 089 bytes passaram a 66 290. Com frames
  *    genuinamente diferentes o ganho e nulo, porque nao ha nada repetido para
  *    remover. Nunca aumentou.
  */
 import {
+  AlphaAction,
+  Channels,
   DitherMethod,
   initializeImageMagick,
   Interlace,
+  Kernel,
   Magick,
+  MagickColor,
   MagickFormat,
   MagickGeometry,
   MagickImageCollection,
   MagickReadSettings,
+  MorphologyMethod,
+  MorphologySettings,
+  Percentage,
+  PixelChannel,
   QuantizeSettings,
   type IMagickImage,
   type IMagickImageCollection,
@@ -241,6 +259,7 @@ export class MagickImageEngine implements ImageEngine {
         profilesKept: codificado.profilesKept,
         frameCount: framesDeEntrada,
         outputFrameCount: codificado.frames,
+        backgroundKeptPercent: codificado.backgroundKeptPercent,
       }
     } finally {
       colecao.dispose()
@@ -318,6 +337,8 @@ type Codificado = {
   readonly profilesKept: string[]
   /** Frames que o ficheiro de saida tem. */
   readonly frames: number
+  /** Null quando a remocao de fundo nao foi pedida. */
+  readonly backgroundKeptPercent: number | null
 }
 
 /** Saida com todos os frames, para animacao, paginas ou tamanhos preservados. */
@@ -335,8 +356,8 @@ function escreverTodosOsFrames(
   // proprio tamanho, e coalesce forcaria todas ao tamanho da primeira.
   if (destino.multiFrame === 'animacao') colecao.coalesce()
 
-  const perfis: string[][] = []
-  for (const frame of colecao) perfis.push(aplicarDiretivas(frame, diretivas))
+  const aplicados: Aplicado[] = []
+  for (const frame of colecao) aplicados.push(aplicarDiretivas(frame, diretivas))
 
   // Apenas em GIF: e uma otimizacao do formato GIF, que substitui cada frame
   // pela regiao que mudou. Medido, no WebP nao muda nada (34 104 bytes com e
@@ -354,8 +375,11 @@ function escreverTodosOsFrames(
     height: cabeca.height,
     // A politica de metadados e a mesma em todos os frames, portanto os perfis
     // do primeiro descrevem o ficheiro.
-    profilesKept: perfis[0] ?? [],
+    profilesKept: aplicados[0]?.profilesKept ?? [],
     frames: colecao.length,
+    // O primeiro frame tambem descreve o recorte: a tolerancia e a mesma em
+    // todos, e e o frame que o utilizador ve na pre-visualizacao.
+    backgroundKeptPercent: aplicados[0]?.backgroundKeptPercent ?? null,
   }
 }
 
@@ -366,14 +390,15 @@ function escreverUmFrame(
   diretivas: EncodeDirectives,
 ): Codificado {
   const frame = escolherFrame(colecao, origem)
-  const profilesKept = aplicarDiretivas(frame, diretivas)
+  const aplicado = aplicarDiretivas(frame, diretivas)
 
   return {
     bytes: frame.write(comoMagickFormat(diretivas.magickFormat), (d) => d.slice()),
     width: frame.width,
     height: frame.height,
-    profilesKept,
+    profilesKept: aplicado.profilesKept,
     frames: 1,
+    backgroundKeptPercent: aplicado.backgroundKeptPercent,
   }
 }
 
@@ -419,6 +444,85 @@ function escolherFrame(
   return maior
 }
 
+/** Cor de preenchimento do fundo: totalmente transparente. */
+const TRANSPARENTE = new MagickColor(0, 0, 0, 0)
+
+/** Teto do quantum nesta build. Q8, portanto 255. Ver src/config/engine.ts. */
+const QUANTUM_MAXIMO = 255
+
+/**
+ * Remove o fundo por preenchimento a partir dos quatro cantos.
+ *
+ * A partir dos cantos e nao por cor global: um recorte da cor do fundo DENTRO
+ * do objeto, como o brilho branco de um produto fotografado sobre branco, tem
+ * de sobreviver. Medido na mesma imagem: 78,7 % de fundo removido com o
+ * recorte interior intacto pelos cantos, contra 79,9 % pelo limiar global, em
+ * que a diferenca de 1,2 % era precisamente o recorte a desaparecer.
+ *
+ * Os quatro cantos e nao um: um fundo com gradiente nao e uma unica regiao
+ * contigua dentro da tolerancia, e partindo so do canto superior esquerdo
+ * ficava metade do fundo por remover.
+ *
+ * `colorFuzz` e reposto porque e estado da imagem e nao um argumento: deixa-lo
+ * alterado mudava o comportamento de qualquer operacao seguinte que compare
+ * cores.
+ */
+function removerFundo(img: IMagickImage, tolerancePercent: number): void {
+  img.alpha(AlphaAction.Set)
+
+  const fuzzAnterior = img.colorFuzz
+  img.colorFuzz = new Percentage(tolerancePercent)
+  try {
+    for (const [x, y] of [
+      [0, 0],
+      [img.width - 1, 0],
+      [0, img.height - 1],
+      [img.width - 1, img.height - 1],
+    ] as const) {
+      img.floodFill(TRANSPARENTE, x, y)
+    }
+  } finally {
+    img.colorFuzz = fuzzAnterior
+  }
+
+  /*
+   * O preenchimento e binario: um pixel fica transparente ou fica intacto, sem
+   * meio termo. Numa fronteira suave, que e o que qualquer fotografia tem, os
+   * pixeis que ficam do lado de fora da tolerancia mantem a cor do fundo com
+   * opacidade total, e o resultado tem uma auréola visivel quando e colocado
+   * sobre outra cor. Medido num JPEG q80 com fronteira esfumada: 0,36 % da
+   * imagem em pixeis de franja.
+   *
+   * Come 1 px para dentro e depois esfuma a fronteira. Nao elimina a auréola
+   * por completo, porque um limiar de cor nao sabe separar o que esta
+   * misturado, mas passa-a de opaca a parcialmente transparente, que e a
+   * diferenca entre um contorno claro e uma fronteira que se funde.
+   */
+  const erodir = new MorphologySettings(MorphologyMethod.Erode, Kernel.Diamond, '1')
+  erodir.channels = Channels.Alpha
+  img.morphology(erodir)
+  img.blur(0, 0.8, Channels.Alpha)
+}
+
+/**
+ * Percentagem da imagem que ficou opaca, estimada pela media do canal alfa.
+ *
+ * Pela media e nao contando pixeis: contar obriga a trazer w x h bytes do WASM
+ * para JS e a percorre-los, o que a 24 MP sao 24 MB e 24 milhoes de iteracoes.
+ * A media e calculada dentro do WASM numa passagem. Como depois do
+ * preenchimento a esmagadora maioria dos pixeis e 0 ou opaco, a media aproxima
+ * a contagem: medido 79,0 % contra 78,7 % exactos, uma diferenca de 0,3 pontos.
+ *
+ * Os dois extremos, que sao o que interessa, sao exactos: media 0 significa
+ * imagem inteiramente transparente, media no maximo significa que nada foi
+ * removido.
+ */
+function percentagemOpaca(img: IMagickImage): number {
+  const alfa = img.statistics(Channels.Alpha).getChannel(PixelChannel.Alpha)
+  if (!alfa) return 100
+  return Math.max(0, Math.min(100, (alfa.mean / QUANTUM_MAXIMO) * 100))
+}
+
 /**
  * Atributos de data que o proprio motor acrescenta a imagem.
  *
@@ -447,8 +551,14 @@ function copiarPerfil(img: IMagickImage, nome: string): Uint8Array | null {
   return new Uint8Array(perfil.data)
 }
 
-/** Devolve os nomes dos perfis que ficaram na imagem depois de aplicar a politica. */
-function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): string[] {
+type Aplicado = {
+  readonly profilesKept: string[]
+  /** Null quando a remocao de fundo nao foi pedida. */
+  readonly backgroundKeptPercent: number | null
+}
+
+/** Aplica a politica a imagem e devolve o que a interface precisa de saber. */
+function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): Aplicado {
   // Ordem obrigatoria: a orientacao tem de ser aplicada aos pixels antes de o
   // EXIF ser removido, senao a imagem sai deitada. CLAUDE.md, seccao 23.
   if (d.autoOrient) img.autoOrient()
@@ -471,6 +581,18 @@ function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): string[] {
 
     if (icc) img.setProfile('icc', icc)
   }
+
+  /*
+   * Antes do resize, ao contrario da paleta.
+   *
+   * Redimensionar interpola, e na fronteira entre objeto e fundo isso produz
+   * pixeis que nao sao nem um nem outro. O limiar de cor deixa de reconhecer
+   * esses pixeis como fundo e a franja que sobra fica maior. Nos pixeis
+   * originais a fronteira ainda e a do ficheiro.
+   */
+  const backgroundKeptPercent = d.background
+    ? (removerFundo(img, d.background.tolerancePercent), percentagemOpaca(img))
+    : null
 
   if (d.resize) {
     const geo = new MagickGeometry(d.resize.width, d.resize.height)
@@ -500,5 +622,5 @@ function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): string[] {
     img.settings.setDefine(comoMagickFormat(define.format), define.name, define.value)
   }
 
-  return [...img.profileNames]
+  return { profilesKept: [...img.profileNames], backgroundKeptPercent }
 }

@@ -10,6 +10,7 @@ import { PRESET_POR_DEFEITO, qualidadeDoPreset, type PresetId } from '@/config/p
 import { novoId } from '@/lib/ids'
 import { CROMA_POR_DEFEITO, permiteEscolherSemPerda } from '@/lib/image-engine/options'
 import type {
+  BackgroundTolerance,
   ChromaSubsampling,
   ConversionMode,
   ConversionOptions,
@@ -60,6 +61,11 @@ export type ConverterAction =
   | { readonly type: 'sem-perda'; readonly id: string; readonly lossless: boolean }
   | { readonly type: 'paleta'; readonly id: string; readonly palette: number | null }
   | { readonly type: 'croma'; readonly id: string; readonly chroma: ChromaSubsampling }
+  | {
+      readonly type: 'fundo'
+      readonly id: string
+      readonly background: BackgroundTolerance | null
+    }
   | { readonly type: 'metadados'; readonly id: string; readonly metadata: MetadataPolicy }
   | { readonly type: 'resize'; readonly id: string; readonly resize: ResizeOptions | null }
   | { readonly type: 'modo'; readonly mode: ConversionMode }
@@ -116,7 +122,8 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
           options.resize !== job.options.resize ||
           options.lossless !== job.options.lossless ||
           options.palette !== job.options.palette ||
-          options.chroma !== job.options.chroma
+          options.chroma !== job.options.chroma ||
+          options.background !== job.options.background
 
         if (!mudou) return job
 
@@ -229,6 +236,16 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
         options: { ...job.options, chroma: acao.chroma },
       }))
 
+    case 'fundo':
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        // Muda os pixeis de saida, logo o resultado anterior deixa de
+        // corresponder ao que esta selecionado.
+        status: job.status === 'done' ? 'ready' : job.status,
+        result: null,
+        options: { ...job.options, background: acao.background },
+      }))
+
     case 'paleta':
       return atualizar(estado, acao.id, (job) => ({
         ...job,
@@ -339,6 +356,10 @@ export function opcoesParaFormato(
     // O croma volta ao defeito onde nao tem efeito, para nao ficar um valor
     // escolhido num JPEG a viajar escondido dentro de um PNG.
     chroma: formato.supportsChromaSubsampling ? anteriores.chroma : CROMA_POR_DEFEITO,
+    // Sem canal alfa nao ha onde guardar a transparencia. Desligar aqui e o que
+    // impede um recorte pedido em PNG de sair achatado sobre preto num JPEG
+    // sem ninguem ter mudado a opcao.
+    background: formato.supportsAlpha ? anteriores.background : null,
   }
 }
 
@@ -359,6 +380,9 @@ export function opcoesPorDefeito(outputFormat: FormatId): ConversionOptions {
     // manda que a reducao de paleta seja uma escolha explicita.
     palette: null,
     chroma: CROMA_POR_DEFEITO,
+    // Desligada por defeito: altera os pixeis, e num fundo que nao seja
+    // uniforme o recorte fica incompleto. E sempre uma escolha explicita.
+    background: null,
   }
 }
 

@@ -31,6 +31,7 @@
  */
 import { formatoPorId } from '@/config/formats'
 import type {
+  BackgroundTolerance,
   ChromaSubsampling,
   ConversionOptions,
   MetadataPolicy,
@@ -77,6 +78,19 @@ export type EncodeDirectives = {
    * voltava a criar cores por interpolacao, e o ganho desaparecia.
    */
   readonly palette: number | null
+  /**
+   * Remocao de fundo, ou null.
+   *
+   * Aplicada antes do resize: o limiar de cor funciona nos pixeis originais, e
+   * redimensionar primeiro mistura fundo e objeto na fronteira, o que aumenta a
+   * franja que sobra. E o oposto da paleta, que tem de vir depois.
+   */
+  readonly background: BackgroundDirective | null
+}
+
+export type BackgroundDirective = {
+  /** Tolerancia de cor em percentagem, ja resolvida a partir do nivel. */
+  readonly tolerancePercent: number
 }
 
 /**
@@ -90,6 +104,37 @@ export const CROMA_POR_DEFEITO: ChromaSubsampling = '4:2:0'
 /** Limites da paleta. 2 e o minimo util, 256 e o maximo de um PNG indexado. */
 export const PALETA_MINIMA = 2
 export const PALETA_MAXIMA = 256
+
+/**
+ * Tolerancia de cor de cada nivel de remocao de fundo, em percentagem.
+ *
+ * Medida em cinco casos, contando a percentagem de fundo removido. Ver
+ * docs/medicoes.md:
+ *
+ *   caso                    2 %          8 %          18 %
+ *   branco puro             78,7 % ok    78,7 % ok    78,7 % ok
+ *   estudio com ruido       52,0 % mau   81,1 % ok    81,1 % ok
+ *   JPEG q75                78,0 % ok    78,7 % ok    78,7 % ok
+ *   objeto quase branco     78,7 % ok    100 % MAU    100 % MAU
+ *   fundo fotografico        0,0 % mau     3,0 % mau   61,0 % lixo
+ *
+ * "100 %" na linha do objeto quase branco significa que a imagem toda
+ * desapareceu. E por isso que o defeito e 'exata' e nao 'normal', apesar de a
+ * 'normal' resolver mais casos: falhar por deixar fundo e recuperavel, falhar
+ * por apagar o objeto nao.
+ */
+const TOLERANCIA_DO_FUNDO: Record<BackgroundTolerance, number> = {
+  exata: 2,
+  normal: 8,
+  ampla: 18,
+}
+
+/**
+ * Nivel por defeito quando o utilizador liga a remocao.
+ *
+ * 'exata' porque e o unico que nao destroi um objeto de cor proxima do fundo.
+ */
+export const FUNDO_POR_DEFEITO: BackgroundTolerance = 'exata'
 
 /** Velocidade do encoder AVIF. 9 e o mais rapido; medido nove vezes mais rapido que o defeito. */
 export const AVIF_SPEED_POR_DEFEITO = '9'
@@ -142,7 +187,24 @@ export function resolveEncodeDirectives(options: ConversionOptions): EncodeDirec
     // Progressivo so faz sentido em JPEG e reduz o tamanho percebido no carregamento.
     interlace: formato.id === 'jpeg' && !options.lossless,
     palette: resolvePaleta(options.palette, formato.supportsPalette),
+    background: resolveFundo(options.background, formato.supportsAlpha),
   }
+}
+
+/**
+ * Remocao de fundo, ou null.
+ *
+ * O filtro pelo alfa vive aqui e nao so na interface, pela mesma razao da
+ * paleta: um nivel escolhido num PNG chegaria intacto ao motor depois de o
+ * utilizador mudar o destino para JPEG, e o resultado seria um recorte
+ * achatado sobre preto sem ninguem ter pedido nada disso.
+ */
+function resolveFundo(
+  background: BackgroundTolerance | null,
+  suportaAlfa: boolean,
+): BackgroundDirective | null {
+  if (!suportaAlfa || background === null) return null
+  return { tolerancePercent: TOLERANCIA_DO_FUNDO[background] }
 }
 
 /**

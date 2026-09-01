@@ -112,6 +112,7 @@ self.addEventListener('message', async (evento: MessageEvent<WorkerRequest>) => 
             profilesKept: r.profilesKept,
             frameCount: r.frameCount,
             outputFrameCount: r.outputFrameCount,
+            backgroundKeptPercent: r.backgroundKeptPercent,
           },
           [buffer],
         )

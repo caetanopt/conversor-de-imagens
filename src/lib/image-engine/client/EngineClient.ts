@@ -34,6 +34,8 @@ export type ResultadoConversao = {
   readonly profilesKept: readonly string[]
   readonly frameCount: number
   readonly outputFrameCount: number
+  /** Null quando a remocao de fundo nao foi pedida. Ver ImageEngine.ts. */
+  readonly backgroundKeptPercent: number | null
 }
 
 /** Contexto que ajuda o pool a agendar. Opcional: sem ele o agendamento e conservador. */
@@ -199,6 +201,7 @@ export class EngineClient {
       profilesKept: resposta.profilesKept,
       frameCount: resposta.frameCount,
       outputFrameCount: resposta.outputFrameCount,
+      backgroundKeptPercent: resposta.backgroundKeptPercent,
     }
   }
 

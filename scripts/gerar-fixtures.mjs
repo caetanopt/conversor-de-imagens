@@ -15,10 +15,13 @@ import { resolve } from 'node:path'
 import {
   ColorProfile,
   ColorSpace,
+  DrawableFillColor,
+  DrawableRoundRectangle,
   ImageMagick,
   initializeImageMagick,
   Interlace,
   Magick,
+  MagickColors,
   MagickFormat,
   MagickImage,
   MagickImageCollection,
@@ -237,6 +240,41 @@ const comAlfa = Buffer.from(
   }),
 )
 await guardar('png-transparencia.png', comAlfa, 'canal alfa preservado para WebP e perdido em JPEG')
+
+/*
+ * Fundo uniforme, o unico caso em que remover o fundo funciona.
+ *
+ * Todas as outras fixtures sao derivadas de `plasma`, portanto tem fundo
+ * fotografico e servem para o caso OPOSTO: provar que a remocao nao entrega
+ * lixo quando nao ha fundo uniforme. Esta faltava.
+ *
+ * O recorte branco dentro do objeto e deliberado: e o brilho de uma fotografia
+ * de produto, e tem de sobreviver ao recorte. E o que distingue preencher a
+ * partir dos cantos de aplicar um limiar de cor global.
+ */
+const produtoSobreBranco = Buffer.from(
+  (() => {
+    const settings = new MagickReadSettings()
+    settings.width = 600
+    settings.height = 400
+    const img = MagickImage.create()
+    img.read('xc:white', settings)
+    img.draw([
+      new DrawableFillColor(MagickColors.Crimson),
+      new DrawableRoundRectangle(170, 100, 430, 300, 40, 40),
+      new DrawableFillColor(MagickColors.White),
+      new DrawableRoundRectangle(210, 135, 270, 180, 10, 10),
+    ])
+    const bytes = img.write(MagickFormat.Png, (d) => new Uint8Array(d))
+    img.dispose()
+    return bytes
+  })(),
+)
+await guardar(
+  'png-fundo-uniforme.png',
+  produtoSobreBranco,
+  'objeto sobre branco liso, com recorte branco interior, para a remocao de fundo',
+)
 
 await guardar(
   'png-grande.png',

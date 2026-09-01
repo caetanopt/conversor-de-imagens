@@ -109,12 +109,16 @@ A conversão deve ser local no browser. O ficheiro não deve sair do dispositivo
 12. Preservar proporção por defeito.
 13. Orientação automática.
 14. Opção para remover metadados.
-15. Mostrar tamanho antes e depois.
-16. Mostrar percentagem de redução ou aumento.
-17. Download individual.
-18. Download de vários resultados num ZIP gerado localmente.
-19. Interface responsiva.
-20. Conteúdo e microcopy em Português de Portugal.
+15. Opção para remover o fundo em imagens de fundo uniforme, por limiar de cor
+    no dispositivo. Não é segmentação por IA: fotografia de produto, logótipo e
+    captura de ecrã funcionam, uma pessoa num cenário não, e a interface tem de
+    dizer isso em vez de prometer o que o método não faz. Ver `docs/medicoes.md`.
+16. Mostrar tamanho antes e depois.
+17. Mostrar percentagem de redução ou aumento.
+18. Download individual.
+19. Download de vários resultados num ZIP gerado localmente.
+20. Interface responsiva.
+21. Conteúdo e microcopy em Português de Portugal.
 
 ### Fora do âmbito nesta fase
 
@@ -187,6 +191,9 @@ Implementar e testar primeiro:
 6. Distinguir formatos com suporte de animação.
 7. Distinguir formatos que permitem compressão sem perda.
 8. Nunca eliminar animação silenciosamente. Se o motor não conseguir preservar os frames, informar o utilizador antes da conversão.
+8.1. O mesmo vale para a transparência. Um destino sem canal alfa não pode
+   receber um pedido de remoção de fundo em silêncio: a opção desliga-se e a
+   interface explica porquê.
 9. Não apresentar conversão de raster para SVG como verdadeira vetorização. Se essa funcionalidade não existir, não a oferecer.
 10. Tratar JPG e JPEG como aliases do mesmo formato para UX, mantendo a extensão escolhida quando fizer sentido.
 
@@ -420,6 +427,7 @@ Não mostrar controlos que não tenham efeito.
 - não aumentar imagens pequenas por defeito
 - orientação automática
 - remover metadados
+- remover fundo, apenas quando o formato de destino tem canal alfa
 
 ### JPEG
 
@@ -799,6 +807,12 @@ const savingPercent = ((originalSize - outputSize) / originalSize) * 100
 Se o resultado ficar maior, não esconder esse facto.
 
 Mostrar claramente que houve aumento.
+
+O espelho desta regra também vale: uma redução que não serve para nada não pode
+ser apresentada como um ganho. Um recorte de fundo que apaga a imagem produz um
+ficheiro minúsculo, e ler isso como uma poupança de 94 % em tom de sucesso é
+tão enganador como esconder um aumento. O número mostra-se; o tom acompanha o
+que aconteceu de facto à imagem.
 
 ## 25. SEO e páginas por conversão
 

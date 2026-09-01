@@ -28,6 +28,20 @@
   border-left-color: var(--state-caution);
 }
 
+/*
+ * Reducao que nao e uma vitoria.
+ *
+ * Um recorte que apagou a imagem produz um ficheiro minusculo, e a leitura
+ * verde de "menos 94 %" contradizia o aviso imediatamente abaixo, que dizia que
+ * a imagem tinha sido destruida. O numero continua a ser verdade; o que estava
+ * errado era o tom. Mesmo tratamento do aumento, porque o desfecho e o mesmo:
+ * ha aqui algo para o utilizador olhar antes de descarregar.
+ */
+.suspeito {
+  background: var(--state-caution-quiet);
+  border-left-color: var(--state-caution);
+}
+
 .numeroGrande {
   font-size: var(--text-data-large);
   font-weight: var(--weight-strong);

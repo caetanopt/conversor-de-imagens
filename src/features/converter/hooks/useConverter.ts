@@ -36,6 +36,7 @@ import {
 } from '../state/jobsReducer'
 import { convertiveis, jobSelecionado, resumirLote } from '../state/selectors'
 import type {
+  BackgroundTolerance,
   ChromaSubsampling,
   ConversionMode,
   ImageInspection,
@@ -289,6 +290,12 @@ export function useConverter() {
          */
         const alternativa =
           job.options.resize === null &&
+          // Remover o fundo muda os pixeis, e o original nao os tem. Devolver o
+          // original aqui entregava a imagem COM fundo a quem pediu para o
+          // tirar, e sem nenhum erro a explicar porque. Um PNG com canal alfa e
+          // quase sempre maior do que o JPEG opaco de onde veio, portanto esta
+          // condicao dispararia precisamente nos casos em que a opcao foi usada.
+          job.options.background === null &&
           job.options.outputFormat === job.sourceFormat &&
           resultado.size > job.sourceSize
             ? await originalSemMetadados(job)
@@ -312,6 +319,7 @@ export function useConverter() {
             profilesKept: resultado.profilesKept,
             frameCount: resultado.frameCount,
             outputFrameCount: resultado.outputFrameCount,
+            backgroundKeptPercent: resultado.backgroundKeptPercent,
           },
         })
 
@@ -468,6 +476,10 @@ export function useConverter() {
     dispatch({ type: 'paleta', id, palette })
   }, [])
 
+  const definirFundo = useCallback((id: string, background: BackgroundTolerance | null) => {
+    dispatch({ type: 'fundo', id, background })
+  }, [])
+
   const definirCroma = useCallback((id: string, chroma: ChromaSubsampling) => {
     dispatch({ type: 'croma', id, chroma })
   }, [])
@@ -509,6 +521,7 @@ export function useConverter() {
     definirSemPerda,
     definirPaleta,
     definirCroma,
+    definirFundo,
     definirMetadados,
     definirResize,
     definirModo,

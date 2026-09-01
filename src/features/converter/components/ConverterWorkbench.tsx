@@ -32,6 +32,7 @@ import { FormatSelect } from './FormatSelect'
 import { FramesNotice } from './FramesNotice'
 import { ImagePreview } from './ImagePreview'
 import { AdvancedSettings } from './AdvancedSettings'
+import { BackgroundControl } from './BackgroundControl'
 import { MetadataControl } from './MetadataControl'
 import { PaletteControl } from './PaletteControl'
 import { QualityControl } from './QualityControl'
@@ -195,6 +196,15 @@ export function ConverterWorkbench() {
               outputFormat={job.options.outputFormat}
               palette={job.options.palette}
               onChange={(palette) => conversor.definirPaleta(job.id, palette)}
+              disabled={definicoesBloqueadas}
+            />
+
+            <hr className={styles.divisor} />
+
+            <BackgroundControl
+              outputFormat={job.options.outputFormat}
+              background={job.options.background}
+              onChange={(background) => conversor.definirFundo(job.id, background)}
               disabled={definicoesBloqueadas}
             />
 

@@ -43,6 +43,15 @@ export type EngineConversion = {
    * antes da conversao, nao depois. CLAUDE.md, seccao 5.8.
    */
   readonly outputFrameCount: number
+  /**
+   * Percentagem da imagem que ficou opaca depois de remover o fundo, ou null
+   * quando a remocao nao foi pedida.
+   *
+   * Medida no resultado e nao prevista: a remocao por limiar de cor falha de
+   * duas maneiras opostas, apagando a imagem toda ou nao encontrando fundo
+   * nenhum, e so os pixeis produzidos sabem qual delas aconteceu.
+   */
+  readonly backgroundKeptPercent: number | null
 }
 
 /**

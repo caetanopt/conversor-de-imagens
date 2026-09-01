@@ -428,6 +428,105 @@ mais lento, com uma diferença de tamanho de 1,5 %. A velocidade 9 é a escolha
 
 ---
 
+## Remoção de fundo
+
+Feita por preenchimento a partir dos quatro cantos com tolerância de cor, no
+motor que já existe. Não é segmentação: reconhece uma **região contígua de cor
+semelhante ligada à borda**, não um objeto. Tudo o que segue decorre disso.
+
+### A partir dos cantos, não por cor global
+
+| Método | Fundo removido | Recorte branco dentro do objeto |
+|---|---|---|
+| `transparent(branco)`, limiar global | 79,9 % | **apagado** |
+| `floodFill` dos 4 cantos | 78,7 % | **intacto** |
+
+A diferença de 1,2 % é exatamente o recorte interior a desaparecer. Numa
+fotografia de produto isso é o brilho do objeto, e apagá-lo abre um buraco no
+meio da imagem. Os quatro cantos e não um: num fundo com gradiente, partir só do
+canto superior esquerdo deixava metade do fundo por remover.
+
+### `floodFill` com alfa numérico não faz nada
+
+A sobrecarga `floodFill(alpha: number, x, y)` existe na assinatura, aceita a
+chamada, não lança, e o canal alfa fica **intacto**: 0,0 % de pixéis
+transparentes em quatro cantos de um fundo branco puro. A que funciona recebe
+uma `MagickColor` transparente, e dá 78,7 % na mesma imagem.
+
+É o mesmo padrão do `write` com formato inválido: a API aceita e mente. Só uma
+medição de pixéis o revela, e é por isso que o teste lê o canal alfa em vez de
+se contentar com "produziu bytes".
+
+### Os três níveis de tolerância, medidos
+
+Percentagem de fundo removido em cinco casos:
+
+| Caso | 2 % (Cor exata) | 8 % (Ligeira variação) | 18 % (Muita variação) |
+|---|---|---|---|
+| Branco puro | 78,7 % ok | 78,7 % ok | 78,7 % ok |
+| Estúdio com ruído e gradiente | 52,0 % incompleto | **81,1 % ok** | 81,1 % ok |
+| JPEG q75, com artefactos | 78,0 % ok | 78,7 % ok | 78,7 % ok |
+| Objeto quase branco sobre branco | **78,7 % ok** | **100 % DESTRUÍDO** | 100 % DESTRUÍDO |
+| Fundo fotográfico | 0,0 % nada | 3,0 % nada | 61,0 % aos pedaços |
+
+**O defeito é 2 % e não 8 %**, apesar de 8 % resolver mais casos. A razão está na
+linha do objeto quase branco: falhar por deixar fundo é recuperável, o
+utilizador sobe a tolerância; falhar por apagar o objeto entrega um ficheiro de
+173 bytes. Os dois erros não têm o mesmo custo.
+
+### A auréola é inerente ao método
+
+O preenchimento é binário: um pixel fica transparente ou fica intacto. Numa
+fronteira suave, que é o que qualquer fotografia tem, os pixéis do lado de fora
+da tolerância mantêm a cor do fundo com opacidade total, e vê-se um contorno
+claro quando a imagem é colocada sobre outra cor. Medido num JPEG q80 com
+fronteira esfumada: 0,36 % da imagem em pixéis de franja.
+
+`Erode Diamond:1` no canal alfa seguido de `blur 0,8` passa esses pixéis de
+opacos a parcialmente transparentes. Não elimina a auréola, porque um limiar de
+cor não sabe separar o que está misturado, mas é a diferença entre um contorno
+duro e uma fronteira que se funde.
+
+### O resultado é medido, não previsto
+
+A conversão devolve a percentagem da imagem que ficou opaca, calculada pela
+média do canal alfa dentro do WASM. Pela média e não contando pixéis: contar
+obriga a trazer w x h bytes para JS, o que a 24 MP são 24 MB e 24 milhões de
+iterações. Medido: 79,0 % pela média contra 78,7 % exactos, uma diferença de
+0,3 pontos, e os dois extremos são exactos.
+
+É o que permite à interface distinguir os três desfechos em vez de dizer
+"concluído" a um ficheiro em branco:
+
+| Restante | Desfecho |
+|---|---|
+| menos de 2 % | o recorte apagou a imagem |
+| 2 % a 99 % | fundo removido |
+| mais de 99 % | não encontrou fundo |
+
+### Interação com a regra do "nunca maior do que o original"
+
+Um PNG com canal alfa é quase sempre **maior** do que o ficheiro opaco de onde
+veio. Medido na interface: 3,19 KB de origem, 3,44 KB de saída, mais 7,6 %.
+
+Isso faz disparar a alternativa que devolve o original limpo, e sem um guarda o
+utilizador recebia a imagem **com fundo** depois de pedir para o tirar, sem
+nenhum erro a explicar porquê. A garantia da secção 12 do CLAUDE.md pressupõe
+que a saída tem os mesmos pixéis da entrada; com recorte não tem, e a regra
+deixa de se aplicar. Verificado por teste: sem o guarda o resultado passava de
+999 para 46 bytes, ou seja o original.
+
+### O que fica de fora
+
+Uma pessoa num cenário, cabelo, transparências e sombras suaves não são
+resolúveis por limiar de cor. Isso exige um modelo de segmentação (RMBG-1.4,
+U²-Net) sobre onnxruntime-web ou transformers.js, que corre igualmente no
+dispositivo, mas custa 11 a 44 MB de modelo descarregados uma vez, contra os
+14,7 MB do `magick.wasm` que já servimos. Decisão do responsável do projeto,
+ainda não tomada.
+
+---
+
 ## Redimensionamento
 
 A previsão mostrada na interface e as dimensões que o motor produz são

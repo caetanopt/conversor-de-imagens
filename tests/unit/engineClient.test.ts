@@ -105,6 +105,7 @@ class WorkerFalso {
           profilesKept: [],
           frameCount: 3,
           outputFrameCount: 1,
+    backgroundKeptPercent: null,
         })
     }
   }

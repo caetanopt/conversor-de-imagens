@@ -93,6 +93,8 @@ export function PainelDeDiagnostico() {
           resize: null,
           palette: null,
           chroma: '4:2:0',
+          // O diagnostico mede compressao, nao recorte.
+          background: null,
         })
         amostras.push({
           formato,

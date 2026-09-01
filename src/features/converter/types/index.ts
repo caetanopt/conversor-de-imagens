@@ -55,6 +55,30 @@ export type MetadataPolicy = 'remover' | 'preservar-cor' | 'manter'
  */
 export type ChromaSubsampling = '4:2:0' | '4:4:4'
 
+/**
+ * Tolerancia de cor da remocao de fundo.
+ *
+ * Nao e um numero na interface porque os tres regimes uteis foram medidos e
+ * fora deles o resultado e mau de formas diferentes. Ver docs/medicoes.md.
+ *
+ *  'exata'      2 %. Segura em quase tudo, incluindo um objeto de cor muito
+ *               proxima do fundo. Falha num fundo com ruido: medido 52 % de
+ *               fundo removido, ou seja um recorte incompleto.
+ *
+ *  'normal'     8 %. Resolve o fundo de estudio com ruido e gradiente (81 %
+ *               removido). Em troca, um objeto quase branco sobre branco
+ *               desaparece por completo. Nao pode ser o valor por defeito.
+ *
+ *  'ampla'      18 %. Ultimo recurso para fundos com bastante variacao. Come
+ *               objetos claros com a mesma facilidade que a 'normal' e num
+ *               fundo fotografico produz um recorte aos pedacos.
+ *
+ * A escolha errada e sempre visivel no resultado, porque a conversao devolve
+ * quanto da imagem sobreviveu. E o que permite ao utilizador corrigir em vez
+ * de descarregar um recorte destruido.
+ */
+export type BackgroundTolerance = 'exata' | 'normal' | 'ampla'
+
 export type ConversionOptions = {
   readonly outputFormat: FormatId
   /** Null quando o formato de destino nao tem qualidade com perda. */
@@ -87,6 +111,26 @@ export type ConversionOptions = {
    * origem e o ganho da otimizacao ficava a metade.
    */
   readonly chroma: ChromaSubsampling
+
+  /**
+   * Remocao do fundo, ou null para nao remover.
+   *
+   * Funciona por preenchimento a partir dos quatro cantos, com tolerancia de
+   * cor, e nao por segmentacao: reconhece uma REGIAO contigua de cor
+   * semelhante ligada a borda, nao um objeto. Por isso resolve fotografia de
+   * produto, logotipo e captura de ecra, e nao resolve uma pessoa num
+   * cenario.
+   *
+   * Preenche a partir dos cantos e nao por cor global de proposito: um recorte
+   * branco DENTRO do objeto, como o brilho de um produto, tem de sobreviver.
+   * Medido: 78,7 % de fundo removido com o recorte interior intacto, contra
+   * 79,9 % com o limiar global que tambem o apagava.
+   *
+   * So existe onde o formato de destino tem canal alfa. Num JPEG nao ha onde
+   * guardar a transparencia, e achatar sobre uma cor sem avisar seria
+   * exatamente o que a seccao 5.8 do CLAUDE.md proibe.
+   */
+  readonly background: BackgroundTolerance | null
 }
 
 /** Resultado de `inspect`: lido dos cabecalhos, sem descodificar os pixels. */
@@ -116,6 +160,17 @@ export type ConversionResult = {
   /** Frames na entrada e na saida. Diferentes significa perda a declarar. */
   readonly frameCount: number
   readonly outputFrameCount: number
+  /**
+   * Percentagem da imagem que ficou opaca depois de remover o fundo, ou null
+   * quando a remocao nao foi pedida.
+   *
+   * Existe porque a remocao por limiar falha de duas maneiras que o utilizador
+   * nao pode adivinhar, e as duas sao obvias neste numero: perto de 0 significa
+   * que o recorte apagou a imagem toda, perto de 100 que nao encontrou fundo
+   * nenhum. Sem isto, a unica forma de saber era descarregar e abrir o
+   * ficheiro.
+   */
+  readonly backgroundKeptPercent: number | null
 }
 
 export type ImageJob = {

@@ -53,6 +53,7 @@ const resultado: ConversionResult = {
   profilesKept: [],
   frameCount: 1,
   outputFrameCount: 1,
+  backgroundKeptPercent: null,
 }
 
 describe('criarJob', () => {
@@ -218,6 +219,76 @@ describe('jobsReducer', () => {
 
     const alta = jobsReducer(menor, { type: 'preset', id: job.id, preset: 'alta' })
     expect(alta.jobs[0]?.options.quality).toBe(90)
+  })
+
+  describe('remocao de fundo', () => {
+    it('nasce desligada: altera pixeis, logo e sempre escolha explicita', () => {
+      const { estado } = comJob()
+      expect(estado.jobs[0]?.options.background).toBeNull()
+    })
+
+    it('a escolha fica guardada e invalida o resultado anterior', () => {
+      const { job, estado } = comJob()
+      const comResultado = jobsReducer(estado, { type: 'resultado', id: job.id, result: resultado })
+      expect(comResultado.jobs[0]?.status).toBe('done')
+
+      const depois = jobsReducer(comResultado, { type: 'fundo', id: job.id, background: 'normal' })
+      expect(depois.jobs[0]?.options.background).toBe('normal')
+      // O recorte muda os pixeis: o resultado anterior deixa de descrever o
+      // que as definicoes produzem agora.
+      expect(depois.jobs[0]?.status).toBe('ready')
+      expect(depois.jobs[0]?.result).toBeNull()
+    })
+
+    it('desligar volta a null', () => {
+      const { job, estado } = comJob()
+      const ligado = jobsReducer(estado, { type: 'fundo', id: job.id, background: 'ampla' })
+      const desligado = jobsReducer(ligado, { type: 'fundo', id: job.id, background: null })
+      expect(desligado.jobs[0]?.options.background).toBeNull()
+    })
+
+    it('mudar para um formato sem canal alfa desliga a opcao', () => {
+      // Sem isto, um recorte pedido em PNG viajava escondido dentro de um JPEG
+      // e o utilizador recebia a imagem achatada sem saber porque.
+      const { job, estado } = comJob()
+      const ligado = jobsReducer(estado, { type: 'fundo', id: job.id, background: 'normal' })
+      const paraJpeg = jobsReducer(ligado, {
+        type: 'formato-de-saida',
+        id: job.id,
+        outputFormat: 'jpeg',
+      })
+      expect(paraJpeg.jobs[0]?.options.background).toBeNull()
+    })
+
+    it('mudar entre formatos com canal alfa preserva a opcao', () => {
+      const { job, estado } = comJob()
+      const ligado = jobsReducer(estado, { type: 'fundo', id: job.id, background: 'normal' })
+      const paraPng = jobsReducer(ligado, {
+        type: 'formato-de-saida',
+        id: job.id,
+        outputFormat: 'png',
+      })
+      expect(paraPng.jobs[0]?.options.background).toBe('normal')
+    })
+
+    it('voltar de JPEG para PNG nao ressuscita a opcao', () => {
+      // Uma vez desligada pela passagem por um formato sem alfa, fica
+      // desligada: o utilizador tem de a pedir outra vez. Ressuscitar um valor
+      // que a interface deixou de mostrar seria uma surpresa.
+      const { job, estado } = comJob()
+      const ligado = jobsReducer(estado, { type: 'fundo', id: job.id, background: 'normal' })
+      const paraJpeg = jobsReducer(ligado, {
+        type: 'formato-de-saida',
+        id: job.id,
+        outputFormat: 'jpeg',
+      })
+      const deVolta = jobsReducer(paraJpeg, {
+        type: 'formato-de-saida',
+        id: job.id,
+        outputFormat: 'png',
+      })
+      expect(deVolta.jobs[0]?.options.background).toBeNull()
+    })
   })
 
   it('acumula avisos em vez de os substituir', () => {
