@@ -31,6 +31,7 @@ import { FileQueue } from './FileQueue'
 import { FormatSelect } from './FormatSelect'
 import { FramesNotice } from './FramesNotice'
 import { ImagePreview } from './ImagePreview'
+import { AdvancedSettings } from './AdvancedSettings'
 import { MetadataControl } from './MetadataControl'
 import { PaletteControl } from './PaletteControl'
 import { QualityControl } from './QualityControl'
@@ -211,6 +212,13 @@ export function ConverterWorkbench() {
             <MetadataControl
               valor={job.options.metadata}
               onChange={(politica) => conversor.definirMetadados(job.id, politica)}
+              disabled={definicoesBloqueadas}
+            />
+
+            <AdvancedSettings
+              outputFormat={job.options.outputFormat}
+              chroma={job.options.chroma}
+              onChroma={(chroma) => conversor.definirCroma(job.id, chroma)}
               disabled={definicoesBloqueadas}
             />
 

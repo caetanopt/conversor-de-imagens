@@ -30,7 +30,11 @@
  *     resolve-se para qualidade 100, que e o caminho que funciona de facto.
  */
 import { formatoPorId } from '@/config/formats'
-import type { ConversionOptions, MetadataPolicy } from '@/features/converter/types'
+import type {
+  ChromaSubsampling,
+  ConversionOptions,
+  MetadataPolicy,
+} from '@/features/converter/types'
 
 export type MagickDefine = {
   readonly format: string
@@ -75,6 +79,14 @@ export type EncodeDirectives = {
   readonly palette: number | null
 }
 
+/**
+ * Croma por defeito.
+ *
+ * '4:2:0' e o que a web usa e o que o olho nao distingue numa fotografia.
+ * Medido: 4:4:4 custa mais metade do ficheiro. Ver docs/medicoes.md.
+ */
+export const CROMA_POR_DEFEITO: ChromaSubsampling = '4:2:0'
+
 /** Limites da paleta. 2 e o minimo util, 256 e o maximo de um PNG indexado. */
 export const PALETA_MINIMA = 2
 export const PALETA_MAXIMA = 256
@@ -107,6 +119,17 @@ export function resolveEncodeDirectives(options: ConversionOptions): EncodeDirec
   if (formato.id === 'avif') {
     // Sem isto o AVIF e inutilizavel. Ver docs/medicoes.md.
     defines.push({ format: 'HEIC', name: 'speed', value: AVIF_SPEED_POR_DEFEITO })
+  }
+
+  /*
+   * O croma tem de ser declarado sempre, e nao apenas quando difere do defeito.
+   *
+   * Sem este define o ImageMagick HERDA a subamostragem do ficheiro de origem.
+   * Uma fotografia exportada em 4:4:4 saia em 4:4:4, e a otimizacao rendia
+   * 37,8 % em vez de 59,6 % na mesma imagem. Ver docs/medicoes.md.
+   */
+  if (formato.supportsChromaSubsampling) {
+    defines.push({ format: 'JPEG', name: 'sampling-factor', value: options.chroma })
   }
 
   return {

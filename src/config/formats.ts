@@ -52,6 +52,14 @@ export type ImageFormatCapability = {
   readonly supportsPalette: boolean
 
   /**
+   * O encoder expoe a subamostragem de croma.
+   *
+   * Hoje so o JPEG. O WebP e o AVIF decidem o croma internamente e nao aceitam
+   * este controlo, e nos formatos sem perda a pergunta nao existe.
+   */
+  readonly supportsChromaSubsampling: boolean
+
+  /**
    * Qualidade mais alta que o encoder com perda aceita.
    *
    * Nao e sempre 100, e as razoes sao diferentes em cada formato:
@@ -143,6 +151,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: false,
     supportsQuality: true,
     supportsPalette: false,
+    supportsChromaSubsampling: true,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'JPEG',
@@ -168,6 +177,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: true,
     supportsQuality: false,
     supportsPalette: true,
+    supportsChromaSubsampling: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'PNG',
@@ -193,6 +203,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: true,
     supportsQuality: true,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 99,
     supportsResize: true,
     magickFormat: 'WEBP',
@@ -217,6 +228,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: false,
     supportsQuality: true,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 99,
     supportsResize: true,
     magickFormat: 'AVIF',
@@ -244,6 +256,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: true,
     supportsQuality: false,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'GIF',
@@ -272,6 +285,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: true,
     supportsQuality: false,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'BMP',
@@ -300,6 +314,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: true,
     supportsQuality: false,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'TIFF',
@@ -327,6 +342,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: true,
     supportsQuality: false,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'ICO',
@@ -355,6 +371,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: true,
     supportsQuality: true,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'JXL',
@@ -380,6 +397,7 @@ export const FORMATOS: readonly ImageFormatCapability[] = [
     supportsLossless: false,
     supportsQuality: false,
     supportsPalette: false,
+    supportsChromaSubsampling: false,
     maxQuality: 100,
     supportsResize: true,
     magickFormat: 'HEIC',

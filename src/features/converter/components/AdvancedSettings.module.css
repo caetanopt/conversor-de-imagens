@@ -1,0 +1,69 @@
+.envolvente {
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+/*
+ * O triangulo nativo do <summary> muda de forma entre browsers. Substituido
+ * por um sinal proprio, com a mesma semantica de aberto e fechado do
+ * alternador do painel de definicoes.
+ */
+.titulo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: var(--control-height-touch);
+  padding: 0 var(--space-3);
+  font-size: var(--text-ui-small);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  cursor: pointer;
+  list-style: none;
+}
+
+.titulo::-webkit-details-marker {
+  display: none;
+}
+
+.titulo::after {
+  content: '+';
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.envolvente[open] .titulo::after {
+  content: '−';
+}
+
+@media (pointer: fine) {
+  .titulo {
+    min-height: var(--control-height);
+  }
+}
+
+.corpo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+/* Mesmo padrao dos outros interruptores do painel. */
+.ligar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.nota {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+  line-height: var(--leading-relaxed);
+}

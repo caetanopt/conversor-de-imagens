@@ -41,6 +41,20 @@ export type ResizeOptions = {
  */
 export type MetadataPolicy = 'remover' | 'preservar-cor' | 'manter'
 
+/**
+ * Resolucao a que a cor e guardada, relativa ao brilho.
+ *
+ * '4:2:0' guarda a cor a metade da resolucao horizontal e vertical. O olho
+ * humano distingue muito menos detalhe em cor do que em brilho, e por isso e o
+ * que praticamente todo o pipeline de imagem para web usa. Medido num JPEG de
+ * 1600x1200: 4:4:4 da 259 520 bytes e 4:2:0 da 168 656, ou seja 4:4:4 custa
+ * mais metade do ficheiro. Ver docs/medicoes.md.
+ *
+ * '4:4:4' guarda a cor em resolucao total. Só compensa onde ha texto colorido
+ * fino ou linhas saturadas, em que o 4:2:0 provoca franjas de cor visiveis.
+ */
+export type ChromaSubsampling = '4:2:0' | '4:4:4'
+
 export type ConversionOptions = {
   readonly outputFormat: FormatId
   /** Null quando o formato de destino nao tem qualidade com perda. */
@@ -63,6 +77,16 @@ export type ConversionOptions = {
    * nunca entra por defeito nem por preset. CLAUDE.md, seccao 11.
    */
   readonly palette: number | null
+
+  /**
+   * Subamostragem de croma. Ignorada nos formatos que nao a expoem.
+   *
+   * Ao contrario da paleta, esta tem um defeito com perda: '4:2:0'. A razao e
+   * que o alternativo nao e "sem perda", e apenas gastar mais bytes a guardar
+   * cor que o olho nao ve. Sem isto o motor herdava o 4:4:4 do ficheiro de
+   * origem e o ganho da otimizacao ficava a metade.
+   */
+  readonly chroma: ChromaSubsampling
 }
 
 /** Resultado de `inspect`: lido dos cabecalhos, sem descodificar os pixels. */

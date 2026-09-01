@@ -8,8 +8,9 @@
 import { formatoPorId, type FormatId } from '@/config/formats'
 import { PRESET_POR_DEFEITO, qualidadeDoPreset, type PresetId } from '@/config/presets'
 import { novoId } from '@/lib/ids'
-import { permiteEscolherSemPerda } from '@/lib/image-engine/options'
+import { CROMA_POR_DEFEITO, permiteEscolherSemPerda } from '@/lib/image-engine/options'
 import type {
+  ChromaSubsampling,
   ConversionMode,
   ConversionOptions,
   ConversionResult,
@@ -58,6 +59,7 @@ export type ConverterAction =
   | { readonly type: 'preset'; readonly id: string; readonly preset: PresetId }
   | { readonly type: 'sem-perda'; readonly id: string; readonly lossless: boolean }
   | { readonly type: 'paleta'; readonly id: string; readonly palette: number | null }
+  | { readonly type: 'croma'; readonly id: string; readonly chroma: ChromaSubsampling }
   | { readonly type: 'metadados'; readonly id: string; readonly metadata: MetadataPolicy }
   | { readonly type: 'resize'; readonly id: string; readonly resize: ResizeOptions | null }
   | { readonly type: 'modo'; readonly mode: ConversionMode }
@@ -113,7 +115,8 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
           options.metadata !== job.options.metadata ||
           options.resize !== job.options.resize ||
           options.lossless !== job.options.lossless ||
-          options.palette !== job.options.palette
+          options.palette !== job.options.palette ||
+          options.chroma !== job.options.chroma
 
         if (!mudou) return job
 
@@ -216,6 +219,14 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
           // o que vai acontecer.
           preset: acao.lossless ? null : (job.options.preset ?? PRESET_POR_DEFEITO),
         },
+      }))
+
+    case 'croma':
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        status: job.status === 'done' ? 'ready' : job.status,
+        result: null,
+        options: { ...job.options, chroma: acao.chroma },
       }))
 
     case 'paleta':
@@ -325,6 +336,9 @@ export function opcoesParaFormato(
     // num JPEG quantizar antes de comprimir so degrada a imagem sem ganhar
     // bytes, e o controlo nem aparece.
     palette: formato.supportsPalette ? anteriores.palette : null,
+    // O croma volta ao defeito onde nao tem efeito, para nao ficar um valor
+    // escolhido num JPEG a viajar escondido dentro de um PNG.
+    chroma: formato.supportsChromaSubsampling ? anteriores.chroma : CROMA_POR_DEFEITO,
   }
 }
 
@@ -344,6 +358,7 @@ export function opcoesPorDefeito(outputFormat: FormatId): ConversionOptions {
     // Desligada por defeito: perde informacao, e a seccao 11 do CLAUDE.md
     // manda que a reducao de paleta seja uma escolha explicita.
     palette: null,
+    chroma: CROMA_POR_DEFEITO,
   }
 }
 

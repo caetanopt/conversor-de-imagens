@@ -175,6 +175,65 @@ A interface passou a dizer isto de forma explícita quando o utilizador escolhe
 otimizar um PNG, e a sugerir WebP. É o caso previsto no CLAUDE.md, secção 6,
 para avaliar um codec dedicado numa etapa posterior.
 
+### O JPEG saía com o croma herdado do ficheiro de origem
+
+Este era um defeito, não uma limitação. O ImageMagick **herda a subamostragem
+de croma do ficheiro de entrada** quando ninguém lhe declara nada. Uma
+fotografia exportada em 4:4:4, o que é comum em material de agência e em
+exportações do Photoshop acima de qualidade 7, saía em 4:4:4 e a otimização
+rendia metade do que devia.
+
+Medido num JPEG de 1600x1200 já comprimido, 0,217 bytes/pixel de entrada. A
+distorção é o SSIM do ImageMagick, onde 0 é idêntico ao original:
+
+| Definição | Tamanho | Ganho | bpp | Distorção | Croma |
+|---|---|---|---|---|---|
+| **q82, como estava** | 259 520 | **37,8 %** | 0,135 | 0,0166 | **4:4:4** |
+| **q82 + croma 4:2:0** | 168 656 | **59,6 %** | 0,088 | 0,0269 | 4:2:0 |
+| q75 + 4:2:0 | 128 430 | 69,2 % | 0,067 | 0,0312 | 4:2:0 |
+| q70 + 4:2:0 | 113 001 | 72,9 % | 0,059 | 0,0338 | 4:2:0 |
+| q65 + 4:2:0 | 98 118 | 76,5 % | 0,051 | 0,0364 | 4:2:0 |
+| referência: WebP q80 | 74 472 | 82,2 % | 0,039 | 0,0329 | — |
+
+Declarar 4:2:0 vale **22 pontos percentuais** sem tocar na qualidade. O 4:2:0
+guarda a cor a metade da resolução em cada eixo, mantendo a luminância
+intacta, e é o que praticamente todo o pipeline de imagem para web usa: o olho
+distingue muito menos detalhe em cor do que em brilho.
+
+Confirmado no browser, num JPEG 4:4:4 de 3000x2000:
+
+| | Resultado | Croma no ficheiro |
+|---|---|---|
+| por defeito | 982 180 → 469 394 bytes, menos 52,2 % | 4:2:0 progressivo |
+| com "resolução total" ligado | 982 180 → 786 091 bytes, menos 20,0 % | 4:4:4 progressivo |
+
+Duas notas sobre a implementação:
+
+- **O define vai sempre, mesmo com o valor por defeito.** Enviá-lo apenas
+  quando difere do defeito reintroduzia o defeito, porque é o silêncio que faz
+  o motor herdar o croma da origem.
+- **O 4:4:4 continua acessível**, numa secção avançada, porque em imagens com
+  texto colorido fino ou linhas saturadas o 4:2:0 provoca franjas de cor.
+  CLAUDE.md, secção 11.
+
+Duas coisas testadas que **não** ajudam: `jpeg:optimize-coding` devolveu bytes
+idênticos, o ImageMagick já otimiza as tabelas de Huffman; e o progressivo, que
+já era usado, vale 0,15 %.
+
+### O que continua a faltar para igualar o TinyPNG
+
+Depois do croma corrigido, o resto da diferença tem duas causas, e nenhuma é
+um defeito nosso:
+
+1. **Eles são mais agressivos do que parecem.** Numa imagem de 8,2 MP entregaram
+   0,059 bytes/pixel. Pela tabela acima, 0,059 bpp corresponde a qualidade ~70,
+   e não aos 82 do preset Equilibrado. Não preservam um número de qualidade,
+   apontam a um limiar perceptual.
+2. **mozjpeg.** Quantização por trellis e tabelas melhores dão tipicamente 15 a
+   30 % com a mesma qualidade visual. O ImageMagick não faz isso. É o caso
+   previsto no CLAUDE.md, secção 6, para avaliar um codec dedicado, e o critério
+   lá definido está cumprido: existe melhoria medida em tamanho.
+
 ### Mas há margem, e não é na compressão: é na paleta
 
 A conclusão acima estava certa e era incompleta, e a interface tirou dela uma

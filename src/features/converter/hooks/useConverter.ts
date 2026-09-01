@@ -36,6 +36,7 @@ import {
 } from '../state/jobsReducer'
 import { convertiveis, jobSelecionado, resumirLote } from '../state/selectors'
 import type {
+  ChromaSubsampling,
   ConversionMode,
   ImageInspection,
   ImageJob,
@@ -467,6 +468,10 @@ export function useConverter() {
     dispatch({ type: 'paleta', id, palette })
   }, [])
 
+  const definirCroma = useCallback((id: string, chroma: ChromaSubsampling) => {
+    dispatch({ type: 'croma', id, chroma })
+  }, [])
+
   const definirMetadados = useCallback((id: string, metadata: MetadataPolicy) => {
     dispatch({ type: 'metadados', id, metadata })
   }, [])
@@ -503,6 +508,7 @@ export function useConverter() {
     definirPreset,
     definirSemPerda,
     definirPaleta,
+    definirCroma,
     definirMetadados,
     definirResize,
     definirModo,

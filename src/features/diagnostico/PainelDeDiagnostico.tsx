@@ -92,6 +92,7 @@ export function PainelDeDiagnostico() {
           lossless: false,
           resize: null,
           palette: null,
+          chroma: '4:2:0',
         })
         amostras.push({
           formato,
