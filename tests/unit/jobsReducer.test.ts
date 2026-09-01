@@ -200,7 +200,7 @@ describe('jobsReducer', () => {
       id: job.id,
       outputFormat: 'jpeg',
     })
-    expect(paraJpeg.jobs[0]?.options.quality).toBe(82)
+    expect(paraJpeg.jobs[0]?.options.quality).toBe(60)
   })
 
   it('ajustar a qualidade a mao desliga o preset', () => {
@@ -214,7 +214,7 @@ describe('jobsReducer', () => {
     const { job, estado } = comJob()
     const menor = jobsReducer(estado, { type: 'preset', id: job.id, preset: 'menor' })
     expect(menor.jobs[0]?.options.preset).toBe('menor')
-    expect(menor.jobs[0]?.options.quality).toBe(65)
+    expect(menor.jobs[0]?.options.quality).toBe(55)
 
     const alta = jobsReducer(menor, { type: 'preset', id: job.id, preset: 'alta' })
     expect(alta.jobs[0]?.options.quality).toBe(90)

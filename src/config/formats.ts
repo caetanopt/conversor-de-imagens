@@ -132,6 +132,15 @@ export type ImageFormatCapability = {
    */
   readonly requiresFormatHint: boolean
 
+  /**
+   * Qualidade de recurso, nao a qualidade que o utilizador recebe.
+   *
+   * O valor por defeito da interface vem do preset (`PRESET_POR_DEFEITO`), que
+   * hoje cobre todos os formatos com perda. Este campo e o recurso para um
+   * formato ainda sem entrada na tabela de presets, e a linha de base das
+   * medicoes do painel de diagnostico. Nao o alterar a espera de mudar o que a
+   * aplicacao produz: quem manda ai e `src/config/presets.ts`.
+   */
   readonly defaultQuality: number | null
   readonly release: ReleaseFormato
   readonly notes?: string

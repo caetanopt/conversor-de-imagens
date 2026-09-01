@@ -132,11 +132,11 @@ Presets em uso:
 | Preset | JPG | WebP | AVIF |
 |---|---|---|---|
 | Qualidade alta | 92 | 90 | 80 |
-| Equilibrado | 82 | 80 | 65 |
-| Ficheiro mais pequeno | 70 | 65 | 45 |
+| Equilibrado | 60 | 70 | 50 |
+| Ficheiro mais pequeno | 40 | 55 | 40 |
 
-Nenhum usa 100, deliberadamente. Os valores do AVIF foram calibrados por SSIM,
-ver a secção seguinte.
+Nenhum usa 100, deliberadamente. Os valores do WebP e do AVIF foram calibrados
+por SSIM, ver a secção seguinte.
 
 Esta tabela compara só tamanho e tempo, o que se mostrou insuficiente: ver a
 secção de SSIM para a comparação correta entre formatos.
@@ -227,8 +227,9 @@ um defeito nosso:
 
 1. **Eles são mais agressivos do que parecem.** Numa imagem de 8,2 MP entregaram
    0,059 bytes/pixel. Pela tabela acima, 0,059 bpp corresponde a qualidade ~70,
-   e não aos 82 do preset Equilibrado. Não preservam um número de qualidade,
-   apontam a um limiar perceptual.
+   e não aos 82 que o preset Equilibrado usava então. Não preservam um número de
+   qualidade, apontam a um limiar perceptual. O preset desceu a 60 depois desta
+   medição, ver a secção da recalibração.
 2. **mozjpeg.** Quantização por trellis e tabelas melhores dão tipicamente 15 a
    30 % com a mesma qualidade visual. O ImageMagick não faz isso. É o caso
    previsto no CLAUDE.md, secção 6, para avaliar um codec dedicado, e o critério
@@ -374,17 +375,49 @@ E o JPEG, para referência: precisa de q85 e 54 156 bytes para igualar a
 distorção de WebP q80 com 35 302. O WebP é 35 % menor que o JPEG a qualidade
 visual igual, o que justifica ser o destino sugerido por defeito.
 
-### Os presets do AVIF foram calibrados com estes números
+### Os presets foram calibrados com estes números
 
-`alta` 80, `equilibrado` 65, `menor` 45. Sem calibração, um preset chamado
-"Equilibrado" significava coisas diferentes em cada formato. Com ela, a distorção
-entre JPG, WebP e AVIF no mesmo preset fica dentro de um fator de 1,04 a 1,31, e
-um teste falha acima de 1,5.
+Primeira calibração, com o WebP como âncora: AVIF `alta` 80, `equilibrado` 65,
+`menor` 45. Sem calibração, um preset chamado "Equilibrado" significava coisas
+diferentes em cada formato. Com ela, a distorção entre JPG, WebP e AVIF no mesmo
+preset fica dentro de um fator de 1,04 a 1,31, e um teste falha acima de 1,5.
+
+Os presets `equilibrado` e `menor` foram depois recalibrados a partir do JPEG,
+ver a secção seguinte. O `alta` mantém estes valores.
 
 **Honestidade sobre o alcance:** o ganho do AVIF é modesto em qualidade alta e
 relevante em qualidade baixa, medido em conteúdo sintético. Numa fotografia real
 espera-se que seja maior, mas isso não foi medido. Falta uma fotografia real no
 conjunto de fixtures.
+
+### Recalibração de Equilibrado e Ficheiro mais pequeno
+
+O responsável do projeto fixou o Equilibrado em 60 e o Ficheiro mais pequeno em
+40. São valores de JPEG, e aplicá-los tal e qual ao WebP e ao AVIF repetiria o
+erro que a calibração por SSIM tinha corrigido: qualidade 60 em AVIF é bastante
+mais agressiva do que qualidade 60 em JPEG.
+
+Cada formato foi por isso varrido de q20 a q95 na mesma imagem de 640x480 e a
+mesma semente, à procura da qualidade que iguala a distorção do JPEG do preset:
+
+| Preset | JPEG (âncora) | WebP equivalente | AVIF equivalente |
+|---|---|---|---|
+| Equilibrado | q60, 24 747 B, SSIM 0,15910 | **q70**, 20 902 B, SSIM 0,16033 | **q50**, 19 134 B, SSIM 0,15695 |
+| Ficheiro mais pequeno | q40, 15 614 B, SSIM 0,17248 | **q55**, 13 720 B, SSIM 0,17358 | **q40**, 10 247 B, SSIM 0,17204 |
+
+Duas leituras:
+
+- **O WebP continua a ganhar ao JPEG em tamanho a qualidade visual igual**,
+  15 % no Equilibrado e 12 % no Ficheiro mais pequeno.
+- **A vantagem do AVIF cresce à medida que a qualidade desce**, 23 % e 34 %
+  respetivamente, o que confirma o padrão da primeira calibração.
+
+O `alta` não foi tocado: não foi pedido, e mexer-lhe sem medição seria trocar
+números calibrados por palpites.
+
+**O JXL não está calibrado.** O formato está em avaliação, não chega à interface
+e não foi medido. Os valores acompanham o JPEG, cuja escala de qualidade é a mais
+próxima, e terão de ser medidos antes de o formato ser ativado.
 
 ### O AVIF é mais rápido que o WebP a codificar
 
