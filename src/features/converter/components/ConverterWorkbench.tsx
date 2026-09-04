@@ -194,6 +194,20 @@ export function ConverterWorkbench() {
               </>
             ) : null}
 
+            {/* As dimensoes vem antes da qualidade, e nao no fim do painel.
+                Pedido do responsavel do projeto, e faz sentido: decidir o
+                tamanho e a primeira escolha de quem prepara uma imagem, e o
+                valor da qualidade so significa algo depois de saber quantos
+                pixeis vao ser guardados. */}
+            <ResizeControls
+              valor={job.options.resize}
+              origem={job.inspection}
+              onChange={(resize) => conversor.definirResize(job.id, resize)}
+              disabled={definicoesBloqueadas}
+            />
+
+            <hr className={styles.divisor} />
+
             {/* Antes da conversao, nao depois. CLAUDE.md, seccao 5.8. */}
             <FramesNotice
               inspection={job.inspection}
@@ -240,15 +254,6 @@ export function ConverterWorkbench() {
               origem={limitesDoCorte}
               onCorte={(crop) => conversor.definirCorte(job.id, crop)}
               onProporcao={(aspect) => conversor.definirProporcaoDoCorte(job.id, aspect)}
-              disabled={definicoesBloqueadas}
-            />
-
-            <hr className={styles.divisor} />
-
-            <ResizeControls
-              valor={job.options.resize}
-              origem={job.inspection}
-              onChange={(resize) => conversor.definirResize(job.id, resize)}
               disabled={definicoesBloqueadas}
             />
 
