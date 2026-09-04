@@ -478,7 +478,7 @@ Quando suportado:
 
 ## 12. Otimização
 
-O utilizador deve conseguir escolher entre dois modos principais:
+O utilizador deve conseguir escolher entre três modos principais:
 
 ### Otimizar
 
@@ -488,7 +488,26 @@ Mantém o formato original, sempre que possível, e reduz o tamanho do ficheiro.
 
 Permite escolher outro formato e, opcionalmente, otimizar durante a conversão.
 
-Não criar dois produtos separados. Devem ser dois modos do mesmo fluxo.
+### Redimensionar
+
+Mantém o formato original e altera as dimensões, por escala ou por corte. As
+duas vias mudam quantos pixéis saem, por isso vivem no mesmo modo e não em dois
+sítios distantes do painel.
+
+Neste modo o interruptor do redimensionamento não aparece: seria um segundo
+controlo com o mesmo nome do modo e o mesmo significado. O modo é o interruptor,
+e os campos entram pré-enchidos com as dimensões da imagem para serem
+imediatamente utilizáveis.
+
+Sair do modo não desliga o redimensionamento escolhido. Desligá-lo seria perder
+trabalho do utilizador sem ele pedir.
+
+### Regra comum aos três
+
+Não criar produtos separados. Devem ser modos do mesmo fluxo: o pipeline é um só,
+e a diferença entre modos é apenas uma restrição no formato de destino
+(`otimizar` e `redimensionar` impõem o formato de origem, `converter` deixa
+escolher) e a intenção que fica em destaque.
 
 ### Presets iniciais
 

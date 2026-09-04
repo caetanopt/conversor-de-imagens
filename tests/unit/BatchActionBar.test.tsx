@@ -32,6 +32,22 @@ const SEM_ACAO = {
 }
 
 describe('BatchActionBar', () => {
+  it('o verbo do botao segue o terceiro modo tambem', () => {
+    const job = criarJob(ficheiro(), 'jpeg', 'jpeg')
+    const estado: ConverterState = { jobs: [job], mode: 'redimensionar', selecionadoId: null }
+    render(
+      <BatchActionBar
+        resumo={resumirLote(estado)}
+        selecionado={job}
+        mode="redimensionar"
+        {...SEM_ACAO}
+      />,
+    )
+    expect(screen.getByRole('button', { name: /^Redimensionar para/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /^Otimizar/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^Converter/ })).toBeNull()
+  })
+
   it('com um ficheiro, o verbo do botao muda entre otimizar e converter', () => {
     const job = criarJob(ficheiro(), 'jpeg', 'jpeg')
     const estado: ConverterState = { jobs: [job], mode: 'otimizar', selecionadoId: null }

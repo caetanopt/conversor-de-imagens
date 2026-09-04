@@ -405,6 +405,81 @@ describe('jobsReducer', () => {
     })
   })
 
+  describe("o modo 'redimensionar'", () => {
+    it('impoe o formato de origem, como otimizar', () => {
+      const job = criarJob(ficheiro('foto.jpg'), 'jpeg', 'webp')
+      const base: ConverterState = { jobs: [job], mode: 'converter', selecionadoId: job.id }
+      const depois = jobsReducer(base, { type: 'modo', mode: 'redimensionar' })
+      expect(depois.jobs[0]?.options.outputFormat).toBe('jpeg')
+    })
+
+    it('liga o redimensionamento, porque o modo sem ele nao faria nada', () => {
+      const job = criarJob(ficheiro('foto.jpg'), 'jpeg', 'jpeg')
+      const base: ConverterState = { jobs: [job], mode: 'otimizar', selecionadoId: job.id }
+      expect(base.jobs[0]?.options.resize).toBeNull()
+
+      const depois = jobsReducer(base, { type: 'modo', mode: 'redimensionar' })
+      expect(depois.jobs[0]?.options.resize).not.toBeNull()
+      expect(depois.jobs[0]?.options.resize?.preserveAspectRatio).toBe(true)
+      expect(depois.jobs[0]?.options.resize?.allowUpscale).toBe(false)
+    })
+
+    it('pre-enche com as dimensoes lidas, para os campos serem utilizaveis', () => {
+      // Campos vazios nao fazem nada e nao dizem por onde comecar.
+      const job = criarJob(ficheiro('foto.jpg'), 'jpeg', 'jpeg')
+      const base: ConverterState = { jobs: [job], mode: 'otimizar', selecionadoId: job.id }
+      const comInspecao = jobsReducer(base, {
+        type: 'inspecao',
+        id: job.id,
+        inspection: { ...inspecao, width: 1200, height: 800 },
+      })
+      const depois = jobsReducer(comInspecao, { type: 'modo', mode: 'redimensionar' })
+      expect(depois.jobs[0]?.options.resize?.width).toBe(1200)
+      expect(depois.jobs[0]?.options.resize?.height).toBe(800)
+    })
+
+    it('sem inspecao ainda feita, liga sem inventar dimensoes', () => {
+      const job = criarJob(ficheiro('foto.jpg'), 'jpeg', 'jpeg')
+      const base: ConverterState = { jobs: [job], mode: 'otimizar', selecionadoId: job.id }
+      const depois = jobsReducer(base, { type: 'modo', mode: 'redimensionar' })
+      expect(depois.jobs[0]?.options.resize?.width).toBeNull()
+      expect(depois.jobs[0]?.options.resize?.height).toBeNull()
+    })
+
+    it('nao mexe num redimensionamento que o utilizador ja tinha escolhido', () => {
+      const job = criarJob(ficheiro('foto.jpg'), 'jpeg', 'jpeg')
+      const base: ConverterState = { jobs: [job], mode: 'otimizar', selecionadoId: job.id }
+      const escolhido = jobsReducer(base, {
+        type: 'resize',
+        id: job.id,
+        resize: { width: 640, height: null, preserveAspectRatio: true, allowUpscale: false },
+      })
+      const depois = jobsReducer(escolhido, { type: 'modo', mode: 'redimensionar' })
+      expect(depois.jobs[0]?.options.resize?.width).toBe(640)
+    })
+
+    it('sair do modo nao desliga o redimensionamento escolhido', () => {
+      // Desligar seria perder trabalho do utilizador sem ele pedir.
+      const job = criarJob(ficheiro('foto.jpg'), 'jpeg', 'jpeg')
+      const base: ConverterState = { jobs: [job], mode: 'otimizar', selecionadoId: job.id }
+      const noModo = jobsReducer(base, { type: 'modo', mode: 'redimensionar' })
+      const foraDoModo = jobsReducer(noModo, { type: 'modo', mode: 'otimizar' })
+      expect(foraDoModo.jobs[0]?.options.resize).not.toBeNull()
+    })
+
+    it('o corte sobrevive a entrada no modo: e a outra via de mudar dimensoes', () => {
+      const job = criarJob(ficheiro('foto.jpg'), 'jpeg', 'jpeg')
+      const base: ConverterState = { jobs: [job], mode: 'otimizar', selecionadoId: job.id }
+      const comCorte = jobsReducer(base, {
+        type: 'corte',
+        id: job.id,
+        crop: { x: 0, y: 0, width: 100, height: 80 },
+      })
+      const depois = jobsReducer(comCorte, { type: 'modo', mode: 'redimensionar' })
+      expect(depois.jobs[0]?.options.crop).toEqual({ x: 0, y: 0, width: 100, height: 80 })
+    })
+  })
+
   it('acumula avisos em vez de os substituir', () => {
     const { job, estado } = comJob()
     const um = jobsReducer(estado, { type: 'avisos', id: job.id, warnings: ['a'] })

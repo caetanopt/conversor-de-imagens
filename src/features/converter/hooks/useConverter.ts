@@ -640,12 +640,13 @@ async function originalSemMetadados(job: ImageJob): Promise<{ blob: Blob; size: 
 /**
  * Destino de um ficheiro novo, respeitando o modo em curso.
  *
- * Em 'otimizar' o destino e o formato de origem. Quando esse formato nao pode
- * ser escrito pelo motor, cai no destino sugerido em vez de ficar preso.
+ * Em 'otimizar' e em 'redimensionar' o destino e o formato de origem. Quando
+ * esse formato nao pode ser escrito pelo motor, cai no destino sugerido em vez
+ * de ficar preso.
  */
 function destinoParaModo(modo: ConversionMode, sourceFormat: FormatId): FormatId {
-  if (modo === 'otimizar') return formatoDeOtimizacao(sourceFormat) ?? destinoSugerido(sourceFormat)
-  return destinoSugerido(sourceFormat)
+  if (modo === 'converter') return destinoSugerido(sourceFormat)
+  return formatoDeOtimizacao(sourceFormat) ?? destinoSugerido(sourceFormat)
 }
 
 function anuncioDeEntrada(validos: number, invalidos: number, semEspaco: number): string {

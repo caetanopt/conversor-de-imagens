@@ -1,11 +1,16 @@
 'use client'
 
 /**
- * Escolha entre otimizar e converter.
+ * Escolha entre otimizar, converter e redimensionar.
  *
- * Nao sao dois produtos nem dois caminhos de codigo: e o mesmo pipeline com uma
- * restricao diferente no formato de destino. Em 'otimizar', o destino e o
- * formato de origem. CLAUDE.md, seccao 12.
+ * Nao sao tres produtos nem tres caminhos de codigo: e o mesmo pipeline com uma
+ * restricao diferente no formato de destino. Em 'otimizar' e em 'redimensionar'
+ * o destino e o formato de origem; em 'converter' o utilizador escolhe.
+ * CLAUDE.md, seccao 12.
+ *
+ * O terceiro segmento cabe na mesma faixa porque o SegmentedControl muda de
+ * linha quando nao ha largura (`flex-wrap` com `flex-basis`), o que ja foi
+ * preciso para os seis formatos de destino num painel de 320 px.
  */
 import { SegmentedControl } from '@/components/controls/SegmentedControl'
 import { formatoPorId, type FormatId } from '@/config/formats'
@@ -52,7 +57,7 @@ export function ConversionModeControl({
   const podeOtimizar = formatoDeOtimizacao !== null
   const etiquetaOrigem = sourceFormat ? formatoPorId(sourceFormat).label : null
   const semRecompressao =
-    modo === 'otimizar' &&
+    modo !== 'converter' &&
     formatoDeOtimizacao !== null &&
     !recomprimeNoMesmoFormato(formatoDeOtimizacao)
   // Onde a paleta e uma alavanca real, o aviso aponta para ela em vez de dizer
@@ -67,6 +72,7 @@ export function ConversionModeControl({
         opcoes={[
           { value: 'otimizar', label: 'Otimizar' },
           { value: 'converter', label: 'Converter' },
+          { value: 'redimensionar', label: 'Redimensionar' },
         ]}
         valor={modo}
         onChange={onChange}
@@ -75,16 +81,19 @@ export function ConversionModeControl({
 
       <p className={styles.explicacao}>
         {!podeOtimizar
-          ? `Não é possível otimizar mantendo ${etiquetaOrigem ?? 'este formato'}. Escolha um formato de destino.`
+          ? `Não é possível manter ${etiquetaOrigem ?? 'este formato'}. Escolha um formato de destino.`
           : modo === 'converter'
             ? 'Permite escolher outro formato de destino.'
-            : semRecompressao
-              ? // Prometer reducao de tamanho num formato sem perda seria falso.
-                `Mantém ${etiquetaOrigem} e aplica as definições escolhidas.`
-              : `Mantém ${etiquetaOrigem} e reduz o tamanho do ficheiro.`}
+            : modo === 'redimensionar'
+              ? // Diz as duas vias, porque a etiqueta so nomeia uma.
+                `Mantém ${etiquetaOrigem} e altera as dimensões, por escala ou por corte.`
+              : semRecompressao
+                ? // Prometer reducao de tamanho num formato sem perda seria falso.
+                  `Mantém ${etiquetaOrigem} e aplica as definições escolhidas.`
+                : `Mantém ${etiquetaOrigem} e reduz o tamanho do ficheiro.`}
       </p>
 
-      {semRecompressao ? (
+      {semRecompressao && modo !== 'redimensionar' ? (
         <p className={styles.aviso}>
           {etiquetaOrigem} não tem compressão com perda, por isso otimizar sem mudar de formato
           não recomprime a imagem.{' '}

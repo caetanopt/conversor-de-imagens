@@ -105,8 +105,10 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
 
         // No modo de otimizacao o destino e imposto pela origem de cada
         // ficheiro, portanto o formato nao se copia: copia-se tudo o resto.
+        // 'otimizar' e 'redimensionar' impoem o formato de origem de CADA
+        // ficheiro, portanto o formato nao se copia: copia-se tudo o resto.
         const destino =
-          estado.mode === 'otimizar'
+          estado.mode !== 'converter'
             ? (formatoDeOtimizacao(job.sourceFormat) ?? job.options.outputFormat)
             : origem.options.outputFormat
 
@@ -311,23 +313,54 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
     case 'modo': {
       if (acao.mode === estado.mode) return estado
 
-      // Otimizar e converter sao o mesmo pipeline: a unica diferenca e que em
-      // 'otimizar' o formato de destino e imposto pelo formato de origem.
-      // Nao ha um segundo caminho de codigo, so uma restricao na escolha.
-      const jobs =
-        acao.mode === 'otimizar'
-          ? estado.jobs.map((job) => {
-              const destino = formatoDeOtimizacao(job.sourceFormat)
-              if (!destino || destino === job.options.outputFormat) return job
-              return {
-                ...job,
-                status: job.status === 'done' || job.status === 'error' ? 'ready' : job.status,
-                result: null,
-                error: null,
-                options: opcoesParaFormato(job.options, destino),
-              } satisfies ImageJob
-            })
-          : estado.jobs
+      /*
+       * Os tres modos sao o mesmo pipeline. As diferencas sao duas:
+       *
+       *  - em 'otimizar' e 'redimensionar' o formato de destino e imposto pelo
+       *    formato de origem, e em 'converter' o utilizador escolhe;
+       *  - 'redimensionar' liga o redimensionamento, porque um modo com esse
+       *    nome e o interruptor desligado nao faria nada.
+       *
+       * Nao ha um segundo caminho de codigo, so restricoes na escolha.
+       */
+      const mantemFormato = acao.mode !== 'converter'
+
+      const jobs = estado.jobs.map((job) => {
+        const destino = mantemFormato ? formatoDeOtimizacao(job.sourceFormat) : null
+        const mudaFormato = destino !== null && destino !== job.options.outputFormat
+        const ligaResize = acao.mode === 'redimensionar' && job.options.resize === null
+
+        if (!mudaFormato && !ligaResize) return job
+
+        const options: ConversionOptions = {
+          ...(mudaFormato ? opcoesParaFormato(job.options, destino) : job.options),
+          /*
+           * Pre-enchido com as dimensoes da imagem, quando ja foram lidas.
+           *
+           * Um resize ligado com os campos vazios nao faz nada e nao diz ao
+           * utilizador por onde comecar. Com as dimensoes atuais lá, o campo e
+           * imediatamente editavel e o efeito de escrever um numero e obvio.
+           */
+          ...(ligaResize
+            ? {
+                resize: {
+                  width: job.inspection?.width ?? null,
+                  height: job.inspection?.height ?? null,
+                  preserveAspectRatio: true,
+                  allowUpscale: false,
+                },
+              }
+            : {}),
+        }
+
+        return {
+          ...job,
+          status: job.status === 'done' || job.status === 'error' ? 'ready' : job.status,
+          result: null,
+          error: null,
+          options,
+        } satisfies ImageJob
+      })
 
       return { ...estado, mode: acao.mode, jobs }
     }

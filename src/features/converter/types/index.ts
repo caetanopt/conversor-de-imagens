@@ -10,7 +10,20 @@ import type { CropRect, ProporcaoId } from '../state/crop'
 
 export type ConversionStatus = 'ready' | 'processing' | 'done' | 'error' | 'cancelled'
 
-export type ConversionMode = 'otimizar' | 'converter'
+/**
+ * Os tres modos do mesmo fluxo.
+ *
+ * Nao sao tres produtos nem tres caminhos de codigo: e o mesmo pipeline com uma
+ * restricao diferente no formato de destino e uma intencao diferente em
+ * destaque. CLAUDE.md, seccao 12.
+ *
+ *  'otimizar'      mantem o formato de origem e reduz o tamanho do ficheiro.
+ *  'converter'     permite escolher outro formato de destino.
+ *  'redimensionar' mantem o formato de origem e altera as dimensoes, por escala
+ *                  ou por corte. As duas coisas mudam quantos pixeis saem, e por
+ *                  isso vivem no mesmo modo.
+ */
+export type ConversionMode = 'otimizar' | 'converter' | 'redimensionar'
 
 export type ResizeOptions = {
   readonly width: number | null

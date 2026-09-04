@@ -194,15 +194,29 @@ export function ConverterWorkbench() {
               </>
             ) : null}
 
-            {/* As dimensoes vem antes da qualidade, e nao no fim do painel.
-                Pedido do responsavel do projeto, e faz sentido: decidir o
-                tamanho e a primeira escolha de quem prepara uma imagem, e o
-                valor da qualidade so significa algo depois de saber quantos
-                pixeis vao ser guardados. */}
+            {/*
+              As duas vias de mudar as dimensoes, no mesmo bloco: escalar e
+              cortar. E o que o modo 'redimensionar' cobre, e por isso ficam
+              juntas e antes da qualidade, cujo valor so significa algo depois
+              de se saber quantos pixeis vao ser guardados.
+
+              No modo 'redimensionar' o interruptor do redimensionamento
+              desaparece: seria um segundo controlo com o mesmo nome do modo.
+            */}
             <ResizeControls
               valor={job.options.resize}
               origem={job.inspection}
               onChange={(resize) => conversor.definirResize(job.id, resize)}
+              disabled={definicoesBloqueadas}
+              sempreAtivo={conversor.mode === 'redimensionar'}
+            />
+
+            <CropControls
+              crop={job.options.crop}
+              aspect={job.options.cropAspect}
+              origem={limitesDoCorte}
+              onCorte={(crop) => conversor.definirCorte(job.id, crop)}
+              onProporcao={(aspect) => conversor.definirProporcaoDoCorte(job.id, aspect)}
               disabled={definicoesBloqueadas}
             />
 
@@ -248,17 +262,6 @@ export function ConverterWorkbench() {
 
             <hr className={styles.divisor} />
 
-            <CropControls
-              crop={job.options.crop}
-              aspect={job.options.cropAspect}
-              origem={limitesDoCorte}
-              onCorte={(crop) => conversor.definirCorte(job.id, crop)}
-              onProporcao={(aspect) => conversor.definirProporcaoDoCorte(job.id, aspect)}
-              disabled={definicoesBloqueadas}
-            />
-
-            <hr className={styles.divisor} />
-
             <MetadataControl
               valor={job.options.metadata}
               onChange={(politica) => conversor.definirMetadados(job.id, politica)}
@@ -284,9 +287,9 @@ export function ConverterWorkbench() {
                   Aplicar a todos os ficheiros
                 </Button>
                 <p className={styles.nota}>
-                  {conversor.mode === 'otimizar'
-                    ? 'No modo otimizar cada ficheiro mantém o seu formato de origem. Copiamos qualidade, dimensões e metadados.'
-                    : 'Substitui as definições dos outros ficheiros e descarta resultados já produzidos com definições diferentes.'}
+                  {conversor.mode === 'converter'
+                    ? 'Substitui as definições dos outros ficheiros e descarta resultados já produzidos com definições diferentes.'
+                    : 'Neste modo cada ficheiro mantém o seu formato de origem. Copiamos qualidade, dimensões e metadados. O corte não se copia, porque está em pixéis desta imagem.'}
                 </p>
               </div>
             ) : null}

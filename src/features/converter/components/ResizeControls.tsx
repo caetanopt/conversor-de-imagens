@@ -25,6 +25,13 @@ type Props = {
   readonly origem: { readonly width: number; readonly height: number } | null
   readonly onChange: (resize: ResizeOptions | null) => void
   readonly disabled?: boolean
+  /**
+   * Esconde o interruptor e mantem os campos sempre visiveis.
+   *
+   * Usado no modo 'redimensionar', onde o interruptor seria um segundo controlo
+   * com o mesmo nome do modo e o mesmo significado. O modo E o interruptor.
+   */
+  readonly sempreAtivo?: boolean
 }
 
 
@@ -35,9 +42,15 @@ const DESLIGADO: ResizeOptions = {
   allowUpscale: false,
 }
 
-export function ResizeControls({ valor, origem, onChange, disabled = false }: Props) {
+export function ResizeControls({
+  valor,
+  origem,
+  onChange,
+  disabled = false,
+  sempreAtivo = false,
+}: Props) {
   const id = useId()
-  const ativo = valor !== null
+  const ativo = sempreAtivo || valor !== null
   const resize = valor ?? DESLIGADO
 
   const saida = origem ? calcularSaida(origem, ativo ? resize : null) : null
@@ -59,15 +72,17 @@ export function ResizeControls({ valor, origem, onChange, disabled = false }: Pr
 
   return (
     <div className={styles.envolvente}>
-      <label className={styles.ligar}>
-        <input
-          type="checkbox"
-          checked={ativo}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked ? DESLIGADO : null)}
-        />
-        <span>Redimensionar</span>
-      </label>
+      {sempreAtivo ? null : (
+        <label className={styles.ligar}>
+          <input
+            type="checkbox"
+            checked={ativo}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.checked ? DESLIGADO : null)}
+          />
+          <span>Redimensionar</span>
+        </label>
+      )}
 
       {ativo ? (
         <>

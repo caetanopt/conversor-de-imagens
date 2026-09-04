@@ -189,6 +189,19 @@ function textoDeFalhas(resumo: ResumoDoLote): string {
  * Sem isto o botao ficava preso no texto de "Converter" mesmo depois de o
  * utilizador escolher "Otimizar", porque nada voltava a ler o modo atual.
  */
+/** O verbo de cada modo, para o botao dizer o que vai acontecer. */
+const ACAO_DO_MODO: Record<ConversionMode, string> = {
+  otimizar: 'Otimizar',
+  converter: 'Converter',
+  redimensionar: 'Redimensionar',
+}
+
+const A_DECORRER_DO_MODO: Record<ConversionMode, string> = {
+  otimizar: 'A otimizar...',
+  converter: 'A converter...',
+  redimensionar: 'A redimensionar...',
+}
+
 function textoDaAcaoPrincipal(
   resumo: ResumoDoLote,
   aProcessar: boolean,
@@ -196,9 +209,9 @@ function textoDaAcaoPrincipal(
   selecionado: ImageJob | null,
   mode: ConversionMode,
 ): string {
-  const acao = mode === 'otimizar' ? 'Otimizar' : 'Converter'
+  const acao = ACAO_DO_MODO[mode]
   if (aAnalisar) return 'A analisar ficheiros...'
-  if (aProcessar) return mode === 'otimizar' ? 'A otimizar...' : 'A converter...'
+  if (aProcessar) return A_DECORRER_DO_MODO[mode]
   if (resumo.total > 1) {
     // Com o lote todo recusado, "Otimizar 0 imagens" seria absurdo.
     if (resumo.porConverter === 0) return `Nada para ${acao.toLowerCase()}`
