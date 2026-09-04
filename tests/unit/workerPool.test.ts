@@ -101,6 +101,8 @@ function pedidoDeConversao(id: string): WorkerRequest {
       palette: null,
       chroma: '4:2:0',
     background: null,
+    crop: null,
+    cropAspect: 'livre',
     },
   }
 }

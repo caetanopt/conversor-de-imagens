@@ -33,6 +33,7 @@ import { FramesNotice } from './FramesNotice'
 import { ImagePreview } from './ImagePreview'
 import { AdvancedSettings } from './AdvancedSettings'
 import { BackgroundControl } from './BackgroundControl'
+import { CropControls } from './CropControls'
 import { MetadataControl } from './MetadataControl'
 import { PaletteControl } from './PaletteControl'
 import { QualityControl } from './QualityControl'
@@ -59,6 +60,29 @@ export function ConverterWorkbench() {
   // motor deixariam de corresponder ao que vai ser produzido.
   const definicoesBloqueadas = resumo.aProcessar > 0 || conversor.aAnalisar
   const destinoDeOtimizacao = formatoDeOtimizacao(job.sourceFormat)
+
+  /*
+   * As dimensoes da inspecao, e nao as da miniatura.
+   *
+   * O corte e guardado em pixeis da imagem de origem. A miniatura tem algumas
+   * centenas de pixeis e serve so para desenhar; usá-la como sistema de
+   * coordenadas dava um corte com um oitavo do tamanho pedido.
+   */
+  const limitesDoCorte = job.inspection
+    ? { width: job.inspection.width, height: job.inspection.height }
+    : null
+  const corte =
+    limitesDoCorte && job.options.crop
+      ? {
+          rect: job.options.crop,
+          limites: limitesDoCorte,
+          aspect: job.options.cropAspect,
+          onChange: (rect: typeof job.options.crop) => {
+            if (rect) conversor.definirCorte(job.id, rect)
+          },
+          disabled: definicoesBloqueadas,
+        }
+      : undefined
 
   return (
     <div className={styles.area}>
@@ -105,7 +129,7 @@ export function ConverterWorkbench() {
         </aside>
 
         <main className={styles.palco}>
-          <ImagePreview job={job} />
+          <ImagePreview job={job} {...(corte ? { corte } : {})} />
           {resumo.aProcessar > 0 ? (
             <ProgressIndicator
               etiqueta={
@@ -205,6 +229,17 @@ export function ConverterWorkbench() {
               outputFormat={job.options.outputFormat}
               background={job.options.background}
               onChange={(background) => conversor.definirFundo(job.id, background)}
+              disabled={definicoesBloqueadas}
+            />
+
+            <hr className={styles.divisor} />
+
+            <CropControls
+              crop={job.options.crop}
+              aspect={job.options.cropAspect}
+              origem={limitesDoCorte}
+              onCorte={(crop) => conversor.definirCorte(job.id, crop)}
+              onProporcao={(aspect) => conversor.definirProporcaoDoCorte(job.id, aspect)}
               disabled={definicoesBloqueadas}
             />
 

@@ -414,6 +414,23 @@ describe('useConverter', () => {
     expect(result.current.jobs[0]!.result?.size).toBeLessThan(ficheiro.size)
   })
 
+  it('com um corte, nao troca o resultado pelo original mesmo ficando maior', async () => {
+    // Mesma razao do fundo removido: o original tem outra imagem lá dentro.
+    // Devolvê-lo entregava a imagem INTEIRA a quem pediu uma regiao.
+    const { result, id, ficheiro } = await converterComTamanho(999, ficheiroWebp())
+    act(() => {
+      result.current.definirFormatoDeSaida(id, 'webp')
+      result.current.definirCorte(id, { x: 0, y: 0, width: 100, height: 80 })
+    })
+
+    await act(async () => {
+      await result.current.converter(id)
+    })
+
+    expect(result.current.jobs[0]!.result?.size).toBe(999)
+    expect(result.current.jobs[0]!.result?.size).toBeGreaterThan(ficheiro.size)
+  })
+
   it('num contentor que nao sabemos limpar, um aumento fica visivel em vez de reintroduzir metadados', async () => {
     // TIFF nao entra na limpeza ao nivel do contentor. Sem garantia a dar,
     // a escolha honesta e mostrar o aumento: devolver o original reintroduzia

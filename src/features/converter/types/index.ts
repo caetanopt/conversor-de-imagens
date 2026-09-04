@@ -6,6 +6,7 @@
  */
 import type { FormatId } from '@/config/formats'
 import type { PresetId } from '@/config/presets'
+import type { CropRect, ProporcaoId } from '../state/crop'
 
 export type ConversionStatus = 'ready' | 'processing' | 'done' | 'error' | 'cancelled'
 
@@ -131,6 +132,29 @@ export type ConversionOptions = {
    * exatamente o que a seccao 5.8 do CLAUDE.md proibe.
    */
   readonly background: BackgroundTolerance | null
+
+  /**
+   * Regiao a manter, ou null para nao cortar.
+   *
+   * As coordenadas sao pixeis da imagem de origem DEPOIS da orientacao
+   * automatica. Medido num JPEG com EXIF orientation=6: cortar antes de
+   * orientar devolve 80x120 quando se pediu 120x80, e de outra regiao. Ver
+   * docs/medicoes.md.
+   *
+   * E a unica opcao que nao se copia com "aplicar a todos": um retangulo em
+   * pixeis de uma imagem de 4000 px nao significa nada numa de 800, e travá-lo
+   * aos limites daria um enquadramento que ninguem escolheu.
+   */
+  readonly crop: CropRect | null
+
+  /**
+   * Proporcao travada durante a edicao do corte.
+   *
+   * Vive nas opcoes e nao em estado local do componente porque tem de sobreviver
+   * a mudanca de ficheiro selecionado: quem esta a cortar dez imagens a 1:1 nao
+   * quer voltar a escolher 1:1 em cada uma.
+   */
+  readonly cropAspect: ProporcaoId
 }
 
 /** Resultado de `inspect`: lido dos cabecalhos, sem descodificar os pixels. */

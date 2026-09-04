@@ -9,6 +9,7 @@ import { formatoPorId, type FormatId } from '@/config/formats'
 import { PRESET_POR_DEFEITO, qualidadeDoPreset, type PresetId } from '@/config/presets'
 import { novoId } from '@/lib/ids'
 import { CROMA_POR_DEFEITO, permiteEscolherSemPerda } from '@/lib/image-engine/options'
+import type { CropRect, ProporcaoId } from './crop'
 import type {
   BackgroundTolerance,
   ChromaSubsampling,
@@ -66,6 +67,8 @@ export type ConverterAction =
       readonly id: string
       readonly background: BackgroundTolerance | null
     }
+  | { readonly type: 'corte'; readonly id: string; readonly crop: CropRect | null }
+  | { readonly type: 'corte-proporcao'; readonly id: string; readonly cropAspect: ProporcaoId }
   | { readonly type: 'metadados'; readonly id: string; readonly metadata: MetadataPolicy }
   | { readonly type: 'resize'; readonly id: string; readonly resize: ResizeOptions | null }
   | { readonly type: 'modo'; readonly mode: ConversionMode }
@@ -113,6 +116,17 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
           resize: origem.options.resize,
           metadata: origem.options.metadata,
           autoOrient: origem.options.autoOrient,
+          /*
+           * O corte NAO se copia, e a proporcao copia-se.
+           *
+           * O retangulo esta em pixeis da imagem de origem. Um corte de
+           * 1200x800 escolhido numa fotografia de 4000 px nao tem significado
+           * numa de 800: travá-lo aos limites daria um enquadramento que
+           * ninguem escolheu, e escondê-lo era pior. A proporcao, sim, aplica-se
+           * a qualquer imagem, e e o que quem corta um lote a 1:1 quer.
+           */
+          crop: job.options.crop,
+          cropAspect: origem.options.cropAspect,
         }
 
         const mudou =
@@ -123,7 +137,8 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
           options.lossless !== job.options.lossless ||
           options.palette !== job.options.palette ||
           options.chroma !== job.options.chroma ||
-          options.background !== job.options.background
+          options.background !== job.options.background ||
+          options.cropAspect !== job.options.cropAspect
 
         if (!mudou) return job
 
@@ -234,6 +249,23 @@ export function jobsReducer(estado: ConverterState, acao: ConverterAction): Conv
         status: job.status === 'done' ? 'ready' : job.status,
         result: null,
         options: { ...job.options, chroma: acao.chroma },
+      }))
+
+    case 'corte':
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        // Muda os pixeis de saida, logo o resultado anterior deixa de
+        // corresponder ao que esta selecionado.
+        status: job.status === 'done' ? 'ready' : job.status,
+        result: null,
+        options: { ...job.options, crop: acao.crop },
+      }))
+
+    case 'corte-proporcao':
+      // So muda a trava de edicao, nao o retangulo: nao invalida resultado.
+      return atualizar(estado, acao.id, (job) => ({
+        ...job,
+        options: { ...job.options, cropAspect: acao.cropAspect },
       }))
 
     case 'fundo':
@@ -379,6 +411,9 @@ export function opcoesPorDefeito(outputFormat: FormatId): ConversionOptions {
     // Desligada por defeito: perde informacao, e a seccao 11 do CLAUDE.md
     // manda que a reducao de paleta seja uma escolha explicita.
     palette: null,
+    // Sem corte por defeito: a imagem inteira.
+    crop: null,
+    cropAspect: 'livre',
     chroma: CROMA_POR_DEFEITO,
     // Desligada por defeito: altera os pixeis, e num fundo que nao seja
     // uniforme o recorte fica incompleto. E sempre uma escolha explicita.

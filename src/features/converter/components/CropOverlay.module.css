@@ -1,0 +1,138 @@
+/*
+ * A area cobre exactamente a imagem, nao o palco.
+ *
+ * Posicionada pelo componente que a envolve, que sabe onde o <img> ficou
+ * depois do object-fit. Sem isto o corte apontava para a area cinzenta em
+ * volta da imagem.
+ */
+.area {
+  position: absolute;
+  inset: 0;
+  touch-action: none; /* senao o browser interpreta o arrasto como scroll */
+}
+
+.veu {
+  position: absolute;
+  background: color-mix(in srgb, var(--marca-antracite) 55%, transparent);
+  pointer-events: none;
+}
+
+.janela {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid var(--marca-ultra-branco);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--marca-antracite) 40%, transparent);
+  cursor: move;
+  background: transparent;
+  padding: 0;
+}
+
+.janela:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.aArrastar .janela {
+  /* Durante o arrasto a grelha ajuda; fora dele distrai menos. */
+  cursor: grabbing;
+}
+
+.grelha {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.janela:hover .grelha,
+.janela:focus-visible .grelha,
+.aArrastar .grelha {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grelha {
+    transition: none;
+  }
+}
+
+.linhaV,
+.linhaH {
+  position: absolute;
+  background: color-mix(in srgb, var(--marca-ultra-branco) 60%, transparent);
+}
+
+.linhaV {
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.linhaH {
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+
+/*
+ * Manipulos.
+ *
+ * O quadrado visivel e pequeno para nao tapar a imagem, mas a area de toque e
+ * maior por um ::before invisivel: 24 px, que e o minimo da WCAG 2.2 para alvos
+ * de ponteiro. CLAUDE.md, seccao 20.9.
+ */
+.manipulo {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 1px solid var(--marca-antracite);
+  background: var(--marca-ultra-branco);
+  border-radius: 1px;
+}
+
+.manipulo::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.manipulo:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  z-index: 1;
+}
+
+.manipulo:disabled {
+  opacity: 0.4;
+}
+
+@media (pointer: coarse) {
+  .manipulo {
+    width: 14px;
+    height: 14px;
+  }
+  .manipulo::before {
+    inset: -12px;
+  }
+}
+
+/* Posicao e cursor de cada um. O cursor diz o que o manipulo faz. */
+.noroeste { top: -5px; left: -5px; cursor: nwse-resize; }
+.norte { top: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
+.nordeste { top: -5px; right: -5px; cursor: nesw-resize; }
+.oeste { top: 50%; left: -5px; margin-top: -5px; cursor: ew-resize; }
+.este { top: 50%; right: -5px; margin-top: -5px; cursor: ew-resize; }
+.sudoeste { bottom: -5px; left: -5px; cursor: nesw-resize; }
+.sul { bottom: -5px; left: 50%; margin-left: -5px; cursor: ns-resize; }
+.sudeste { bottom: -5px; right: -5px; cursor: nwse-resize; }
+
+@media (pointer: coarse) {
+  .noroeste, .nordeste { top: -7px; }
+  .sudoeste, .sudeste { bottom: -7px; }
+  .noroeste, .oeste, .sudoeste { left: -7px; }
+  .nordeste, .este, .sudeste { right: -7px; }
+  .norte { top: -7px; margin-left: -7px; }
+  .sul { bottom: -7px; margin-left: -7px; }
+  .oeste, .este { margin-top: -7px; }
+}

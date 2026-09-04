@@ -17,6 +17,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { formatoPorId, type FormatId } from '@/config/formats'
 import { LIMITES } from '@/config/limits'
 import type { PresetId } from '@/config/presets'
+import type { CropRect, ProporcaoId } from '../state/crop'
 import { EngineClient, ErroDoMotor, type ContextoDaTarefa } from '@/lib/image-engine/client/EngineClient'
 import { registarConversao, registarFalha } from '@/lib/dev/metrics'
 import { descarregarBlob } from '@/lib/download/saveBlob'
@@ -290,6 +291,10 @@ export function useConverter() {
          */
         const alternativa =
           job.options.resize === null &&
+          // Cortar muda os pixeis, tal como remover o fundo: o original tem
+          // outra imagem lá dentro. Devolvê-lo entregava a imagem INTEIRA a
+          // quem pediu uma regiao, e sem nenhum erro a explicar porque.
+          job.options.crop === null &&
           // Remover o fundo muda os pixeis, e o original nao os tem. Devolver o
           // original aqui entregava a imagem COM fundo a quem pediu para o
           // tirar, e sem nenhum erro a explicar porque. Um PNG com canal alfa e
@@ -476,6 +481,14 @@ export function useConverter() {
     dispatch({ type: 'paleta', id, palette })
   }, [])
 
+  const definirCorte = useCallback((id: string, crop: CropRect | null) => {
+    dispatch({ type: 'corte', id, crop })
+  }, [])
+
+  const definirProporcaoDoCorte = useCallback((id: string, cropAspect: ProporcaoId) => {
+    dispatch({ type: 'corte-proporcao', id, cropAspect })
+  }, [])
+
   const definirFundo = useCallback((id: string, background: BackgroundTolerance | null) => {
     dispatch({ type: 'fundo', id, background })
   }, [])
@@ -522,6 +535,8 @@ export function useConverter() {
     definirPaleta,
     definirCroma,
     definirFundo,
+    definirCorte,
+    definirProporcaoDoCorte,
     definirMetadados,
     definirResize,
     definirModo,

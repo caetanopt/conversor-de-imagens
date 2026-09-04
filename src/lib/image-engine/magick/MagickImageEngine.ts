@@ -55,6 +55,19 @@
  *    puro. A sobrecarga que funciona e a que recebe uma MagickColor
  *    transparente, com a qual a mesma imagem da 78,7 %. Outro caso do mesmo
  *    padrao do `write` com formato invalido: a API aceita e mente.
+ *  - `crop` deixa a GEOMETRIA DE PAGINA por corrigir, e ela vai para o ficheiro.
+ *    Medido num GIF de 240x160 cortado a 100x100: os frames saem a 100x100 mas
+ *    o ficheiro declara `page=240x160+70+30`, e o leitor desenha a animacao numa
+ *    tela de 240x160 com o conteudo deslocado. Acontece tambem em PNG
+ *    (`page=1200x800+1050+700` num corte de 150x100), onde a maioria dos
+ *    leitores ignora mas o metadado fica a mentir. A correcao e `resetPage()`,
+ *    e custa zero bytes: 45 852 com e sem.
+ *  - o metodo chama-se `resetPage()`. `repage()`, que e o nome da linha de
+ *    comandos, NAO existe neste binding: `f.repage is not a function`.
+ *  - `crop` com uma caixa maior do que a imagem NAO lanca: trava em silencio.
+ *    Medido, pedir 600x400 num 400x300 devolve 400x300. Quem promete dimensoes
+ *    ao utilizador tem de as travar antes, senao promete uma coisa e entrega
+ *    outra.
  *  - `statistics(Channels.Alpha)` devolve a media em unidades de quantum
  *    (0 a 255 nesta build Q8), nao normalizada. `maximum` e o maior valor
  *    PRESENTE e nao o teto do quantum, portanto nao serve de divisor: numa
@@ -590,6 +603,22 @@ function aplicarDiretivas(img: IMagickImage, d: EncodeDirectives): Aplicado {
    * esses pixeis como fundo e a franja que sobra fica maior. Nos pixeis
    * originais a fronteira ainda e a do ficheiro.
    */
+  /*
+   * Antes do fundo e antes do resize.
+   *
+   * Antes do resize porque cortar e escolher a regiao e redimensionar e
+   * escalá-la; a ordem inversa daria outra regiao. Antes do fundo porque o
+   * limiar parte dos QUATRO CANTOS, e depois de cortar os cantos sao os do
+   * corte, que e o que o utilizador esta a ver.
+   */
+  if (d.crop) {
+    const geo = new MagickGeometry(d.crop.x, d.crop.y, d.crop.width, d.crop.height)
+    img.crop(geo)
+    // Obrigatorio: sem isto o ficheiro declara a tela original e um
+    // deslocamento, e uma animacao cortada sai na tela errada.
+    img.resetPage()
+  }
+
   const backgroundKeptPercent = d.background
     ? (removerFundo(img, d.background.tolerancePercent), percentagemOpaca(img))
     : null

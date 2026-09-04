@@ -546,6 +546,89 @@ Reduzir para metade das dimensões deu um ficheiro com menos de metade dos bytes
 
 ---
 
+## Corte
+
+O motor tem tudo o que a ferramenta precisa, com nove posições de gravidade e
+deslocamento explícito. Três coisas medidas decidem a implementação, e nenhuma
+delas é óbvia.
+
+### A ordem em relação à orientação EXIF
+
+Num JPEG com `orientation=6`, que é o de qualquer telemóvel na vertical:
+
+| Ordem | Resultado de pedir 120x80 |
+|---|---|
+| `autoOrient` → `crop` | **120x80**, região correta |
+| `crop` → `autoOrient` | **80x120**, região errada |
+
+Dimensões trocadas e outra parte da imagem. O corte entra depois da orientação,
+onde o redimensionamento já estava.
+
+### A geometria de página fica podre, e vai para o ficheiro
+
+Depois de cortar, o motor mantém a tela original e o deslocamento do corte. Num
+GIF isso é fatal:
+
+```
+sem correcao   frames=6  frame0=100x100  page=240x160+70+30   <- tela errada
+resetPage()    frames=6  frame0=100x100  page=100x100+0+0
+```
+
+O leitor desenha uma tela de 240x160 e coloca o frame de 100x100 deslocado.
+Acontece também em PNG (`page=1200x800+1050+700` num corte de 150x100). A
+correção custa zero bytes: 45 852 com e sem.
+
+**O método chama-se `resetPage()`.** O nome da linha de comandos, `repage`, não
+existe neste binding: `f.repage is not a function`.
+
+Nota sobre o teste: a primeira versão da asserção do PNG passava com e sem a
+correção, ou seja não testava nada, porque a política de metadados por defeito
+faz `strip()` e o strip já limpa a página de um PNG. Só com a política `manter`
+é que a correção passa a ser observável. Foi confirmado a comentar a chamada e a
+ver o teste falhar com `expected '400x300+250+200' to be '150x100+0+0'`.
+
+### Uma caixa maior que a imagem é cortada em silêncio
+
+```
+pedido 600x400 numa imagem 400x300  ->  saiu 400x300
+```
+
+Não lança e não preenche. Quem promete dimensões ao utilizador tem de as travar
+antes, e é o que `limitarCorte` faz com as dimensões lidas na inspeção.
+
+### O corte vem antes do redimensionamento
+
+Cortar é escolher a região, redimensionar é escalá-la. A ordem inversa dá outra
+região, medido: a mesma sequência com as ordens trocadas devolve cores centrais
+diferentes na imagem de quadrantes.
+
+### O defeito da propagação de eventos, apanhado no browser
+
+Os manípulos são filhos da janela de corte, e a janela também escuta as setas
+para se mover. Sem travar a propagação, uma seta num manípulo disparava as duas
+chamadas **a partir do mesmo retângulo**, e a segunda (mover) sobrepunha o
+resultado da primeira (redimensionar). O efeito visível era teclado sem efeito
+nenhum: medido, 1200x675 antes e 1200x675 depois de cinco setas.
+
+O teste unitário da geometria não podia ver isto, porque o defeito estava na
+propagação e não na matemática. Foi preciso conduzir o browser.
+
+### A escala entre ecrã e imagem
+
+O corte é guardado em pixéis da imagem de origem, e a pré-visualização é uma
+miniatura. Verificado no browser: um arrasto de 200 px de ecrã numa área de
+720 px que mostra uma imagem de 1200 px reduziu a largura de 1200 para 867, ou
+seja valeu 333 px de imagem. Guardar coordenadas de ecrã faria o corte mudar
+quando a janela muda de tamanho.
+
+### O que fica de fora da ferramenta do Photoshop
+
+- **"Excluir pixéis"** não tem significado aqui: a conversão produz sempre um
+  ficheiro novo e o original nunca é tocado. Não há escolha para oferecer.
+- **"Corrigir"** (endireitar) é rotação, não corte. É outra funcionalidade.
+
+---
+
 ## Metadados
 
 Medido sobre `tests/fixtures/jpeg-tudo-metadados.jpg`, que contém EXIF com GPS,

@@ -106,6 +106,12 @@ A conversão deve ser local no browser. O ficheiro não deve sair do dispositivo
 9. Qualidade de saída quando aplicável.
 10. Compressão sem perda quando aplicável.
 11. Redimensionamento opcional.
+11.1. Corte com seleção interativa na pré-visualização, ao estilo da ferramenta
+   do Photoshop: oito manípulos, arrastar para mover, véu na área excluída,
+   grelha de terços, proporções predefinidas e campos numéricos. Os campos são
+   também a via por teclado, que não é opcional. Ficam de fora o "excluir
+   pixéis", que aqui não existe porque a conversão nunca toca no original, e o
+   "corrigir", que é rotação. Ver `docs/medicoes.md`.
 12. Preservar proporção por defeito.
 13. Orientação automática.
 14. Opção para remover metadados.
@@ -428,6 +434,7 @@ Não mostrar controlos que não tenham efeito.
 - orientação automática
 - remover metadados
 - remover fundo, apenas quando o formato de destino tem canal alfa
+- corte, em pixéis da imagem de origem depois da orientação automática
 
 ### JPEG
 
@@ -860,6 +867,8 @@ Criar, sem sobreengenharia:
 - `FileQueue`
 - `FileQueueItem`
 - `ImagePreview`
+- `CropOverlay`
+- `CropControls`
 - `ConversionModeControl`
 - `FormatSelect`
 - `QualityControl`

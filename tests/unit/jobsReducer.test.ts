@@ -7,6 +7,7 @@ import {
   jobsReducer,
   opcoesParaFormato,
   opcoesPorDefeito,
+  type ConverterState,
 } from '@/features/converter/state/jobsReducer'
 import type { ConversionResult, ImageInspection } from '@/features/converter/types'
 
@@ -288,6 +289,119 @@ describe('jobsReducer', () => {
         outputFormat: 'png',
       })
       expect(deVolta.jobs[0]?.options.background).toBeNull()
+    })
+  })
+
+  describe('corte no aplicar a todos', () => {
+    it('o retangulo NAO se copia, porque esta em pixeis de outra imagem', () => {
+      // Um corte de 100x80 escolhido numa imagem de 4000 px nao significa nada
+      // numa de 800. Travá-lo aos limites daria um enquadramento que ninguem
+      // escolheu, e copiá-lo sem travar sairia da imagem.
+      const primeiro = criarJob(ficheiro('a.jpg'), 'jpeg', 'webp')
+      const segundo = criarJob(ficheiro('b.jpg'), 'jpeg', 'webp')
+      const estado: ConverterState = {
+        jobs: [primeiro, segundo],
+        mode: 'converter',
+        selecionadoId: primeiro.id,
+      }
+      const comCorte = jobsReducer(estado, {
+        type: 'corte',
+        id: primeiro.id,
+        crop: { x: 10, y: 10, width: 100, height: 80 },
+      })
+      const espalhado = jobsReducer(comCorte, {
+        type: 'aplicar-a-todos',
+        id: primeiro.id,
+        excluir: [],
+      })
+
+      expect(espalhado.jobs[0]?.options.crop).toEqual({ x: 10, y: 10, width: 100, height: 80 })
+      expect(espalhado.jobs[1]?.options.crop).toBeNull()
+    })
+
+    it('a proporcao SIM, porque se aplica a qualquer imagem', () => {
+      const primeiro = criarJob(ficheiro('a.jpg'), 'jpeg', 'webp')
+      const segundo = criarJob(ficheiro('b.jpg'), 'jpeg', 'webp')
+      const estado: ConverterState = {
+        jobs: [primeiro, segundo],
+        mode: 'converter',
+        selecionadoId: primeiro.id,
+      }
+      const comProporcao = jobsReducer(estado, {
+        type: 'corte-proporcao',
+        id: primeiro.id,
+        cropAspect: '1:1',
+      })
+      const espalhado = jobsReducer(comProporcao, {
+        type: 'aplicar-a-todos',
+        id: primeiro.id,
+        excluir: [],
+      })
+      expect(espalhado.jobs[1]?.options.cropAspect).toBe('1:1')
+    })
+  })
+
+  describe('corte', () => {
+    it('nasce desligado e sem proporcao travada', () => {
+      const { estado } = comJob()
+      expect(estado.jobs[0]?.options.crop).toBeNull()
+      expect(estado.jobs[0]?.options.cropAspect).toBe('livre')
+    })
+
+    it('guardar um corte invalida o resultado anterior', () => {
+      const { job, estado } = comJob()
+      const comResultado = jobsReducer(estado, { type: 'resultado', id: job.id, result: resultado })
+      const depois = jobsReducer(comResultado, {
+        type: 'corte',
+        id: job.id,
+        crop: { x: 10, y: 10, width: 100, height: 80 },
+      })
+      expect(depois.jobs[0]?.options.crop).toEqual({ x: 10, y: 10, width: 100, height: 80 })
+      expect(depois.jobs[0]?.status).toBe('ready')
+      expect(depois.jobs[0]?.result).toBeNull()
+    })
+
+    it('mudar so a proporcao NAO invalida o resultado', () => {
+      // A proporcao e uma trava de edicao, nao um parametro de saida: mudá-la
+      // sem tocar no retangulo nao muda os bytes produzidos.
+      const { job, estado } = comJob()
+      const comResultado = jobsReducer(estado, { type: 'resultado', id: job.id, result: resultado })
+      const depois = jobsReducer(comResultado, {
+        type: 'corte-proporcao',
+        id: job.id,
+        cropAspect: '1:1',
+      })
+      expect(depois.jobs[0]?.options.cropAspect).toBe('1:1')
+      expect(depois.jobs[0]?.status).toBe('done')
+      expect(depois.jobs[0]?.result).not.toBeNull()
+    })
+
+    it('o corte sobrevive a mudanca de formato', () => {
+      // Ao contrario da paleta e do fundo, cortar nao depende do formato de
+      // destino: a regiao escolhida continua a ser a mesma regiao.
+      const { job, estado } = comJob()
+      const comCorte = jobsReducer(estado, {
+        type: 'corte',
+        id: job.id,
+        crop: { x: 10, y: 10, width: 100, height: 80 },
+      })
+      const paraJpeg = jobsReducer(comCorte, {
+        type: 'formato-de-saida',
+        id: job.id,
+        outputFormat: 'jpeg',
+      })
+      expect(paraJpeg.jobs[0]?.options.crop).toEqual({ x: 10, y: 10, width: 100, height: 80 })
+    })
+
+    it('desligar volta a null', () => {
+      const { job, estado } = comJob()
+      const ligado = jobsReducer(estado, {
+        type: 'corte',
+        id: job.id,
+        crop: { x: 0, y: 0, width: 50, height: 50 },
+      })
+      expect(jobsReducer(ligado, { type: 'corte', id: job.id, crop: null }).jobs[0]?.options.crop)
+        .toBeNull()
     })
   })
 

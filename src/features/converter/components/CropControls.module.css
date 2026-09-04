@@ -1,0 +1,80 @@
+.envolvente {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* Mesmo padrao dos outros interruptores do painel. */
+.ligar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-height);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-medium);
+  color: var(--text-strong);
+  cursor: pointer;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.selecao {
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-xs);
+}
+
+/* A troca fica entre os dois campos, alinhada com eles e nao com as etiquetas. */
+.dimensoes {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.numero {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  font: inherit;
+  font-size: var(--text-ui-small);
+  color: var(--text-strong);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-xs);
+}
+
+.previsao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+}
+
+.proporcaoLida {
+  color: var(--text-faint);
+}
+
+.acoes {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.nota,
+.explicacao {
+  font-size: var(--text-ui-small);
+  color: var(--text-muted);
+  line-height: var(--leading-relaxed);
+}

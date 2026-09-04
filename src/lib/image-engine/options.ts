@@ -30,6 +30,7 @@
  *     resolve-se para qualidade 100, que e o caminho que funciona de facto.
  */
 import { formatoPorId } from '@/config/formats'
+import type { CropRect } from '@/features/converter/state/crop'
 import type {
   BackgroundTolerance,
   ChromaSubsampling,
@@ -86,6 +87,21 @@ export type EncodeDirectives = {
    * franja que sobra. E o oposto da paleta, que tem de vir depois.
    */
   readonly background: BackgroundDirective | null
+  /**
+   * Regiao a manter, ou null.
+   *
+   * Aplicada depois da orientacao automatica e ANTES do resize: cortar e
+   * escolher a regiao, redimensionar e escalá-la. A ordem inversa daria uma
+   * regiao diferente, medido. Ver docs/medicoes.md.
+   */
+  readonly crop: CropDirective | null
+}
+
+export type CropDirective = {
+  readonly x: number
+  readonly y: number
+  readonly width: number
+  readonly height: number
 }
 
 export type BackgroundDirective = {
@@ -188,7 +204,29 @@ export function resolveEncodeDirectives(options: ConversionOptions): EncodeDirec
     interlace: formato.id === 'jpeg' && !options.lossless,
     palette: resolvePaleta(options.palette, formato.supportsPalette),
     background: resolveFundo(options.background, formato.supportsAlpha),
+    crop: resolveCorte(options.crop),
   }
+}
+
+/**
+ * Corte, ou null.
+ *
+ * Nao trava pelos limites da imagem porque nao os conhece: as opcoes sao
+ * resolvidas sem abrir o ficheiro. O motor trava por si (medido: pedir 600x400
+ * num 400x300 devolve 400x300 sem lancar) e a interface trava antes, com as
+ * dimensoes que leu na inspecao. Aqui garante-se apenas que os numeros sao
+ * numeros e que um corte de area nula nao chega ao motor.
+ */
+function resolveCorte(crop: CropRect | null): CropDirective | null {
+  if (crop === null) return null
+  const valores = [crop.x, crop.y, crop.width, crop.height]
+  if (!valores.every((v) => Number.isFinite(v))) return null
+
+  const width = Math.round(crop.width)
+  const height = Math.round(crop.height)
+  if (width < 1 || height < 1) return null
+
+  return { x: Math.max(0, Math.round(crop.x)), y: Math.max(0, Math.round(crop.y)), width, height }
 }
 
 /**
