@@ -82,8 +82,22 @@ const PARES: readonly {
    * Um campo numerico ou um botao secundario, ao contrario, sao reconhecidos
    * pela moldura, e e essa que tem de cumprir.
    */
-  { frente: '--line-control', fundo: '--surface-page', tipo: 'componente', onde: 'moldura de botao secundario, interruptor e slider' },
-  { frente: '--line-control', fundo: '--surface-raised', tipo: 'componente', onde: 'moldura de campo e de botao secundario' },
+  { frente: '--line-control', fundo: '--surface-page', tipo: 'componente', onde: 'moldura de botao secundario, interruptor, slider e opcao segmentada' },
+  { frente: '--line-control', fundo: '--surface-raised', tipo: 'componente', onde: 'moldura de campo, de botao secundario e de opcao segmentada' },
+  /*
+   * A moldura da opcao segmentada ESCOLHIDA.
+   *
+   * Entra na lista porque e ela que distingue a escolha das restantes, e o
+   * criterio 1.4.11 pede 3:1 para o que identifica um ESTADO. Medida contra as
+   * duas superficies em que assenta: o interior da propria opcao
+   * (--surface-raised) e o painel em volta.
+   *
+   * O estado nao depende so desta moldura, tambem tem fundo e peso de letra
+   * diferentes, mas nao e por isso que ela pode ser fraca: a moldura e o sinal
+   * que se le primeiro.
+   */
+  { frente: '--accent', fundo: '--surface-raised', tipo: 'componente', onde: 'moldura da opcao segmentada escolhida' },
+  { frente: '--accent', fundo: '--surface-page', tipo: 'componente', onde: 'moldura da opcao escolhida, contra a pagina' },
   { frente: '--focus-ring', fundo: '--surface-page', tipo: 'componente', onde: 'anel de foco na pagina' },
   { frente: '--focus-ring', fundo: '--surface-raised', tipo: 'componente', onde: 'anel de foco em cartao' },
 

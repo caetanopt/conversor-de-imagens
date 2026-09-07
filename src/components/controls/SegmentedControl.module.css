@@ -5,12 +5,17 @@
   gap: var(--space-2);
 }
 
+/*
+ * Sem fundo nem enchimento proprios.
+ *
+ * A faixa existia para agrupar visualmente as opcoes, o que era necessario
+ * quando elas nao tinham limites. Com cada botao delimitado, o fundo da faixa
+ * passava a ser uma segunda caixa em volta de caixas, e o resultado lia-se
+ * como um painel dentro de um painel.
+ */
 .faixa {
   display: flex;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  background: var(--surface-inset);
-  border-radius: var(--radius-sm);
+  gap: var(--space-2);
 }
 
 /*
@@ -38,7 +43,25 @@
   text-align: left;
 }
 
+/*
+ * Cada opcao tem limite visivel, mesmo quando nao esta escolhida.
+ *
+ * Sem borda, uma opcao nao escolhida era apenas texto sobre a faixa, e nao se
+ * percebia que era clicavel: so a escolhida tinha fundo. A borda existe nos
+ * TRES estados e nunca aparece nem desaparece, porque um limite que so surge
+ * ao passar o rato nao ajuda quem esta a decidir onde clicar, e alternar
+ * `border-width` deslocava o texto 1 px.
+ *
+ * `--line-control` e o mesmo token dos campos de texto e dos seletores do
+ * painel, portanto estes botoes leem-se como parte da mesma familia de
+ * controlos em vez de um elemento a parte.
+ */
 .opcao {
+  /*
+   * A espessura vive numa variavel porque a entrada tem de a compensar.
+   * Ver o comentario em `.entrada`.
+   */
+  --limite: 1px;
   position: relative;
   flex: 1 1 auto;
   display: flex;
@@ -48,10 +71,13 @@
   gap: 1px;
   min-height: var(--control-height-touch);
   padding: var(--space-2) var(--space-3);
+  border: var(--limite) solid var(--line-control);
   border-radius: var(--radius-xs);
+  background: var(--surface-page);
   cursor: pointer;
   color: var(--text-muted);
   transition: background-color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
     color var(--duration-fast) var(--ease-out);
 }
 
@@ -64,14 +90,25 @@
 
 .opcao:hover {
   color: var(--text-strong);
+  border-color: var(--line-strong);
 }
 
+/*
+ * A entrada cobre a opcao INTEIRA, incluindo a borda.
+ *
+ * `inset: 0` nao chega: a caixa de contencao de um elemento absoluto e a caixa
+ * de PADDING do ascendente posicionado, nao a de borda. Com `min-height` de
+ * 44 px e uma borda de 1 px, `inset: 0` dava uma entrada de 42 px, ou seja
+ * abaixo do minimo de 44 px da WCAG 2.2 para alvos de ponteiro. Apanhado pelo
+ * teste de responsividade, que mede exactamente esta entrada.
+ *
+ * O deslocamento negativo e a espessura da borda saem da mesma variavel, para
+ * nao voltarem a divergir quando uma delas mudar.
+ */
 .entrada {
   position: absolute;
   opacity: 0;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: calc(-1 * var(--limite));
   margin: 0;
   cursor: pointer;
 }
@@ -80,15 +117,29 @@
   outline: none;
 }
 
-.entrada:focus-visible + .rotulo {
+/*
+ * O anel envolve o botao inteiro, e nao apenas o texto.
+ *
+ * Antes de os botoes terem limites, o anel em volta do rotulo era a unica
+ * forma de mostrar onde estava o foco. Agora que a borda define o botao, um
+ * anel apertado ao texto ficava desalinhado com o que se ve.
+ */
+.opcao:has(.entrada:focus-visible) {
   outline: var(--focus-ring-width) solid var(--focus-ring);
   outline-offset: var(--focus-ring-offset);
-  border-radius: var(--radius-xs);
 }
 
-/* Selecao marcada por fundo, peso e cor. Nunca so por cor. */
+/*
+ * Selecao marcada por borda, fundo, peso e cor. Nunca so por cor.
+ * CLAUDE.md, seccao 20.4.
+ *
+ * Com todas as opcoes a ter borda, a escolhida precisa de mais do que fundo
+ * para se distinguir: leva a borda de acento, que e o unico sitio do controlo
+ * onde a cor da marca aparece.
+ */
 .opcao:has(.entrada:checked) {
   background: var(--surface-raised);
+  border-color: var(--accent);
   color: var(--text-strong);
   box-shadow: var(--shadow-panel);
 }
